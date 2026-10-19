@@ -1,0 +1,599 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		06FBF9760296FECD619954DA /* SquareOffApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */; };
+		08477A5A7B1E58504CABC758 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B0E77FE8776AD7519B095E /* HomeView.swift */; };
+		2DBC0E09F13690F4F540C171 /* spin.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = D8FA79E9B968B77B90DDAE5D /* spin.mp3 */; };
+		312D360DF6E2C4E950F3334F /* GameSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */; };
+		3F94D50BC885FD3CE8321BC9 /* SetupForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB1747F96A80DA887567AC77 /* SetupForm.swift */; };
+		434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B838FCE08AF16CD75A5164 /* BoardView.swift */; };
+		4465A51D5918EC4A957D17F6 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487284783B713FADBD398B72 /* GameSession.swift */; };
+		62E4814E05C980BE16EC3C56 /* OnlineViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 136C9DB5B8E80AE63467AA7A /* OnlineViews.swift */; };
+		773C6133F378A3F308C43085 /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */; };
+		798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A75DEBAA85846A0A294853 /* AppModel.swift */; };
+		A2D9AC16F7D85E03EEB1964E /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = BF92E48A6E8511778471FEFD /* SquareOffNet */; };
+		A37046962888562B757AD05A /* RulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44298EA4BF8BCFC2F12E634A /* RulesView.swift */; };
+		AD5F4A157A8A60C13698A431 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107387F876BA286D923E9C51 /* Theme.swift */; };
+		B551473D8B2F0442F71CE721 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6D7E66472DC336B993FFC2 /* GameView.swift */; };
+		E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */; };
+		EAF3C39ACD0328E5315BCC3A /* button.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BE69ABA9011BBE77ED79CC73 /* button.mp3 */; };
+		FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB2294F1158530A790037386 /* GameSessionTests.swift */; };
+		FDFAA2C9B9D9EE232AB4E605 /* SquareOffCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7E6CA20F495728696B29D026 /* SquareOffCore */; };
+		FE1B2ECA03213661B6DACC0B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		96DD4B83BD60017DE84C99B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 56D5BC29F0CA1A94E9A6A2FE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81C2AB5CAF65B5B5EEA0A618;
+			remoteInfo = SquareOff;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0D11E5513A6941F2BCBBA232 /* SquareOffKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SquareOffKit; path = Packages/SquareOffKit; sourceTree = SOURCE_ROOT; };
+		107387F876BA286D923E9C51 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		136C9DB5B8E80AE63467AA7A /* OnlineViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineViews.swift; sourceTree = "<group>"; };
+		1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		2D425CAA288550260774CEA5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		44298EA4BF8BCFC2F12E634A /* RulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulesView.swift; sourceTree = "<group>"; };
+		487284783B713FADBD398B72 /* GameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSession.swift; sourceTree = "<group>"; };
+		6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquareOffApp.swift; sourceTree = "<group>"; };
+		86A75DEBAA85846A0A294853 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		86B0E77FE8776AD7519B095E /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		8D707DF5DF0D3AC29A6E544E /* SquareOffTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SquareOffTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		90B838FCE08AF16CD75A5164 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
+		917EBEA674D7D753E4323871 /* SquareOff.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SquareOff.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BE69ABA9011BBE77ED79CC73 /* button.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = button.mp3; sourceTree = "<group>"; };
+		BF6D7E66472DC336B993FFC2 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		D8FA79E9B968B77B90DDAE5D /* spin.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = spin.mp3; sourceTree = "<group>"; };
+		DB2294F1158530A790037386 /* GameSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSessionTests.swift; sourceTree = "<group>"; };
+		E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPlayer.swift; sourceTree = "<group>"; };
+		EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSheets.swift; sourceTree = "<group>"; };
+		EB1747F96A80DA887567AC77 /* SetupForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupForm.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E79F4A8AF9A738D9AAC4DF09 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDFAA2C9B9D9EE232AB4E605 /* SquareOffCore in Frameworks */,
+				A2D9AC16F7D85E03EEB1964E /* SquareOffNet in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		00AA92B5283D6AECD97791FD /* Game */ = {
+			isa = PBXGroup;
+			children = (
+				90B838FCE08AF16CD75A5164 /* BoardView.swift */,
+				487284783B713FADBD398B72 /* GameSession.swift */,
+				EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */,
+				BF6D7E66472DC336B993FFC2 /* GameView.swift */,
+			);
+			path = Game;
+			sourceTree = "<group>";
+		};
+		08823EE40A5765A80F66E785 /* SquareOff */ = {
+			isa = PBXGroup;
+			children = (
+				2D425CAA288550260774CEA5 /* Info.plist */,
+				F3D2255F2CD3C691C5C49627 /* App */,
+				815F600B6D10ECFDA7B30539 /* Features */,
+				23748B5FD7327D1DDC28B5FE /* Resources */,
+				3B716BA078CC150106AB21B7 /* Services */,
+			);
+			path = SquareOff;
+			sourceTree = "<group>";
+		};
+		15CE32481B8C25C92ADD6AD0 /* Play */ = {
+			isa = PBXGroup;
+			children = (
+				86B0E77FE8776AD7519B095E /* HomeView.swift */,
+				EB1747F96A80DA887567AC77 /* SetupForm.swift */,
+			);
+			path = Play;
+			sourceTree = "<group>";
+		};
+		23748B5FD7327D1DDC28B5FE /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */,
+				97FE30652F3AF59A90A663FE /* Sounds */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		3B716BA078CC150106AB21B7 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		4255A86F421B72BA418FCAAA /* Online */ = {
+			isa = PBXGroup;
+			children = (
+				136C9DB5B8E80AE63467AA7A /* OnlineViews.swift */,
+			);
+			path = Online;
+			sourceTree = "<group>";
+		};
+		474EE59C8999B85E03172D2F /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				0D11E5513A6941F2BCBBA232 /* SquareOffKit */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		5823EDDE485FD7409FAA3A5C /* Learn */ = {
+			isa = PBXGroup;
+			children = (
+				44298EA4BF8BCFC2F12E634A /* RulesView.swift */,
+			);
+			path = Learn;
+			sourceTree = "<group>";
+		};
+		5BF436F17A4BC6D2187FFA58 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				917EBEA674D7D753E4323871 /* SquareOff.app */,
+				8D707DF5DF0D3AC29A6E544E /* SquareOffTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		815F600B6D10ECFDA7B30539 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				00AA92B5283D6AECD97791FD /* Game */,
+				5823EDDE485FD7409FAA3A5C /* Learn */,
+				4255A86F421B72BA418FCAAA /* Online */,
+				15CE32481B8C25C92ADD6AD0 /* Play */,
+				F960DDDC2D5BA196C87DD2A3 /* Profile */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		97FE30652F3AF59A90A663FE /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				BE69ABA9011BBE77ED79CC73 /* button.mp3 */,
+				D8FA79E9B968B77B90DDAE5D /* spin.mp3 */,
+			);
+			path = Sounds;
+			sourceTree = "<group>";
+		};
+		A40DC8CC54E9F96DE9B1D40D /* SquareOffTests */ = {
+			isa = PBXGroup;
+			children = (
+				DB2294F1158530A790037386 /* GameSessionTests.swift */,
+			);
+			path = SquareOffTests;
+			sourceTree = "<group>";
+		};
+		E495300F8D4505F948AAA4D4 = {
+			isa = PBXGroup;
+			children = (
+				474EE59C8999B85E03172D2F /* Packages */,
+				08823EE40A5765A80F66E785 /* SquareOff */,
+				A40DC8CC54E9F96DE9B1D40D /* SquareOffTests */,
+				5BF436F17A4BC6D2187FFA58 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F3D2255F2CD3C691C5C49627 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				86A75DEBAA85846A0A294853 /* AppModel.swift */,
+				6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */,
+				107387F876BA286D923E9C51 /* Theme.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		F960DDDC2D5BA196C87DD2A3 /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+				1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */,
+			);
+			path = Profile;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		81C2AB5CAF65B5B5EEA0A618 /* SquareOff */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C6EA08F8345C15D3F4DCA300 /* Build configuration list for PBXNativeTarget "SquareOff" */;
+			buildPhases = (
+				75EE9946B4B49E4ABAF9730D /* Sources */,
+				C61235A4A40C70F44337A122 /* Resources */,
+				E79F4A8AF9A738D9AAC4DF09 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SquareOff;
+			packageProductDependencies = (
+				7E6CA20F495728696B29D026 /* SquareOffCore */,
+				BF92E48A6E8511778471FEFD /* SquareOffNet */,
+			);
+			productName = SquareOff;
+			productReference = 917EBEA674D7D753E4323871 /* SquareOff.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AA221F097B570F90A756D535 /* SquareOffTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3D37BE9C221597CCBD9E87EF /* Build configuration list for PBXNativeTarget "SquareOffTests" */;
+			buildPhases = (
+				AFD7C9BDB7855B1535999406 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				20DC24A6F2073A9ED8510361 /* PBXTargetDependency */,
+			);
+			name = SquareOffTests;
+			packageProductDependencies = (
+			);
+			productName = SquareOffTests;
+			productReference = 8D707DF5DF0D3AC29A6E544E /* SquareOffTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		56D5BC29F0CA1A94E9A6A2FE /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					81C2AB5CAF65B5B5EEA0A618 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 84A3335ABF19B8D332A52463 /* Build configuration list for PBXProject "SquareOff" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = E495300F8D4505F948AAA4D4;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				F3AD3216EB46C06D0A102749 /* XCLocalSwiftPackageReference "Packages/SquareOffKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 5BF436F17A4BC6D2187FFA58 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				81C2AB5CAF65B5B5EEA0A618 /* SquareOff */,
+				AA221F097B570F90A756D535 /* SquareOffTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C61235A4A40C70F44337A122 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FE1B2ECA03213661B6DACC0B /* Assets.xcassets in Resources */,
+				EAF3C39ACD0328E5315BCC3A /* button.mp3 in Resources */,
+				2DBC0E09F13690F4F540C171 /* spin.mp3 in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		75EE9946B4B49E4ABAF9730D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */,
+				434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */,
+				4465A51D5918EC4A957D17F6 /* GameSession.swift in Sources */,
+				312D360DF6E2C4E950F3334F /* GameSheets.swift in Sources */,
+				B551473D8B2F0442F71CE721 /* GameView.swift in Sources */,
+				08477A5A7B1E58504CABC758 /* HomeView.swift in Sources */,
+				62E4814E05C980BE16EC3C56 /* OnlineViews.swift in Sources */,
+				E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */,
+				A37046962888562B757AD05A /* RulesView.swift in Sources */,
+				3F94D50BC885FD3CE8321BC9 /* SetupForm.swift in Sources */,
+				773C6133F378A3F308C43085 /* SoundPlayer.swift in Sources */,
+				06FBF9760296FECD619954DA /* SquareOffApp.swift in Sources */,
+				AD5F4A157A8A60C13698A431 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AFD7C9BDB7855B1535999406 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		20DC24A6F2073A9ED8510361 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81C2AB5CAF65B5B5EEA0A618 /* SquareOff */;
+			targetProxy = 96DD4B83BD60017DE84C99B4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1D16A63FA19EEA11C0364574 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		1F885FA89F6EAE2BA6868738 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SquareOff.app/SquareOff";
+			};
+			name = Debug;
+		};
+		673CF5B988B8047DF375E8C7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = SquareOff/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		8BB32E93DC4C051120FE80A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SquareOff.app/SquareOff";
+			};
+			name = Release;
+		};
+		CE7AEABE8D62E4E9247F5016 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		DF3A3A397FCB657EAB04AD6D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = SquareOff/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3D37BE9C221597CCBD9E87EF /* Build configuration list for PBXNativeTarget "SquareOffTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1F885FA89F6EAE2BA6868738 /* Debug */,
+				8BB32E93DC4C051120FE80A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		84A3335ABF19B8D332A52463 /* Build configuration list for PBXProject "SquareOff" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1D16A63FA19EEA11C0364574 /* Debug */,
+				CE7AEABE8D62E4E9247F5016 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C6EA08F8345C15D3F4DCA300 /* Build configuration list for PBXNativeTarget "SquareOff" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF3A3A397FCB657EAB04AD6D /* Debug */,
+				673CF5B988B8047DF375E8C7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		F3AD3216EB46C06D0A102749 /* XCLocalSwiftPackageReference "Packages/SquareOffKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SquareOffKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7E6CA20F495728696B29D026 /* SquareOffCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SquareOffCore;
+		};
+		BF92E48A6E8511778471FEFD /* SquareOffNet */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SquareOffNet;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 56D5BC29F0CA1A94E9A6A2FE /* Project object */;
+}
