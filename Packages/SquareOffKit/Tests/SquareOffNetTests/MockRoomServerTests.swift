@@ -37,13 +37,13 @@ private func seat(_ id: Int, _ name: String) -> PlayerPayload {
 private func hostedRoom(_ server: MockRoomServer, boardSize: Int = 6) async throws -> (host: MockGameSocket, hostEvents: EventReader, guest: MockGameSocket, guestEvents: EventReader, code: Int) {
     let host = MockGameSocket(server: server)
     let hostEvents = await EventReader(host)
-    await host.connect()
+    try await host.connect()
     try await host.send(.createRoom(player: seat(1, "Host"), boardSize: boardSize, timer: 0, gameID: 9, roomCode: nil))
     guard case let .roomCreated(created) = try await hostEvents.message("ROOM_CREATED") else { throw EventReader.TimeoutError("ROOM_CREATED") }
 
     let guest = MockGameSocket(server: server)
     let guestEvents = await EventReader(guest)
-    await guest.connect()
+    try await guest.connect()
     try await guest.send(.requestPlayerSlot(roomCode: created.roomCode))
     guard case let .playerSlotAssigned(slot, color) = try await guestEvents.message("PLAYER_SLOT_ASSIGNED") else { throw EventReader.TimeoutError("SLOT") }
     #expect(slot == 2 && color == PlayerPayload.defaultColors[1])
@@ -110,7 +110,7 @@ struct MockRoomServerTests {
         await room.guest.simulateDrop()
         #expect(try await room.hostEvents.message("GUEST_AWAY") == .guestAway(playerId: 2))
 
-        await room.guest.connect()
+        try await room.guest.connect()
         try await room.guest.send(.rejoinRoom(roomCode: room.code, playerID: 2, role: .guest))
         guard case let .gameState(after) = try await room.guestEvents.message("GAME_STATE") else { Issue.record("no state"); return }
         #expect(after.gameState.boardState == before.gameState.boardState)
@@ -130,7 +130,7 @@ struct MockRoomServerTests {
 
         let spectator = MockGameSocket(server: server)
         let spectatorEvents = await EventReader(spectator)
-        await spectator.connect()
+        try await spectator.connect()
         try await spectator.send(.requestPlayerSlot(roomCode: room.code))
         #expect(try await spectatorEvents.message("SPECTATOR_ASSIGNED") == .spectatorAssigned)
         try await spectator.send(.joinAsSpectator(roomCode: room.code))
@@ -151,7 +151,7 @@ struct MockRoomServerTests {
         let server = MockRoomServer(configuration: configuration)
         let host = MockGameSocket(server: server)
         let events = await EventReader(host)
-        await host.connect()
+        try await host.connect()
         try await host.send(.createRoom(player: seat(1, "Host"), boardSize: 6, timer: 0, gameID: nil, roomCode: 4242))
         _ = try await events.message("ROOM_CREATED")
         guard case let .playerJoined(bot) = try await events.message("PLAYER_JOINED") else { Issue.record("no bot"); return }
@@ -198,14 +198,14 @@ struct LiveSocketTests {
         let session = URLSession(configuration: .ephemeral)
         let host = LiveGameSocket(url: APIEnvironment.local.webSocketURL, session: session)
         let hostEvents = await EventReader(host)
-        await host.connect()
+        try await host.connect()
         guard case .connected = await hostEvents.next() else { Issue.record("host did not connect (is the mkcert CA trusted and docker up?)"); return }
         try await host.send(.createRoom(player: seat(1, "iOS host"), boardSize: 6, timer: 0, gameID: nil, roomCode: nil))
         guard case let .roomCreated(created) = try await hostEvents.message("ROOM_CREATED", within: .seconds(5)) else { Issue.record("no room"); return }
 
         let guest = LiveGameSocket(url: APIEnvironment.local.webSocketURL, session: session)
         let guestEvents = await EventReader(guest)
-        await guest.connect()
+        try await guest.connect()
         try await guest.send(.requestPlayerSlot(roomCode: created.roomCode))
         guard case let .playerSlotAssigned(slot, _) = try await guestEvents.message("PLAYER_SLOT_ASSIGNED", within: .seconds(5)) else { Issue.record("no slot"); return }
         try await guest.send(.joinRoom(roomCode: created.roomCode, player: seat(slot, "iOS guest")))

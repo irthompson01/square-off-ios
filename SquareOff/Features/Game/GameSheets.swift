@@ -2,8 +2,8 @@ import Charts
 import SquareOffCore
 import SwiftUI
 
-struct GameMenuSheet: View {
-    @Bindable var session: GameSession
+struct GameMenuSheet<Session: GamePresenting>: View {
+    @Bindable var session: Session
     let onLeave: () -> Void
 
     @AppStorage("soundEnabled") private var soundEnabled = true
@@ -36,11 +36,13 @@ struct GameMenuSheet: View {
                 }
                 Section {
                     NavigationLink("Rules") { RulesView() }
-                    Button("Restart") {
-                        session.restart()
-                        dismiss()
+                    if session.capabilities.canRestart, !session.capabilities.isOnline {
+                        Button("Restart") {
+                            session.restart()
+                            dismiss()
+                        }
                     }
-                    Button("Leave game", role: .destructive) { confirmLeave = true }
+                    Button(session.capabilities.isOnline ? "Leave room" : "Leave game", role: .destructive) { confirmLeave = true }
                 }
             }
             .scrollContentBackground(.hidden)
@@ -49,10 +51,10 @@ struct GameMenuSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-            .confirmationDialog("Leave this game?", isPresented: $confirmLeave, titleVisibility: .visible) {
-                Button("Leave game", role: .destructive, action: onLeave)
+            .confirmationDialog(session.capabilities.isOnline ? "Leave this room?" : "Leave this game?", isPresented: $confirmLeave, titleVisibility: .visible) {
+                Button(session.capabilities.isOnline ? "Leave room" : "Leave game", role: .destructive, action: onLeave)
             } message: {
-                Text("Your progress in this game will be lost.")
+                Text(session.capabilities.isOnline ? "The others keep playing without you." : "Your progress in this game will be lost.")
             }
         }
     }
@@ -67,8 +69,8 @@ struct GameMenuSheet: View {
     }
 }
 
-struct GameOverSheet: View {
-    let session: GameSession
+struct GameOverSheet<Session: GamePresenting>: View {
+    let session: Session
     let onHome: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -81,10 +83,10 @@ struct GameOverSheet: View {
                         .font(.system(size: 30))
                         .frame(width: 64, height: 64)
                         .background(Color(hex: standings[0].colorHex).opacity(0.22), in: RoundedRectangle(cornerRadius: 20))
-                    Text(headline(standings))
+                    Text(session.winnerHeadline)
                         .font(Theme.display(28))
                         .multilineTextAlignment(.center)
-                    Text("\(session.config.title) · \(session.game.moves.count) moves")
+                    Text("\(session.title) · \(session.game.scoreHistoryLength) moves")
                         .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -112,12 +114,24 @@ struct GameOverSheet: View {
 
                 VStack(spacing: 10) {
                     if session.isOver {
-                        Button {
-                            session.restart()
-                        } label: {
-                            Label("Rematch", systemImage: "arrow.counterclockwise")
+                        switch session.rematchState {
+                        case .hostCanStart:
+                            Button { session.startRematch() } label: { Label("Start rematch", systemImage: "play.fill") }
+                                .buttonStyle(PrimaryButtonStyle(color: Theme.go))
+                        case .waitingForHost:
+                            Label("Waiting for the host to start the rematch…", systemImage: "hourglass")
+                                .font(.subheadline).foregroundStyle(Theme.textSecondary)
+                        case .none:
+                            if session.capabilities.canRestart {
+                                Button { session.restart() } label: {
+                                    Label(session.capabilities.isOnline ? "Rematch (reset room)" : "Rematch", systemImage: "arrow.counterclockwise")
+                                }
+                                .buttonStyle(PrimaryButtonStyle())
+                            } else if session.capabilities.isOnline, !session.capabilities.isSpectator {
+                                Label("The host can start a rematch", systemImage: "info.circle")
+                                    .font(.subheadline).foregroundStyle(Theme.textSecondary)
+                            }
                         }
-                        .buttonStyle(PrimaryButtonStyle())
                         HStack(spacing: 10) {
                             Button { onHome() } label: { Label("Home", systemImage: "house") }
                             ShareLink(item: shareText(standings)) { Label("Share", systemImage: "square.and.arrow.up") }
@@ -130,13 +144,6 @@ struct GameOverSheet: View {
             }
             .padding(20)
         }
-    }
-
-    private func headline(_ standings: [PlayerState]) -> String {
-        guard session.isOver else { return "Scores so far" }
-        if session.game.isDraw { return "Tie game" }
-        if case .cpu = session.config.mode { return standings[0].isCPU ? "CPU wins" : "You win" }
-        return "\(standings[0].name) wins"
     }
 
     private func shareText(_ standings: [PlayerState]) -> String {
@@ -175,4 +182,9 @@ struct ScoreChart: View {
             .chartLegend(position: .bottom, alignment: .leading)
         }
     }
+}
+
+extension Game {
+    /// Moves played so far, also after a rebuild from a server snapshot (where `moves` is empty).
+    var scoreHistoryLength: Int { max(moves.count, players.first?.scoreHistory.count ?? 0) }
 }

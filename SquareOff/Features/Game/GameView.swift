@@ -3,9 +3,9 @@ import SwiftUI
 
 /// Full-screen game. iPhone and iPad portrait stack vertically; iPad landscape puts the board
 /// on the left with a sidebar, like the web's md+ layout.
-struct GameView: View {
+struct GameView<Session: GamePresenting>: View {
     @Environment(AppModel.self) private var app
-    @Bindable var session: GameSession
+    @Bindable var session: Session
     @State private var isMenuPresented = false
     @State private var confirmLeave = false
     /// Set when "leave" is tapped inside a sheet: the cover is dismissed only after the sheet
@@ -54,16 +54,16 @@ struct GameView: View {
                 .presentationDetents([.large])
                 .presentationBackground(Theme.surface)
         }
-        .confirmationDialog("Leave this game?", isPresented: $confirmLeave, titleVisibility: .visible) {
-            Button("Leave game", role: .destructive, action: leave)
+        .confirmationDialog(session.capabilities.isOnline ? "Leave this room?" : "Leave this game?", isPresented: $confirmLeave, titleVisibility: .visible) {
+            Button(session.capabilities.isOnline ? "Leave room" : "Leave game", role: .destructive, action: leave)
         } message: {
-            Text("Your progress in this game will be lost.")
+            Text(session.capabilities.isOnline ? "The others keep playing without you." : "Your progress in this game will be lost.")
         }
     }
 
     /// Leaves the game and returns to the menu. Safe to call from inside a sheet.
     private func leave() {
-        session.stop()
+        session.leave()
         if isMenuPresented || session.isGameOverPresented {
             pendingLeave = true
             isMenuPresented = false
@@ -80,7 +80,7 @@ struct GameView: View {
     }
 
     private func closeTapped() {
-        if session.isOver { leave() } else { confirmLeave = true }
+        if session.isOver || session.capabilities.isSpectator || session.connectionLabel == "Room closed" { leave() } else { confirmLeave = true }
     }
 
     private var closeButton: some View {
@@ -94,15 +94,34 @@ struct GameView: View {
     // MARK: Pieces
 
     private var header: some View {
-        HStack {
-            Text(session.config.title)
+        HStack(spacing: 8) {
+            Text(session.title)
                 .font(.subheadline)
                 .foregroundStyle(Theme.textSecondary)
+                .lineLimit(1)
             Spacer()
-            TimerChip(remaining: session.timeRemaining, enabled: session.config.timerSeconds > 0)
+            statusChips
+            TimerChip(remaining: session.timeRemaining, enabled: session.timerSeconds > 0)
             closeButton
         }
         .frame(minHeight: 36)
+    }
+
+    @ViewBuilder
+    private var statusChips: some View {
+        if session.capabilities.isSpectator {
+            Label("Spectating", systemImage: "eye")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10).frame(height: 32)
+                .background(Theme.surfaceRaised, in: Capsule())
+        }
+        if let label = session.connectionLabel {
+            Label(label, systemImage: label == "Room closed" ? "xmark.circle" : "wifi.exclamationmark")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(label == "Room closed" ? Theme.textSecondary : Theme.warning)
+                .padding(.horizontal, 10).frame(height: 32)
+                .background(Theme.surfaceRaised, in: Capsule())
+        }
     }
 
     private var turnBanner: some View {
@@ -152,9 +171,24 @@ struct GameView: View {
     @ViewBuilder
     private var controls: some View {
         HStack(spacing: 10) {
-            if session.isOver {
-                Button { session.restart() } label: {
-                    Label("Rematch", systemImage: "arrow.counterclockwise")
+            if session.rematchState == .hostCanStart {
+                Button { session.startRematch() } label: {
+                    Label("Start rematch", systemImage: "play.fill")
+                }
+                Button(action: leave) {
+                    Label("Leave", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+            } else if session.rematchState == .waitingForHost {
+                Label("Waiting for host…", systemImage: "hourglass")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                Button(action: leave) {
+                    Label("Leave", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+            } else if session.isOver {
+                if session.capabilities.canRestart {
+                    Button { session.restart() } label: {
+                        Label("Rematch", systemImage: "arrow.counterclockwise")
+                    }
                 }
                 Button { session.isGameOverPresented = true } label: {
                     Label("Results", systemImage: "trophy")
@@ -180,13 +214,15 @@ struct GameView: View {
         .buttonStyle(SecondaryButtonStyle())
         .labelStyle(.titleAndIcon)
         .animation(.easeOut(duration: 0.2), value: session.isOver)
+        .animation(.easeOut(duration: 0.2), value: session.rematchState)
     }
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text(session.config.title).font(.subheadline).foregroundStyle(Theme.textSecondary)
+                Text(session.title).font(.subheadline).foregroundStyle(Theme.textSecondary)
                 Spacer()
+                statusChips
                 Button { isMenuPresented = true } label: {
                     Image(systemName: "line.3.horizontal").frame(width: 44, height: 44)
                 }
@@ -197,7 +233,7 @@ struct GameView: View {
             HStack {
                 turnBanner
                 Spacer()
-                TimerChip(remaining: session.timeRemaining, enabled: session.config.timerSeconds > 0)
+                TimerChip(remaining: session.timeRemaining, enabled: session.timerSeconds > 0)
             }
             .padding(14)
             .card()
@@ -232,8 +268,8 @@ struct GameView: View {
     }
 }
 
-struct PlayerStrip: View {
-    let session: GameSession
+struct PlayerStrip<Session: GamePresenting>: View {
+    let session: Session
 
     var body: some View {
         let players = session.game.players

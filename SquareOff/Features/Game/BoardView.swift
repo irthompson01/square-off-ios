@@ -2,8 +2,8 @@ import SquareOffCore
 import SwiftUI
 
 /// Square board: tiles plus the shape overlay (outline + translucent fill in the owner's colour).
-struct BoardView: View {
-    let session: GameSession
+struct BoardView<Session: GamePresenting>: View {
+    let session: Session
     var gap: CGFloat = 4
 
     var body: some View {

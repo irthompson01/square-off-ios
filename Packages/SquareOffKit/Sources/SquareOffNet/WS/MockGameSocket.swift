@@ -15,7 +15,7 @@ public actor MockGameSocket: GameSocket {
 
     public var events: AsyncStream<SocketEvent> { stream }
 
-    public func connect() async {
+    public func connect() async throws {
         if connectionID != nil { return }
         let (id, messages) = await server.connect()
         connectionID = id

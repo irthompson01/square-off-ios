@@ -231,6 +231,16 @@ Keep the dependency list small. None of these are needed for the wireframe phase
 - **No server calls in the v1 game flow.** The app target links only `SquareOffCore`. `GameSession` takes a `CPUMoveProvider` and a `GameRecorder`; the server-backed versions come in a later pass.
 - **Guest only.** Sign-in is a static mockup reached from Profile. No password login, no backend switch.
 
+**Decided (2026-10-19, server-integration pass), supersedes "no server calls" and "guest only" above**
+- **Two backends behind one switch.** `BackendConfiguration` (UserDefaults, `-backend mock|live`) builds a `Backend` with either the stateful `MockSquareOffAPI` + in-process `MockRoomServer` (bots) or `LiveSquareOffAPI` + `LiveGameSocket` against docker. Mock is the default so the app always works.
+- **Auth is a bearer token.** The server accepts `Authorization: Bearer` next to its cookie (both cookie dependencies); `/login` returns the token; the app keeps it in the Keychain and never uses cookies. Native Sign in with Apple posts the identity token to `POST /api/apple/native` (audience = bundle id). Google/GitHub use `ASWebAuthenticationSession` with `?client=ios`, and the callback redirects to `squareoff://auth?token=…` (upgrade path: one-time code exchange). No refresh: an expired JWT drops the account back to guest on the next foreground.
+- **Device guest identity instead of `GET /guests`.** `/guests` returns the newest four guest rows globally; the app creates its own guest once (`POST /create_guest`) and mints stable UUIDs for Pass & Play seats 2–4 so every seat gets a participant row.
+- **Recording.** `ServerGameRecorder` posts `/start`, each `/turns` and `/end` through an ordered chain the game never waits on; the recorder owns the seat → server id map. One failure disables recording for that game and shows one notice.
+- **Level 3.** `ServerCPUMoveProvider` asks `POST /cpu_move` for the CNN (8×8, two players, enforced in setup) and falls back to Max-Min-Optimal on device with a notice; the mock answers with the same heuristic. The earlier 500 was a stale docker image.
+- **Online play.** Server-authoritative: a tap sends only the cell; the `GAME_UPDATE` echo is applied with `Game.place` and verified with `Game.matches`, else the game is rebuilt from the snapshot (`Game(restoring:)`). `RoomCoordinator` owns the lobby (host / join / quick match / rejoin / advertise every 15 s), `OnlineGameSession` the game (reconnect with backoff inside the grace window + `REJOIN_ROOM`, host-only `/end`, two-step rematch, host stall guard that sends `TURN_COMPLETE` for an absent player). One `OnlineConnection` pumps socket events to whichever owns the room.
+- **Server fixes (branch `feature/ios-integration`):** turn ownership on `GAME_UPDATE` (`MOVE_REJECTED not_your_turn`), no turn advance on an occupied tile, a guest's seat kept while a match is in progress (popping it crashed `_serialise_board`), optional `gameId` on `GAME_RESET`.
+- **Game views are generic over `GamePresenting`** so `GameView`/`BoardView`/sheets drive both session types.
+
 **Offline CPU play: originally deferred (2026-10-17), now done (see above). Sync queue still open.** It's feasible but needs two things the web doesn't have:
 1. **On-device CPU.** Port levels 1, 2, 4–6 (see the CPU section). Level 3 (CNN) stays online-only, or later moves to Core ML.
 2. **A sync queue.** Record the game locally, then on reconnect replay it to the server: `POST /start`, then each `POST /{id}/turns` in order.
@@ -240,13 +250,14 @@ Keep the dependency list small. None of these are needed for the wireframe phase
 - **Design now so it slots in later:** CPU moves and turn recording sit behind the `SquareOffAPI` protocol, so an `OfflineCPU` + `SyncQueue` can be added without touching screens.
 
 **Server findings from running the local stack**
-- `/cpu_move` with `cpu_type: "cnn"` returns 500 (`NameError: CNN_MODEL`), so Level 3 is broken on web too. The app falls back to a random move and shows a notice. The live test records it as a known issue.
+- `/cpu_move` with `cpu_type: "cnn"` returned 500 (`NameError: CNN_MODEL`) from a stale docker image; rebuilding the backend fixed it. The model is hard-coded to 8×8 with seats 1 and 2. The app still falls back (to Max-Min-Optimal on device, with a notice) if the server fails.
 - `/cpu_move` needs each player's existing `squares` / `diamonds` (`row`, `col`, `num`, `size`), or the server re-counts old shapes when it scores candidates.
 - The web sends explicit `null`s (e.g. `"cpu_type": null`), and the iOS encoders do the same.
 - All routes live under `/api`. Local dev serves HTTPS with an mkcert certificate on port 8002.
 
 **Still open (before launch)**
-- Fix the server online issues (turn ownership check, server-side turn timer)?
+- Server-side turn timer (the host now skips an absent player's turn from the client)?
+- iPhone over LAN: regenerate the mkcert cert with the Mac's IP, add the environment in Developer, trust the CA on the phone.
 - Session length: refresh tokens / longer mobile sessions?
 - Resume games after the app is killed?
 - "Your turn" push notifications (APNs) in v1?

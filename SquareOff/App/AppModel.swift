@@ -8,7 +8,6 @@ struct GameConfig: Equatable {
     enum Mode: Equatable {
         case cpu(CPULevel)
         case passAndPlay
-        case onlineMock
     }
 
     var mode: Mode
@@ -20,7 +19,6 @@ struct GameConfig: Equatable {
         switch mode {
         case .cpu(let level): "vs CPU · Level \(level.number) · \(boardSize)×\(boardSize)"
         case .passAndPlay: "Pass & Play · \(players.count) players · \(boardSize)×\(boardSize)"
-        case .onlineMock: "Online (mock) · \(boardSize)×\(boardSize)"
         }
     }
 }
@@ -47,9 +45,25 @@ final class AppModel {
     var pendingSignIn = false
     var pendingRulesSection: String?
     var pendingColorPicker = false
-    /// The game on screen (presented full screen). Kept after it ends so Home can offer "Continue".
+    /// `squareoff://join/<code>` or an invite link: the Online hub joins it when it appears.
+    var pendingJoinCode: Int?
+    /// `-demoOnline`: the Online hub pushes the waiting room as soon as it appears.
+    var pendingOnlineRoom = false
+    /// The local game on screen (presented full screen). Kept after it ends so Home can offer "Continue".
     var activeGame: GameSession?
+    /// The online game on screen, if any. Takes precedence over `activeGame` in the cover.
+    var activeOnlineGame: OnlineGameSession?
     var isGamePresented = false
+
+    /// Lobby state machine for online play; survives backend switches by rebuilding transports lazily.
+    @ObservationIgnored private(set) lazy var online: RoomCoordinator = {
+        let coordinator = RoomCoordinator(
+            makeTransport: { [unowned self] in self.backend.makeOnlineTransport() },
+            identityProvider: { [unowned self] in try await self.accounts.ensureIdentity() }
+        )
+        coordinator.onPlay = { [weak self] session in self?.presentOnline(session) }
+        return coordinator
+    }()
 
     init(configuration: BackendConfiguration = .load()) {
         let backend = Backend(configuration: configuration)
@@ -57,8 +71,29 @@ final class AppModel {
         accounts = AccountStore(backend: backend)
     }
 
+    func presentOnline(_ session: OnlineGameSession) {
+        activeGame?.stop()
+        activeGame = nil
+        activeOnlineGame = session
+        isGamePresented = true
+    }
+
+    /// The full-screen game went away. Online sessions are over at that point (the room was
+    /// left or closed); local games stay around for "Continue".
+    func gameDismissed() {
+        if activeOnlineGame != nil {
+            activeOnlineGame = nil
+            online.gameEnded()
+        }
+    }
+
     func start(_ config: GameConfig) {
         activeGame?.stop()
+        if let onlineGame = activeOnlineGame {
+            onlineGame.leave()
+            activeOnlineGame = nil
+            online.gameEnded()
+        }
         let notices = SessionNoticeRelay()
         let session = GameSession(
             config: config,

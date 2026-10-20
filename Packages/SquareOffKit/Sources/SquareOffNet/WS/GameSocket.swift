@@ -19,8 +19,9 @@ public enum SocketError: Error, Equatable {
 /// fresh `.connected` on the same stream.
 public protocol GameSocket: Sendable {
     var events: AsyncStream<SocketEvent> { get async }
-    /// Idempotent. Yields `.connected`, or `.disconnected(error)` when the handshake fails.
-    func connect() async
+    /// Idempotent. Yields `.connected` on success and throws when the handshake fails (no
+    /// `.disconnected` event in that case; that event is only for drops after connecting).
+    func connect() async throws
     func send(_ message: ClientMessage) async throws
     /// Deliberate close: no `.disconnected` event follows.
     func close() async

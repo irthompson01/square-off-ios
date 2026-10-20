@@ -23,7 +23,7 @@ public actor LiveGameSocket: GameSocket {
 
     public var events: AsyncStream<SocketEvent> { stream }
 
-    public func connect() async {
+    public func connect() async throws {
         if isOpen, task != nil { return }
         teardown()
         let task = session.webSocketTask(with: url)
@@ -32,8 +32,8 @@ public actor LiveGameSocket: GameSocket {
         do {
             try await Self.ping(task)
         } catch {
-            fail(error)
-            return
+            teardown()
+            throw error
         }
         isOpen = true
         continuation.yield(.connected)

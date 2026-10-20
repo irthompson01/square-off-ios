@@ -5,7 +5,7 @@ import SquareOffNet
 /// Lets services that run off the main actor surface a one-line notice in the game on screen.
 @MainActor
 final class SessionNoticeRelay {
-    weak var session: GameSession?
+    weak var session: (any GamePresenting)?
 
     nonisolated init() {}
 
@@ -79,6 +79,12 @@ final class Backend {
     func makeSocket() -> any GameSocket {
         if let roomServer { return MockGameSocket(server: roomServer) }
         return LiveGameSocket(url: configuration.environment.webSocketURL, session: urlSession)
+    }
+
+    /// A fresh socket plus the REST pieces the lobby and an online game use.
+    func makeOnlineTransport() -> OnlineTransport {
+        OnlineTransport(connection: OnlineConnection(socket: makeSocket()), matcher: matcher, api: api,
+                        inviteBase: configuration.environment.webOrigin, backendID: configuration.id)
     }
 
     /// Records Vs CPU and Pass & Play games (`/start`, `/turns`, `/end`) on both backends.

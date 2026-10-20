@@ -20,7 +20,7 @@ struct SpinEvent: Equatable {
 /// Drives one local game: rules from SquareOffCore, CPU moves from a `CPUMoveProvider`, and
 /// every move handed to a `GameRecorder` in order without ever waiting on it.
 @Observable
-final class GameSession: Identifiable {
+final class GameSession: @MainActor GamePresenting {
     let id = UUID()
     let config: GameConfig
     private let cpu: any CPUMoveProvider
@@ -58,11 +58,27 @@ final class GameSession: Identifiable {
         self.recorder = recorder
         self.thinkDelay = thinkDelay
         self.game = Game(boardSize: config.boardSize, players: Self.seats(for: config), timerSeconds: config.timerSeconds)
+        // The game exists from here on, so the recorder hears about it before any move can be
+        // queued behind it (debug launch arguments tap before the screen appears).
+        enqueueRecording { [recorder, game, config] in await recorder.gameStarted(game, config: config) }
     }
 
     var isOver: Bool { game.isOver }
     var currentPlayer: PlayerState { game.currentPlayer }
     var canTap: Bool { !isOver && !currentPlayer.isCPU && !isCPUThinking }
+    var title: String { config.title }
+    var timerSeconds: Int { config.timerSeconds }
+    var capabilities: GameCapabilities { GameCapabilities() }
+    var rematchState: RematchState { .none }
+    var connectionLabel: String? { nil }
+
+    var winnerHeadline: String {
+        guard isOver else { return "Scores so far" }
+        if game.isDraw { return "Tie game" }
+        let winner = game.standings[0]
+        if case .cpu = config.mode { return winner.isCPU ? "CPU wins" : "You win" }
+        return "\(winner.name) wins"
+    }
 
     /// Shapes in the order they were formed, minus any owner the player has hidden.
     var visibleShapes: [BoardShape] {
@@ -78,10 +94,15 @@ final class GameSession: Identifiable {
 
     // MARK: Lifecycle
 
+    /// Safe to call every time the game screen appears: the current turn (CPU think or timer)
+    /// resumes. Recording started in `init`.
     func start() async {
-        enqueueRecording { [recorder, game, config] in await recorder.gameStarted(game, config: config) }
         startTurn()
     }
+
+    func startRematch() { restart() }
+
+    func leave() { stop() }
 
     private func enqueueRecording(_ operation: @escaping @Sendable () async -> Void) {
         recordingChain = Task { [previous = recordingChain] in
@@ -95,6 +116,7 @@ final class GameSession: Identifiable {
         cpuTask?.cancel()
         isCPUThinking = false
         game = Game(boardSize: config.boardSize, players: Self.seats(for: config), timerSeconds: config.timerSeconds)
+        enqueueRecording { [recorder, game, config] in await recorder.gameStarted(game, config: config) }
         spins = [:]
         lastMove = nil
         timeRemaining = nil
@@ -148,6 +170,8 @@ final class GameSession: Identifiable {
 
     private func startTurn() {
         guard !game.isOver else { return }
+        cpuTask?.cancel()
+        timerTask?.cancel()
         if currentPlayer.isCPU {
             cpuTask = Task { await playCPUTurn() }
         } else {
@@ -198,7 +222,7 @@ final class GameSession: Identifiable {
                 PlayerState(id: 1, name: me.name, colorHex: me.colorHex),
                 PlayerState(id: 2, name: "CPU · L\(level.number)", colorHex: cpuColor, isCPU: true, cpuLevel: level),
             ]
-        case .passAndPlay, .onlineMock:
+        case .passAndPlay:
             return config.players.map { PlayerState(id: $0.id, name: $0.name, colorHex: $0.colorHex) }
         }
     }
