@@ -98,12 +98,15 @@ public struct Game: Hashable, Sendable {
         self.init(board: Board(size: boardSize), players: players, currentPlayerIndex: 0, timerSeconds: timerSeconds)
     }
 
-    /// Restores a game from an existing position (saved games, replays, CPU test fixtures).
-    /// Python's `Game.from_state` equivalent. Seats must be numbered 1…n in order so that
-    /// "next player" is `players[(index + 1) % n]`, exactly like the server's `players[id % n]`.
+    /// Restores a game from an existing position (saved games, replays, online snapshots, CPU
+    /// test fixtures). Python's `Game.from_state` equivalent. Turn order is the array order
+    /// ("next player" is `players[(index + 1) % n]`, like the server's `next_turn`), so seats
+    /// need distinct ids in 1…4 but not necessarily `[1, 2, 3]`: an online room whose second
+    /// guest left and was replaced can legitimately be `[1, 3, 2]`.
     public init(board: Board, players: [PlayerState], currentPlayerIndex: Int = 0, timerSeconds: Int = 0) {
         precondition((2...4).contains(players.count), "Square Off supports 2–4 players")
-        precondition(players.map(\.id) == Array(1...players.count), "Seats must be numbered 1…n in order")
+        precondition(Set(players.map(\.id)).count == players.count, "Seat ids must be distinct")
+        precondition(players.allSatisfy { (1...4).contains($0.id) }, "Seat ids must be in 1…4")
         precondition(players.indices.contains(currentPlayerIndex), "currentPlayerIndex out of range")
         self.board = board
         self.players = players

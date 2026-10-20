@@ -1,39 +1,106 @@
 import Foundation
 import SquareOffCore
 
-/// The subset of the server's REST API the v1 app uses, mirroring the web's service modules.
-/// The app talks to this protocol so screens can run against `MockSquareOffAPI` until each
-/// flow is wired to `LiveSquareOffAPI`.
+/// Supplies the bearer token for authenticated requests. The app keeps it in the Keychain;
+/// the mock keeps a `mock:<username>` string in UserDefaults.
+public protocol TokenProvider: Sendable {
+    func accessToken() -> String?
+}
+
+/// The server's REST API as the app uses it, mirroring the web's service modules
+/// (`hero-client/src/services/{auth,game,model}API.ts`). Screens and services talk to this
+/// protocol; `LiveSquareOffAPI` hits the docker server and `MockSquareOffAPI` simulates it.
 public protocol SquareOffAPI: Sendable {
-    // authAPI
+    // MARK: authAPI
     func guests() async throws -> GuestsResponse
     func cpuPlayer(_ level: CPULevel) async throws -> CPUPlayerResponse
-    func login(_ request: LoginRequest) async throws
-    func register(_ request: RegisterRequest) async throws
+    func login(_ request: LoginRequest) async throws -> LoginResponse
+    func register(_ request: RegisterRequest) async throws -> RegisterResponse
     func logout() async throws
-    /// `true` when the session cookie is valid (`GET /check-auth` returns 200).
+    /// `true` when the token (or cookie) is valid: `GET /check-auth` returns 200.
     func checkAuth() async throws -> Bool
+    func createGuest(_ request: CreateGuestRequest) async throws -> CreateGuestResponse
+    func profile() async throws -> ProfileResponse
+    func updateProfile(_ request: ProfileUpdateRequest) async throws
+    /// `GET /{provider}/login?client=ios` → the URL to open in a web auth session.
+    func oauthLoginURL(_ provider: OAuthProvider, client: OAuthClient) async throws -> OAuthLoginResponse
+    func appleNativeLogin(_ request: AppleNativeLoginRequest) async throws -> LoginResponse
 
-    // gameAPI
+    // MARK: gameAPI
     func startGame(_ request: StartGameRequest) async throws -> StartGameResponse
     func insertTurn(gameID: Int, _ turn: GameTurnRequest) async throws -> GameTurnResponse
+    /// `PUT /update/players`, sent by an online host right before `GAME_START`.
+    func updatePlayers(gameID: Int, players: [PlayerPayload]) async throws
+    func endGame(_ request: GameEndRequest) async throws
+    func replay(gameID: Int) async throws -> GameReplayPayload
 
-    // modelAPI
+    // MARK: stats (signed-in users only)
+    func statsView() async throws -> PlayerStatsView
+    func statsViewCPU(boardSize: Int?, timer: Int?, cpuType: String?) async throws -> [PlayerStatsCPUView]
+    func recentGames(limit: Int, offset: Int) async throws -> RecentGamesPage
+
+    // MARK: modelAPI
     func cpuMove(_ request: CPUMoveRequest) async throws -> CPUMoveResponse
 }
 
 public enum APIError: Error, Equatable {
     case http(status: Int, body: String)
     case invalidResponse
-}
+    case timeout
 
-public struct APIEnvironment: Sendable, Equatable {
-    public let baseURL: URL
-
-    public init(baseURL: URL) {
-        self.baseURL = baseURL
+    public var isUnauthorized: Bool {
+        if case .http(status: 401, _) = self { return true }
+        return false
     }
 
-    /// The docker-compose backend (`https://localhost:8002`, mkcert certificate). All routes live under `/api`.
-    public static let local = APIEnvironment(baseURL: URL(string: "https://localhost:8002/api")!)
+    public var status: Int? {
+        if case let .http(status, _) = self { return status }
+        return nil
+    }
+
+    /// FastAPI's `{"detail": "..."}` when the body carries one.
+    public var detail: String? {
+        guard case let .http(_, body) = self,
+              let data = body.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        if let text = object["detail"] as? String { return text }
+        if let list = object["detail"] as? [[String: Any]] {
+            return list.compactMap { $0["msg"] as? String }.joined(separator: ", ")
+        }
+        return nil
+    }
+}
+
+/// Where the server lives. REST routes are under `/api`, the game socket at `/ws`, and the web
+/// client (for invite links) at `webOrigin`.
+public struct APIEnvironment: Sendable, Equatable {
+    public let baseURL: URL
+    public let webSocketURL: URL
+    public let webOrigin: URL
+
+    public init(baseURL: URL, webSocketURL: URL, webOrigin: URL) {
+        self.baseURL = baseURL
+        self.webSocketURL = webSocketURL
+        self.webOrigin = webOrigin
+    }
+
+    /// The docker-compose stack: backend on `https://localhost:8002` (mkcert certificate),
+    /// Vite dev client on `https://localhost:5173`.
+    public static let local = APIEnvironment(
+        baseURL: URL(string: "https://localhost:8002/api")!,
+        webSocketURL: URL(string: "wss://localhost:8002/ws")!,
+        webOrigin: URL(string: "https://localhost:5173")!
+    )
+
+    /// Standard layout for any host: `https://host:port/api`, `wss://host:port/ws`.
+    public static func host(_ host: String, port: Int, secure: Bool = true, webOrigin: URL) -> APIEnvironment {
+        let http = secure ? "https" : "http"
+        let ws = secure ? "wss" : "ws"
+        return APIEnvironment(
+            baseURL: URL(string: "\(http)://\(host):\(port)/api")!,
+            webSocketURL: URL(string: "\(ws)://\(host):\(port)/ws")!,
+            webOrigin: webOrigin
+        )
+    }
 }

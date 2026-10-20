@@ -1,0 +1,11 @@
+{
+  "board_sizes": [
+    6
+  ],
+  "timers": [
+    0
+  ],
+  "cpu_types": [
+    "max-min"
+  ]
+}

@@ -1,84 +1,112 @@
 import Foundation
 import SquareOffCore
 
-/// URLSession client. Auth is the same httpOnly `square_off_access_token` cookie the web uses:
-/// `HTTPCookieStorage` keeps it and sends it on every request (the web's `credentials: "include"`).
+/// URLSession client for the FastAPI server. Authenticated routes get `Authorization: Bearer`
+/// from the `TokenProvider`; the app's session has cookies disabled so nothing else leaks in.
 public struct LiveSquareOffAPI: SquareOffAPI {
-    private let environment: APIEnvironment
-    private let session: URLSession
-    private let encoder = JSONEncoder()
-    private let decoder = JSONDecoder()
+    private let client: RESTClient
 
-    public init(environment: APIEnvironment, session: URLSession = .shared) {
-        self.environment = environment
-        self.session = session
+    public init(environment: APIEnvironment, session: URLSession = .shared, tokenProvider: (any TokenProvider)? = nil) {
+        client = RESTClient(baseURL: environment.baseURL, session: session, tokenProvider: tokenProvider)
     }
 
+    // MARK: auth
+
     public func guests() async throws -> GuestsResponse {
-        try await send("GET", "guests")
+        try await client.send("GET", "guests")
     }
 
     public func cpuPlayer(_ level: CPULevel) async throws -> CPUPlayerResponse {
-        try await send("GET", "cpu_player/\(level.cpuType)")
+        try await client.send("GET", "cpu_player/\(level.cpuType)")
     }
 
-    public func login(_ request: LoginRequest) async throws {
-        _ = try await data("POST", "login", body: request)
+    public func login(_ request: LoginRequest) async throws -> LoginResponse {
+        try await client.send("POST", "login", body: request)
     }
 
-    public func register(_ request: RegisterRequest) async throws {
-        _ = try await data("POST", "register", body: request)
+    public func register(_ request: RegisterRequest) async throws -> RegisterResponse {
+        try await client.send("POST", "register", body: request)
     }
 
     public func logout() async throws {
-        _ = try await data("POST", "logout", body: Optional<String>.none)
+        try await client.data("POST", "logout")
     }
 
     public func checkAuth() async throws -> Bool {
         do {
-            _ = try await data("GET", "check-auth", body: Optional<String>.none)
+            try await client.data("GET", "check-auth")
             return true
-        } catch APIError.http(status: 401, _) {
+        } catch let error as APIError where error.isUnauthorized {
             return false
         }
     }
 
+    public func createGuest(_ request: CreateGuestRequest) async throws -> CreateGuestResponse {
+        try await client.send("POST", "create_guest", body: request)
+    }
+
+    public func profile() async throws -> ProfileResponse {
+        try await client.send("GET", "profile")
+    }
+
+    public func updateProfile(_ request: ProfileUpdateRequest) async throws {
+        try await client.data("PATCH", "profile", body: request)
+    }
+
+    public func oauthLoginURL(_ provider: OAuthProvider, client oauthClient: OAuthClient) async throws -> OAuthLoginResponse {
+        try await client.send("GET", "\(provider.rawValue)/login", query: [URLQueryItem(name: "client", value: oauthClient.rawValue)])
+    }
+
+    public func appleNativeLogin(_ request: AppleNativeLoginRequest) async throws -> LoginResponse {
+        try await client.send("POST", "apple/native", body: request)
+    }
+
+    // MARK: games
+
     public func startGame(_ request: StartGameRequest) async throws -> StartGameResponse {
-        try await send("POST", "start", body: request)
+        try await client.send("POST", "start", body: request)
     }
 
     public func insertTurn(gameID: Int, _ turn: GameTurnRequest) async throws -> GameTurnResponse {
-        try await send("POST", "\(gameID)/turns", body: turn)
+        try await client.send("POST", "\(gameID)/turns", body: turn)
     }
+
+    public func updatePlayers(gameID: Int, players: [PlayerPayload]) async throws {
+        try await client.data("PUT", "update/players", body: UpdatePlayersRequest(gameId: gameID, players: players))
+    }
+
+    public func endGame(_ request: GameEndRequest) async throws {
+        try await client.data("PUT", "end", body: request)
+    }
+
+    public func replay(gameID: Int) async throws -> GameReplayPayload {
+        try await client.send("GET", "\(gameID)/replay")
+    }
+
+    // MARK: stats
+
+    public func statsView() async throws -> PlayerStatsView {
+        try await client.send("GET", "stats_view")
+    }
+
+    public func statsViewCPU(boardSize: Int?, timer: Int?, cpuType: String?) async throws -> [PlayerStatsCPUView] {
+        var query: [URLQueryItem] = []
+        if let boardSize { query.append(URLQueryItem(name: "board_size", value: String(boardSize))) }
+        if let timer { query.append(URLQueryItem(name: "timer", value: String(timer))) }
+        if let cpuType, !cpuType.isEmpty { query.append(URLQueryItem(name: "cpu_type", value: cpuType)) }
+        return try await client.send("GET", "stats_view_cpu", query: query)
+    }
+
+    public func recentGames(limit: Int, offset: Int) async throws -> RecentGamesPage {
+        try await client.send("GET", "recent_games", query: [
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset)),
+        ])
+    }
+
+    // MARK: model
 
     public func cpuMove(_ request: CPUMoveRequest) async throws -> CPUMoveResponse {
-        try await send("POST", "cpu_move", body: request)
-    }
-
-    // MARK: Plumbing
-
-    private func send<Response: Decodable>(_ method: String, _ path: String) async throws -> Response {
-        try await send(method, path, body: Optional<String>.none)
-    }
-
-    private func send<Body: Encodable, Response: Decodable>(
-        _ method: String, _ path: String, body: Body?
-    ) async throws -> Response {
-        try decoder.decode(Response.self, from: try await data(method, path, body: body))
-    }
-
-    private func data<Body: Encodable>(_ method: String, _ path: String, body: Body?) async throws -> Data {
-        var request = URLRequest(url: environment.baseURL.appending(path: path))
-        request.httpMethod = method
-        if let body {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try encoder.encode(body)
-        }
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
-        guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(status: http.statusCode, body: String(decoding: data, as: UTF8.self))
-        }
-        return data
+        try await client.send("POST", "cpu_move", body: request)
     }
 }

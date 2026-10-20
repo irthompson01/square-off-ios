@@ -1,0 +1,242 @@
+{
+  "game_id": 2576,
+  "board_size": 6,
+  "timer": 0,
+  "game_type": "local",
+  "participants": [
+    {
+      "participant_id": 4752,
+      "board_slot_id": 1,
+      "display_name": "contract_ios",
+      "color": "#0583D2",
+      "participant_type": "user",
+      "cpu_type": null
+    },
+    {
+      "participant_id": 4753,
+      "board_slot_id": 2,
+      "display_name": "CPU (Max-Min)",
+      "color": "#FF3131",
+      "participant_type": "cpu",
+      "cpu_type": "max-min"
+    }
+  ],
+  "turns": [
+    {
+      "turn_number": 1,
+      "board_slot_id": 1,
+      "row_index": 4,
+      "col_index": 2
+    },
+    {
+      "turn_number": 2,
+      "board_slot_id": 2,
+      "row_index": 3,
+      "col_index": 4
+    },
+    {
+      "turn_number": 3,
+      "board_slot_id": 1,
+      "row_index": 0,
+      "col_index": 2
+    },
+    {
+      "turn_number": 4,
+      "board_slot_id": 2,
+      "row_index": 2,
+      "col_index": 3
+    },
+    {
+      "turn_number": 5,
+      "board_slot_id": 1,
+      "row_index": 4,
+      "col_index": 5
+    },
+    {
+      "turn_number": 6,
+      "board_slot_id": 2,
+      "row_index": 3,
+      "col_index": 1
+    },
+    {
+      "turn_number": 7,
+      "board_slot_id": 1,
+      "row_index": 1,
+      "col_index": 0
+    },
+    {
+      "turn_number": 8,
+      "board_slot_id": 2,
+      "row_index": 2,
+      "col_index": 0
+    },
+    {
+      "turn_number": 9,
+      "board_slot_id": 1,
+      "row_index": 0,
+      "col_index": 5
+    },
+    {
+      "turn_number": 10,
+      "board_slot_id": 2,
+      "row_index": 5,
+      "col_index": 1
+    },
+    {
+      "turn_number": 11,
+      "board_slot_id": 1,
+      "row_index": 2,
+      "col_index": 4
+    },
+    {
+      "turn_number": 12,
+      "board_slot_id": 2,
+      "row_index": 4,
+      "col_index": 0
+    },
+    {
+      "turn_number": 13,
+      "board_slot_id": 1,
+      "row_index": 3,
+      "col_index": 0
+    },
+    {
+      "turn_number": 14,
+      "board_slot_id": 2,
+      "row_index": 1,
+      "col_index": 5
+    },
+    {
+      "turn_number": 15,
+      "board_slot_id": 1,
+      "row_index": 2,
+      "col_index": 1
+    },
+    {
+      "turn_number": 16,
+      "board_slot_id": 2,
+      "row_index": 5,
+      "col_index": 5
+    },
+    {
+      "turn_number": 17,
+      "board_slot_id": 1,
+      "row_index": 1,
+      "col_index": 1
+    },
+    {
+      "turn_number": 18,
+      "board_slot_id": 2,
+      "row_index": 0,
+      "col_index": 4
+    },
+    {
+      "turn_number": 19,
+      "board_slot_id": 1,
+      "row_index": 0,
+      "col_index": 1
+    },
+    {
+      "turn_number": 20,
+      "board_slot_id": 2,
+      "row_index": 4,
+      "col_index": 1
+    },
+    {
+      "turn_number": 21,
+      "board_slot_id": 1,
+      "row_index": 1,
+      "col_index": 2
+    },
+    {
+      "turn_number": 22,
+      "board_slot_id": 2,
+      "row_index": 5,
+      "col_index": 0
+    },
+    {
+      "turn_number": 23,
+      "board_slot_id": 1,
+      "row_index": 3,
+      "col_index": 2
+    },
+    {
+      "turn_number": 24,
+      "board_slot_id": 2,
+      "row_index": 5,
+      "col_index": 3
+    },
+    {
+      "turn_number": 25,
+      "board_slot_id": 1,
+      "row_index": 3,
+      "col_index": 5
+    },
+    {
+      "turn_number": 26,
+      "board_slot_id": 2,
+      "row_index": 3,
+      "col_index": 3
+    },
+    {
+      "turn_number": 27,
+      "board_slot_id": 1,
+      "row_index": 2,
+      "col_index": 2
+    },
+    {
+      "turn_number": 28,
+      "board_slot_id": 2,
+      "row_index": 1,
+      "col_index": 3
+    },
+    {
+      "turn_number": 29,
+      "board_slot_id": 1,
+      "row_index": 4,
+      "col_index": 4
+    },
+    {
+      "turn_number": 30,
+      "board_slot_id": 2,
+      "row_index": 4,
+      "col_index": 3
+    },
+    {
+      "turn_number": 31,
+      "board_slot_id": 1,
+      "row_index": 0,
+      "col_index": 0
+    },
+    {
+      "turn_number": 32,
+      "board_slot_id": 2,
+      "row_index": 2,
+      "col_index": 5
+    },
+    {
+      "turn_number": 33,
+      "board_slot_id": 1,
+      "row_index": 5,
+      "col_index": 4
+    },
+    {
+      "turn_number": 34,
+      "board_slot_id": 2,
+      "row_index": 1,
+      "col_index": 4
+    },
+    {
+      "turn_number": 35,
+      "board_slot_id": 1,
+      "row_index": 0,
+      "col_index": 3
+    },
+    {
+      "turn_number": 36,
+      "board_slot_id": 2,
+      "row_index": 5,
+      "col_index": 2
+    }
+  ]
+}

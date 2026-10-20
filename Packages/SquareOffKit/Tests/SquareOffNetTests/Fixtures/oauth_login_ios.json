@@ -1,0 +1,4 @@
+{
+  "url": "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=55007666300-euam1hnf4267i7kfm4v2puv0ej15e8q1.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Flocalhost%3A8002%2Fapi%2Fgoogle%2Fcallback&scope=openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&state=ODYyHlBJ2CnpN5TTLwdP5NLBhdlC6p&access_type=offline&prompt=consent+select_account",
+  "state": "ODYyHlBJ2CnpN5TTLwdP5NLBhdlC6p"
+}
