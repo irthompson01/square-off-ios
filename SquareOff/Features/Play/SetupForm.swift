@@ -83,10 +83,11 @@ struct SetupForm: View {
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 6), spacing: 6) {
                 ForEach(CPULevel.allCases) { option in
+                    let enabled = option != .cnn || cnnSelectable
                     ChipButton(title: "\(option.number)", isSelected: level == option, height: 44) { level = option }
-                        .disabled(!option.isAvailableOffline)
-                        .opacity(option.isAvailableOffline ? 1 : 0.35)
-                        .accessibilityLabel("Level \(option.number), \(option.shortName)\(option.isAvailableOffline ? "" : ", unavailable in this build")")
+                        .disabled(!enabled)
+                        .opacity(enabled ? 1 : 0.35)
+                        .accessibilityLabel("Level \(option.number), \(option.shortName)\(enabled ? "" : ", only on 8×8 boards")")
                 }
             }
             HStack {
@@ -96,12 +97,19 @@ struct SetupForm: View {
             }
             .font(.caption)
             .foregroundStyle(Theme.textSecondary)
-            Label("Level 3 (CNN) runs on the server and isn't available in this build.", systemImage: "info.circle")
+            Label(CPUAvailability.footnote(kind: app.backend.configuration.kind, boardSize: boardSize), systemImage: "info.circle")
                 .font(.footnote)
                 .foregroundStyle(Theme.textSecondary)
         }
         .padding(14)
         .card()
+        .onChange(of: boardSize) { _, _ in
+            if level == .cnn, !cnnSelectable { level = .maxMin }
+        }
+    }
+
+    private var cnnSelectable: Bool {
+        app.backend.supportsServerCPU(boardSize: boardSize, playerCount: 2)
     }
 
     private var playerCountSection: some View {

@@ -67,45 +67,7 @@ struct DemoBoardView: View {
     }
 
     private var board: some View {
-        GeometryReader { proxy in
-            let gap: CGFloat = 3
-            let side = min(proxy.size.width, proxy.size.height)
-            let n = game.board.size
-            let tile = (side - gap * CGFloat(n - 1)) / CGFloat(n)
-            let layout = BoardLayout(tile: tile, gap: gap)
-            ZStack(alignment: .topLeading) {
-                VStack(spacing: gap) {
-                    ForEach(0..<n, id: \.self) { row in
-                        HStack(spacing: gap) {
-                            ForEach(0..<n, id: \.self) { col in
-                                let cell = Cell(row: row, col: col)
-                                TileView(
-                                    color: color(for: game.board[cell]),
-                                    isLastMove: lastMove?.cell == cell,
-                                    spin: spins[cell],
-                                    cornerRadius: tile * 0.17
-                                )
-                                .frame(width: tile, height: tile)
-                            }
-                        }
-                    }
-                }
-                ShapeLayer(
-                    shapes: game.moves.flatMap(\.newShapes),
-                    layout: layout,
-                    startCorner: lastMove?.cell,
-                    color: { color(for: $0) ?? .white }
-                )
-            }
-            .frame(width: side, height: side)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .aspectRatio(1, contentMode: .fit)
-    }
-
-    private func color(for owner: Int?) -> Color? {
-        guard let owner, let player = game.players.first(where: { $0.id == owner }) else { return nil }
-        return Color(hex: player.colorHex)
+        PlaybackBoardView(game: game, spins: spins, lastMove: lastMove)
     }
 
     private func play() async {

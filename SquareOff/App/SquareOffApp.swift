@@ -1,4 +1,5 @@
 import SquareOffCore
+import SquareOffNet
 import SwiftUI
 
 @main
@@ -16,7 +17,8 @@ struct SquareOffApp: App {
     }
 
     /// Debug launch arguments for screenshots / quick iteration:
-    /// `-demoGame cpu|local4|busy|over` and `-demoScreen rules|setup|color|signin` (`-rulesSection <id>` with rules).
+    /// `-demoGame cpu|local4|busy|over`, `-demoScreen rules|setup|color|signin` (`-rulesSection <id>` with
+    /// rules) and `-backend mock|live` (read by `BackendConfiguration.load`).
     private func openDemoGameIfRequested() {
         #if DEBUG
         let players = (1...4).map { SetupPlayer(id: $0, name: "Player \($0)", colorHex: Theme.playerColors[$0 - 1]) }
@@ -61,6 +63,7 @@ struct SquareOffApp: App {
 /// Play · Learn · Profile. On iPad the tab bar sits at the top and can expand into a sidebar.
 struct RootView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
     @State private var playPath = NavigationPath()
 
     var body: some View {
@@ -92,6 +95,11 @@ struct RootView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .appBackground()
+        .task { await app.accounts.restore() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await app.accounts.restore() }
+        }
         .fullScreenCover(isPresented: $app.isGamePresented) {
             if let session = app.activeGame {
                 GameView(session: session)

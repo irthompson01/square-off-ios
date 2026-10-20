@@ -15,7 +15,7 @@ enum PlayMode: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .cpu: "Five AI levels, from Random to Max-Min-IO"
+        case .cpu: "Six AI levels, from Random to Max-Min-IO"
         case .passAndPlay: "2–4 friends sharing this device"
         case .online: "Quick match, room code or open lobby"
         }

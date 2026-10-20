@@ -23,6 +23,7 @@ actor RecordingRecorder: GameRecorder {
     func record(_ move: MoveResult, by player: PlayerState) async {
         events.append("move \(player.id) \(move.cell.row),\(move.cell.col)")
     }
+    func gameEnded(_ game: Game) async { events.append("ended") }
 }
 
 @MainActor

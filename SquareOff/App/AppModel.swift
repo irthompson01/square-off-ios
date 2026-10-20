@@ -1,19 +1,7 @@
 import Observation
 import SquareOffCore
+import SquareOffNet
 import SwiftUI
-
-/// Who is playing. v1 is guest-only; `signedIn` is the seam for a later accounts pass.
-enum Account: Equatable {
-    case guest
-    case signedIn(username: String)
-
-    var displayName: String {
-        switch self {
-        case .guest: "Guest"
-        case .signedIn(let username): username
-        }
-    }
-}
 
 /// What the setup screens hand to a new game.
 struct GameConfig: Equatable {
@@ -49,7 +37,10 @@ enum AppTab: Hashable {
 
 @Observable
 final class AppModel {
-    var account: Account = .guest
+    /// The server stack in use (mock or local docker). Rebuilt by `switchBackend`.
+    private(set) var backend: Backend
+    let accounts: AccountStore
+    var account: Account { accounts.account }
     var selectedTab: AppTab = .play
     /// Debug deep links (`-demoScreen`): screens to open once the root view appears.
     var pendingPlayRoute: PlayMode?
@@ -60,9 +51,43 @@ final class AppModel {
     var activeGame: GameSession?
     var isGamePresented = false
 
+    init(configuration: BackendConfiguration = .load()) {
+        let backend = Backend(configuration: configuration)
+        self.backend = backend
+        accounts = AccountStore(backend: backend)
+    }
+
     func start(_ config: GameConfig) {
         activeGame?.stop()
-        activeGame = GameSession(config: config)
+        let notices = SessionNoticeRelay()
+        let session = GameSession(
+            config: config,
+            cpu: backend.makeCPUProvider(config: config, notices: notices),
+            recorder: backend.makeRecorder(account: account, notices: notices)
+        )
+        notices.session = session
+        activeGame = session
         isGamePresented = true
+    }
+
+    /// Switches server stacks. A game in progress keeps the providers it was created with.
+    func switchBackend(to kind: BackendKind) {
+        guard kind != backend.configuration.kind else { return }
+        var configuration = kind == .live ? BackendConfiguration.localDocker : .mock
+        configuration.cpuMovesFromServer = backend.configuration.cpuMovesFromServer
+        apply(configuration)
+    }
+
+    func setCPUMovesFromServer(_ enabled: Bool) {
+        var configuration = backend.configuration
+        configuration.cpuMovesFromServer = enabled
+        apply(configuration)
+    }
+
+    private func apply(_ configuration: BackendConfiguration) {
+        configuration.save()
+        backend = Backend(configuration: configuration)
+        accounts.attach(backend)
+        Task { await accounts.restore() }
     }
 }

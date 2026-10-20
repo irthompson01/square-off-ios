@@ -9,26 +9,40 @@
 /* Begin PBXBuildFile section */
 		06FBF9760296FECD619954DA /* SquareOffApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */; };
 		08477A5A7B1E58504CABC758 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B0E77FE8776AD7519B095E /* HomeView.swift */; };
+		0C0F0A4A0853B97B9B690106 /* BackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */; };
+		149C102E91949CE3D7F91E17 /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = 6C9256AFEBE1EC90FE2FE3B8 /* SquareOffNet */; };
 		2DBC0E09F13690F4F540C171 /* spin.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = D8FA79E9B968B77B90DDAE5D /* spin.mp3 */; };
 		312D360DF6E2C4E950F3334F /* GameSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */; };
+		358B42A834C6F127FAE2B965 /* BackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */; };
+		3B7F64A5C168F961ED752E2B /* TokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2359DCD5F2870A09B8942D /* TokenStore.swift */; };
 		3F94D50BC885FD3CE8321BC9 /* SetupForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB1747F96A80DA887567AC77 /* SetupForm.swift */; };
 		434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B838FCE08AF16CD75A5164 /* BoardView.swift */; };
 		4465A51D5918EC4A957D17F6 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487284783B713FADBD398B72 /* GameSession.swift */; };
+		47C7EE3F90FA57B5FF0657C3 /* IdentityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D4F43CDBE1EB8046527309 /* IdentityStore.swift */; };
+		59D7DFFA7568CB5B57029EEF /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0172B922493BECDC43DE9382 /* Backend.swift */; };
+		5E161678E4FC7970C86A4DE3 /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CA05ED7DF92F2FF425110A0 /* ReplayView.swift */; };
 		62E4814E05C980BE16EC3C56 /* OnlineViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 136C9DB5B8E80AE63467AA7A /* OnlineViews.swift */; };
 		751EE4FAAFF0B5824306C465 /* GameServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868473B183874E9A64D3A161 /* GameServices.swift */; };
 		773C6133F378A3F308C43085 /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */; };
 		798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A75DEBAA85846A0A294853 /* AppModel.swift */; };
 		933569DBBF8E5D82F7BC0705 /* RulebookDemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 479A55F3B6526664D723838B /* RulebookDemoTests.swift */; };
+		9355CED32613CEC38B4BB099 /* ServerGameRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67E08E56B748BC04DDBADB46 /* ServerGameRecorder.swift */; };
+		A2D9AC16F7D85E03EEB1964E /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = BF92E48A6E8511778471FEFD /* SquareOffNet */; };
 		A37046962888562B757AD05A /* RulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44298EA4BF8BCFC2F12E634A /* RulesView.swift */; };
 		AD5F4A157A8A60C13698A431 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107387F876BA286D923E9C51 /* Theme.swift */; };
+		AEEAE0A7811229F2F42863F8 /* AccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6168615F0BDEE92ED9F06B4A /* AccountStore.swift */; };
 		B056BFF38E887532F2978F72 /* DemoBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41CFF102A0CF12ACA419DF6C /* DemoBoardView.swift */; };
 		B551473D8B2F0442F71CE721 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6D7E66472DC336B993FFC2 /* GameView.swift */; };
 		BDD09628C48B63530709A25E /* Starfield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8196D783170D869DCCDC9C2B /* Starfield.swift */; };
 		D8E46AB1863F2F73FCC4E1F1 /* RulebookDemos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */; };
 		E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */; };
+		E57C400C84D4C63066BA20A8 /* ServerCPUMoveProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD2B519948240DFD7932646D /* ServerCPUMoveProvider.swift */; };
 		EAF3C39ACD0328E5315BCC3A /* button.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BE69ABA9011BBE77ED79CC73 /* button.mp3 */; };
+		EFC748E02CF368678FDA9BF1 /* SpyAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C87803714D621485DA8BFA65 /* SpyAPI.swift */; };
+		F0A67B8B58B6ED41BD4080F6 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143BAB6EB077E55B63A8DEE6 /* Identity.swift */; };
 		F393246D2F1F4AB8EFF0BC4B /* Rulebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74745FC152F4FDAAF183028 /* Rulebook.swift */; };
 		FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB2294F1158530A790037386 /* GameSessionTests.swift */; };
+		FB7441103A11AF797B95CE4B /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C43F989EBBDCC5DC7BB2920 /* SignInView.swift */; };
 		FDFAA2C9B9D9EE232AB4E605 /* SquareOffCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7E6CA20F495728696B29D026 /* SquareOffCore */; };
 		FE1B2ECA03213661B6DACC0B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -44,16 +58,24 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0172B922493BECDC43DE9382 /* Backend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backend.swift; sourceTree = "<group>"; };
+		0C43F989EBBDCC5DC7BB2920 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		0D11E5513A6941F2BCBBA232 /* SquareOffKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SquareOffKit; path = Packages/SquareOffKit; sourceTree = SOURCE_ROOT; };
 		107387F876BA286D923E9C51 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		136C9DB5B8E80AE63467AA7A /* OnlineViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineViews.swift; sourceTree = "<group>"; };
+		143BAB6EB077E55B63A8DEE6 /* Identity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identity.swift; sourceTree = "<group>"; };
 		1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2D425CAA288550260774CEA5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		41CFF102A0CF12ACA419DF6C /* DemoBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoBoardView.swift; sourceTree = "<group>"; };
 		44298EA4BF8BCFC2F12E634A /* RulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulesView.swift; sourceTree = "<group>"; };
 		479A55F3B6526664D723838B /* RulebookDemoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulebookDemoTests.swift; sourceTree = "<group>"; };
 		487284783B713FADBD398B72 /* GameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSession.swift; sourceTree = "<group>"; };
+		48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendTests.swift; sourceTree = "<group>"; };
+		56F28A7C137131805CC520B7 /* SquareOff.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SquareOff.entitlements; sourceTree = "<group>"; };
+		6168615F0BDEE92ED9F06B4A /* AccountStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountStore.swift; sourceTree = "<group>"; };
+		67E08E56B748BC04DDBADB46 /* ServerGameRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerGameRecorder.swift; sourceTree = "<group>"; };
 		6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquareOffApp.swift; sourceTree = "<group>"; };
+		72D4F43CDBE1EB8046527309 /* IdentityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentityStore.swift; sourceTree = "<group>"; };
 		7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulebookDemos.swift; sourceTree = "<group>"; };
 		8196D783170D869DCCDC9C2B /* Starfield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Starfield.swift; sourceTree = "<group>"; };
 		868473B183874E9A64D3A161 /* GameServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameServices.swift; sourceTree = "<group>"; };
@@ -63,22 +85,36 @@
 		90B838FCE08AF16CD75A5164 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		917EBEA674D7D753E4323871 /* SquareOff.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SquareOff.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9CA05ED7DF92F2FF425110A0 /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		A74745FC152F4FDAAF183028 /* Rulebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rulebook.swift; sourceTree = "<group>"; };
+		BD2B519948240DFD7932646D /* ServerCPUMoveProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerCPUMoveProvider.swift; sourceTree = "<group>"; };
 		BE69ABA9011BBE77ED79CC73 /* button.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = button.mp3; sourceTree = "<group>"; };
 		BF6D7E66472DC336B993FFC2 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		C87803714D621485DA8BFA65 /* SpyAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpyAPI.swift; sourceTree = "<group>"; };
+		CB2359DCD5F2870A09B8942D /* TokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenStore.swift; sourceTree = "<group>"; };
 		D8FA79E9B968B77B90DDAE5D /* spin.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = spin.mp3; sourceTree = "<group>"; };
 		DB2294F1158530A790037386 /* GameSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSessionTests.swift; sourceTree = "<group>"; };
 		E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPlayer.swift; sourceTree = "<group>"; };
+		E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendConfiguration.swift; sourceTree = "<group>"; };
 		EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSheets.swift; sourceTree = "<group>"; };
 		EB1747F96A80DA887567AC77 /* SetupForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupForm.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		7474F1E713C28580F04B83FA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				149C102E91949CE3D7F91E17 /* SquareOffNet in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E79F4A8AF9A738D9AAC4DF09 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				FDFAA2C9B9D9EE232AB4E605 /* SquareOffCore in Frameworks */,
+				A2D9AC16F7D85E03EEB1964E /* SquareOffNet in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -101,6 +137,7 @@
 			isa = PBXGroup;
 			children = (
 				2D425CAA288550260774CEA5 /* Info.plist */,
+				56F28A7C137131805CC520B7 /* SquareOff.entitlements */,
 				F3D2255F2CD3C691C5C49627 /* App */,
 				815F600B6D10ECFDA7B30539 /* Features */,
 				23748B5FD7327D1DDC28B5FE /* Resources */,
@@ -131,6 +168,7 @@
 			isa = PBXGroup;
 			children = (
 				E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */,
+				8F4EFFD850B92DA59EE5AFA0 /* Backend */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -183,6 +221,21 @@
 			path = Features;
 			sourceTree = "<group>";
 		};
+		8F4EFFD850B92DA59EE5AFA0 /* Backend */ = {
+			isa = PBXGroup;
+			children = (
+				6168615F0BDEE92ED9F06B4A /* AccountStore.swift */,
+				0172B922493BECDC43DE9382 /* Backend.swift */,
+				E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */,
+				143BAB6EB077E55B63A8DEE6 /* Identity.swift */,
+				72D4F43CDBE1EB8046527309 /* IdentityStore.swift */,
+				BD2B519948240DFD7932646D /* ServerCPUMoveProvider.swift */,
+				67E08E56B748BC04DDBADB46 /* ServerGameRecorder.swift */,
+				CB2359DCD5F2870A09B8942D /* TokenStore.swift */,
+			);
+			path = Backend;
+			sourceTree = "<group>";
+		};
 		97FE30652F3AF59A90A663FE /* Sounds */ = {
 			isa = PBXGroup;
 			children = (
@@ -195,10 +248,20 @@
 		A40DC8CC54E9F96DE9B1D40D /* SquareOffTests */ = {
 			isa = PBXGroup;
 			children = (
+				48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */,
 				DB2294F1158530A790037386 /* GameSessionTests.swift */,
 				479A55F3B6526664D723838B /* RulebookDemoTests.swift */,
+				DBB79AB4EE7C953B876A10A4 /* Support */,
 			);
 			path = SquareOffTests;
+			sourceTree = "<group>";
+		};
+		DBB79AB4EE7C953B876A10A4 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				C87803714D621485DA8BFA65 /* SpyAPI.swift */,
+			);
+			path = Support;
 			sourceTree = "<group>";
 		};
 		E495300F8D4505F948AAA4D4 = {
@@ -226,6 +289,8 @@
 			isa = PBXGroup;
 			children = (
 				1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */,
+				9CA05ED7DF92F2FF425110A0 /* ReplayView.swift */,
+				0C43F989EBBDCC5DC7BB2920 /* SignInView.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -248,6 +313,7 @@
 			name = SquareOff;
 			packageProductDependencies = (
 				7E6CA20F495728696B29D026 /* SquareOffCore */,
+				BF92E48A6E8511778471FEFD /* SquareOffNet */,
 			);
 			productName = SquareOff;
 			productReference = 917EBEA674D7D753E4323871 /* SquareOff.app */;
@@ -258,6 +324,7 @@
 			buildConfigurationList = 3D37BE9C221597CCBD9E87EF /* Build configuration list for PBXNativeTarget "SquareOffTests" */;
 			buildPhases = (
 				AFD7C9BDB7855B1535999406 /* Sources */,
+				7474F1E713C28580F04B83FA /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -266,6 +333,7 @@
 			);
 			name = SquareOffTests;
 			packageProductDependencies = (
+				6C9256AFEBE1EC90FE2FE3B8 /* SquareOffNet */,
 			);
 			productName = SquareOffTests;
 			productReference = 8D707DF5DF0D3AC29A6E544E /* SquareOffTests.xctest */;
@@ -326,7 +394,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AEEAE0A7811229F2F42863F8 /* AccountStore.swift in Sources */,
 				798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */,
+				59D7DFFA7568CB5B57029EEF /* Backend.swift in Sources */,
+				0C0F0A4A0853B97B9B690106 /* BackendConfiguration.swift in Sources */,
 				434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */,
 				B056BFF38E887532F2978F72 /* DemoBoardView.swift in Sources */,
 				751EE4FAAFF0B5824306C465 /* GameServices.swift in Sources */,
@@ -334,16 +405,23 @@
 				312D360DF6E2C4E950F3334F /* GameSheets.swift in Sources */,
 				B551473D8B2F0442F71CE721 /* GameView.swift in Sources */,
 				08477A5A7B1E58504CABC758 /* HomeView.swift in Sources */,
+				F0A67B8B58B6ED41BD4080F6 /* Identity.swift in Sources */,
+				47C7EE3F90FA57B5FF0657C3 /* IdentityStore.swift in Sources */,
 				62E4814E05C980BE16EC3C56 /* OnlineViews.swift in Sources */,
 				E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */,
+				5E161678E4FC7970C86A4DE3 /* ReplayView.swift in Sources */,
 				F393246D2F1F4AB8EFF0BC4B /* Rulebook.swift in Sources */,
 				D8E46AB1863F2F73FCC4E1F1 /* RulebookDemos.swift in Sources */,
 				A37046962888562B757AD05A /* RulesView.swift in Sources */,
+				E57C400C84D4C63066BA20A8 /* ServerCPUMoveProvider.swift in Sources */,
+				9355CED32613CEC38B4BB099 /* ServerGameRecorder.swift in Sources */,
 				3F94D50BC885FD3CE8321BC9 /* SetupForm.swift in Sources */,
+				FB7441103A11AF797B95CE4B /* SignInView.swift in Sources */,
 				773C6133F378A3F308C43085 /* SoundPlayer.swift in Sources */,
 				06FBF9760296FECD619954DA /* SquareOffApp.swift in Sources */,
 				BDD09628C48B63530709A25E /* Starfield.swift in Sources */,
 				AD5F4A157A8A60C13698A431 /* Theme.swift in Sources */,
+				3B7F64A5C168F961ED752E2B /* TokenStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -351,8 +429,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				358B42A834C6F127FAE2B965 /* BackendTests.swift in Sources */,
 				FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */,
 				933569DBBF8E5D82F7BC0705 /* RulebookDemoTests.swift in Sources */,
+				EFC748E02CF368678FDA9BF1 /* SpyAPI.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -455,6 +535,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SquareOff/SquareOff.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -551,6 +632,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SquareOff/SquareOff.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -606,9 +688,17 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		6C9256AFEBE1EC90FE2FE3B8 /* SquareOffNet */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SquareOffNet;
+		};
 		7E6CA20F495728696B29D026 /* SquareOffCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SquareOffCore;
+		};
+		BF92E48A6E8511778471FEFD /* SquareOffNet */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SquareOffNet;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

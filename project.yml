@@ -26,10 +26,15 @@ targets:
     sources:
       - path: SquareOff
     dependencies:
-      # The app links only the rules package. SquareOffNet (server DTOs + clients) stays in the
-      # repo with its contract tests, but nothing in the v1 game flow talks to a server.
       - package: SquareOffKit
         product: SquareOffCore
+      # Server clients (live docker + in-app mock), picked at runtime by BackendConfiguration.
+      - package: SquareOffKit
+        product: SquareOffNet
+    entitlements:
+      path: SquareOff/SquareOff.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff
@@ -57,6 +62,10 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        # squareoff://auth?token=… (OAuth return) and squareoff://join/<code> (invites).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.novastrada.squareoff
+            CFBundleURLSchemes: [squareoff]
 
   SquareOffTests:
     type: bundle.unit-test
@@ -65,6 +74,8 @@ targets:
       - path: SquareOffTests
     dependencies:
       - target: SquareOff
+      - package: SquareOffKit
+        product: SquareOffNet
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff.tests

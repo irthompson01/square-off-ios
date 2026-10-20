@@ -17,8 +17,8 @@ struct SpinEvent: Equatable {
     }
 }
 
-/// Drives one game entirely on device: rules from SquareOffCore, CPU moves from a
-/// `CPUMoveProvider`, and every move handed to a `GameRecorder` (a no-op in v1).
+/// Drives one local game: rules from SquareOffCore, CPU moves from a `CPUMoveProvider`, and
+/// every move handed to a `GameRecorder` in order without ever waiting on it.
 @Observable
 final class GameSession: Identifiable {
     let id = UUID()
@@ -44,6 +44,8 @@ final class GameSession: Identifiable {
     private var spinSequence = 0
     private var timerTask: Task<Void, Never>?
     private var cpuTask: Task<Void, Never>?
+    /// Recorder calls chained in order; the game never waits on them.
+    private var recordingChain: Task<Void, Never>?
 
     init(
         config: GameConfig,
@@ -77,8 +79,15 @@ final class GameSession: Identifiable {
     // MARK: Lifecycle
 
     func start() async {
-        await recorder.gameStarted(game, config: config)
+        enqueueRecording { [recorder, game, config] in await recorder.gameStarted(game, config: config) }
         startTurn()
+    }
+
+    private func enqueueRecording(_ operation: @escaping @Sendable () async -> Void) {
+        recordingChain = Task { [previous = recordingChain] in
+            await previous?.value
+            await operation()
+        }
     }
 
     func restart() {
@@ -124,9 +133,10 @@ final class GameSession: Identifiable {
         }
 
         let updatedMover = game.players.first { $0.id == mover.id } ?? mover
-        Task { [recorder] in await recorder.record(result, by: updatedMover) }
+        enqueueRecording { [recorder] in await recorder.record(result, by: updatedMover) }
 
         if game.isOver {
+            enqueueRecording { [recorder, game] in await recorder.gameEnded(game) }
             Task {
                 try? await Task.sleep(for: .seconds(1.6))
                 isGameOverPresented = true
@@ -183,10 +193,10 @@ final class GameSession: Identifiable {
         case .cpu(let level):
             let me = config.players[0]
             let cpuColor = me.colorHex == Theme.playerColors[1] ? Theme.playerColors[0] : Theme.playerColors[1]
-            let played = level.offlineFallback
+            // The seat keeps the chosen level; the move provider decides where it runs.
             return [
                 PlayerState(id: 1, name: me.name, colorHex: me.colorHex),
-                PlayerState(id: 2, name: "CPU · L\(played.number)", colorHex: cpuColor, isCPU: true, cpuLevel: played),
+                PlayerState(id: 2, name: "CPU · L\(level.number)", colorHex: cpuColor, isCPU: true, cpuLevel: level),
             ]
         case .passAndPlay, .onlineMock:
             return config.players.map { PlayerState(id: $0.id, name: $0.name, colorHex: $0.colorHex) }
