@@ -9,6 +9,7 @@ struct GameMenuSheet: View {
     @AppStorage("soundEnabled") private var soundEnabled = true
     @AppStorage("musicEnabled") private var musicEnabled = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
+    @AppStorage("starsEnabled") private var starsEnabled = true
     @Environment(\.dismiss) private var dismiss
     @State private var confirmLeave = false
 
@@ -31,6 +32,7 @@ struct GameMenuSheet: View {
                     Toggle("Sound effects", isOn: $soundEnabled)
                     Toggle("Music", isOn: $musicEnabled)
                     Toggle("Haptics", isOn: $hapticsEnabled)
+                    Toggle("Stars background", isOn: $starsEnabled)
                 }
                 Section {
                     NavigationLink("Rules") { RulesView() }
@@ -67,7 +69,7 @@ struct GameMenuSheet: View {
 
 struct GameOverSheet: View {
     let session: GameSession
-    let onNewGame: () -> Void
+    let onHome: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -117,7 +119,7 @@ struct GameOverSheet: View {
                         }
                         .buttonStyle(PrimaryButtonStyle())
                         HStack(spacing: 10) {
-                            Button("New game", action: onNewGame)
+                            Button { onHome() } label: { Label("Home", systemImage: "house") }
                             ShareLink(item: shareText(standings)) { Label("Share", systemImage: "square.and.arrow.up") }
                         }
                         .buttonStyle(SecondaryButtonStyle())

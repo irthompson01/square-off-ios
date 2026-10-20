@@ -1,22 +1,28 @@
 import SquareOffCore
-import SquareOffNet
 import Testing
 @testable import SquareOff
 
-/// Records every call so tests can check the app follows the web's request order.
-actor RecordingAPI: SquareOffAPI {
-    private let mock = MockSquareOffAPI(latency: .zero)
-    private(set) var calls: [String] = []
+/// Hands out scripted cells so tests know exactly where the CPU will play.
+actor ScriptedCPU: CPUMoveProvider {
+    private var queue: [Cell]
+    private(set) var requests = 0
 
-    func guests() async throws -> GuestsResponse { calls.append("guests"); return try await mock.guests() }
-    func cpuPlayer(_ level: CPULevel) async throws -> CPUPlayerResponse { calls.append("cpu_player/\(level.cpuType)"); return try await mock.cpuPlayer(level) }
-    func login(_ request: LoginRequest) async throws { calls.append("login") }
-    func register(_ request: RegisterRequest) async throws { calls.append("register") }
-    func logout() async throws { calls.append("logout") }
-    func checkAuth() async throws -> Bool { calls.append("check-auth"); return false }
-    func startGame(_ request: StartGameRequest) async throws -> StartGameResponse { calls.append("start"); return try await mock.startGame(request) }
-    func insertTurn(gameID: Int, _ turn: GameTurnRequest) async throws -> GameTurnResponse { calls.append("turns"); return try await mock.insertTurn(gameID: gameID, turn) }
-    func cpuMove(_ request: CPUMoveRequest) async throws -> CPUMoveResponse { calls.append("cpu_move"); return try await mock.cpuMove(request) }
+    init(_ cells: [Cell]) { queue = cells }
+
+    func move(for game: Game, level: CPULevel) async -> Cell {
+        requests += 1
+        return queue.isEmpty ? game.board.emptyCells[0] : queue.removeFirst()
+    }
+}
+
+/// Records what the session hands to the recorder, in order.
+actor RecordingRecorder: GameRecorder {
+    private(set) var events: [String] = []
+
+    func gameStarted(_ game: Game, config: GameConfig) async { events.append("started") }
+    func record(_ move: MoveResult, by player: PlayerState) async {
+        events.append("move \(player.id) \(move.cell.row),\(move.cell.col)")
+    }
 }
 
 @MainActor
@@ -26,33 +32,36 @@ struct GameSessionTests {
                    players: [SetupPlayer(id: 1, name: "Me", colorHex: Theme.playerColors[0])])
     }
 
-    @Test func cpuGameFollowsTheWebRequestOrder() async throws {
-        let api = RecordingAPI()
-        let session = GameSession(config: cpuConfig(), api: api, account: .guest)
-        await session.start()
-        #expect(session.serverGameID != nil)
-        #expect(session.game.players.allSatisfy { $0.participantID != nil })
-
-        session.tap(Cell(row: 0, col: 0))
-        // Wait for the CPU's reply (650ms think time + mock response).
-        for _ in 0..<40 where session.game.moves.count < 2 {
+    private func waitForMoves(_ count: Int, in session: GameSession) async throws {
+        for _ in 0..<60 where session.game.moves.count < count {
             try await Task.sleep(for: .milliseconds(50))
         }
         try await Task.sleep(for: .milliseconds(100))
+    }
+
+    @Test func cpuTurnUsesTheProviderAndRecordsInOrder() async throws {
+        let cpu = ScriptedCPU([Cell(row: 5, col: 5)])
+        let recorder = RecordingRecorder()
+        let session = GameSession(config: cpuConfig(), cpu: cpu, recorder: recorder, thinkDelay: 0...0)
+        await session.start()
+
+        session.tap(Cell(row: 0, col: 0))
+        try await waitForMoves(2, in: session)
 
         #expect(session.game.moves.count == 2)
-        let calls = await api.calls
-        #expect(Array(calls.prefix(3)) == ["guests", "cpu_player/max-min", "start"])
-        #expect(calls.filter { $0 == "turns" }.count == 2)
-        #expect(calls.contains("cpu_move"))
+        #expect(session.game.moves[1].cell == Cell(row: 5, col: 5))
+        #expect(session.game.board[Cell(row: 5, col: 5)] == 2)
+        #expect(await cpu.requests == 1)
+        #expect(await recorder.events == ["started", "move 1 0,0", "move 2 5,5"])
     }
 
     @Test func tappingIsIgnoredDuringCPUTurn() async throws {
-        let session = GameSession(config: cpuConfig(), api: RecordingAPI(), account: .guest)
+        let session = GameSession(config: cpuConfig(), cpu: ScriptedCPU([]), thinkDelay: 200...200)
         await session.start()
         session.tap(Cell(row: 0, col: 0))
         session.tap(Cell(row: 0, col: 1))
         #expect(session.game.moves.count == 1)
+        session.stop()
     }
 
     @Test func placementSpinsTheTileOnce() async throws {
@@ -60,10 +69,36 @@ struct GameSessionTests {
             SetupPlayer(id: 1, name: "A", colorHex: Theme.playerColors[0]),
             SetupPlayer(id: 2, name: "B", colorHex: Theme.playerColors[1]),
         ])
-        let session = GameSession(config: config, api: RecordingAPI(), account: .guest)
+        let session = GameSession(config: config)
         await session.start()
         session.tap(Cell(row: 2, col: 3))
         #expect(session.spins[Cell(row: 2, col: 3)]?.turns == 1)
         #expect(session.placeCount == 1)
+    }
+
+    @Test func localCPUPlaysALegalMoveOffline() async throws {
+        let session = GameSession(config: cpuConfig(), thinkDelay: 0...0)
+        await session.start()
+        session.tap(Cell(row: 0, col: 0))
+        try await waitForMoves(2, in: session)
+
+        #expect(session.game.moves.count == 2)
+        #expect(session.game.moves[1].playerID == 2)
+        #expect(session.game.currentPlayer.id == 1)
+        #expect(session.canTap)
+    }
+
+    @Test func restartWhileCPUIsThinkingDiscardsTheStaleMove() async throws {
+        let session = GameSession(config: cpuConfig(), cpu: ScriptedCPU([Cell(row: 5, col: 5)]), thinkDelay: 150...150)
+        await session.start()
+        session.tap(Cell(row: 0, col: 0))
+        try await Task.sleep(for: .milliseconds(30))
+        session.restart()
+        try await Task.sleep(for: .milliseconds(400))
+
+        #expect(session.game.moves.isEmpty)
+        #expect(session.game.board[Cell(row: 5, col: 5)] == nil)
+        #expect(session.canTap)
+        session.stop()
     }
 }

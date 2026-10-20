@@ -27,7 +27,7 @@ struct OnlineHubView: View {
             }
             .padding(16)
         }
-        .background(Theme.background)
+        .appBackground()
         .navigationTitle("Online")
     }
 
@@ -162,7 +162,7 @@ struct WaitingRoomView: View {
             }
             .padding(16)
         }
-        .background(Theme.background)
+        .appBackground()
         .safeAreaInset(edge: .bottom) {
             Button { startMockGame() } label: { Label("Start Game", systemImage: "play.fill") }
                 .buttonStyle(PrimaryButtonStyle(color: Theme.go))
@@ -220,7 +220,7 @@ struct OpenRoomsView: View {
             .listRowBackground(Theme.surface)
         }
         .scrollContentBackground(.hidden)
-        .background(Theme.background)
+        .appBackground()
         .navigationTitle("Open rooms")
     }
 }

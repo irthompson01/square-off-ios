@@ -1,10 +1,11 @@
 import Foundation
 import SquareOffCore
 
-/// In-memory stand-in for the server so the app runs with no backend.
-/// CPU moves use a simple greedy rule (best immediate score, else block, else random), which is
-/// close to `max-min-optimal` but is NOT the server's algorithm. It's a placeholder until the
-/// game screen calls `LiveSquareOffAPI.cpuMove`.
+/// In-memory stand-in for the server, used by the contract tests and by any future flow that
+/// records games through `SquareOffAPI`. The v1 app does not link this module: local games and
+/// CPU moves run entirely on device via `SquareOffCore.CPUStrategy`.
+/// `cpuMove` uses a simple greedy rule (best immediate score, else block, else random), which is
+/// close to `max-min-optimal` but is NOT the server's algorithm.
 public actor MockSquareOffAPI: SquareOffAPI {
     public static let guestIDs = [
         "00000000-0000-0000-0000-000000000001",

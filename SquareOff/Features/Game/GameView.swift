@@ -7,6 +7,10 @@ struct GameView: View {
     @Environment(AppModel.self) private var app
     @Bindable var session: GameSession
     @State private var isMenuPresented = false
+    @State private var confirmLeave = false
+    /// Set when "leave" is tapped inside a sheet: the cover is dismissed only after the sheet
+    /// has gone, because dismissing both in one transaction drops the outer one.
+    @State private var pendingLeave = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -36,27 +40,55 @@ struct GameView: View {
                 }
             }
         }
-        .background(Theme.background.ignoresSafeArea())
+        .appBackground()
         .overlay(alignment: .top) { noticeBanner }
         .task { await session.start() }
         .onDisappear { session.stop() }
-        .sheet(isPresented: $isMenuPresented) {
+        .sheet(isPresented: $isMenuPresented, onDismiss: finishLeaveIfPending) {
             GameMenuSheet(session: session, onLeave: leave)
                 .presentationDetents([.medium, .large])
                 .presentationBackground(Theme.surface)
         }
-        .sheet(isPresented: $session.isGameOverPresented) {
-            GameOverSheet(session: session, onNewGame: leave)
+        .sheet(isPresented: $session.isGameOverPresented, onDismiss: finishLeaveIfPending) {
+            GameOverSheet(session: session, onHome: leave)
                 .presentationDetents([.large])
                 .presentationBackground(Theme.surface)
         }
+        .confirmationDialog("Leave this game?", isPresented: $confirmLeave, titleVisibility: .visible) {
+            Button("Leave game", role: .destructive, action: leave)
+        } message: {
+            Text("Your progress in this game will be lost.")
+        }
     }
 
+    /// Leaves the game and returns to the menu. Safe to call from inside a sheet.
     private func leave() {
-        isMenuPresented = false
-        session.isGameOverPresented = false
         session.stop()
+        if isMenuPresented || session.isGameOverPresented {
+            pendingLeave = true
+            isMenuPresented = false
+            session.isGameOverPresented = false
+        } else {
+            app.isGamePresented = false
+        }
+    }
+
+    private func finishLeaveIfPending() {
+        guard pendingLeave else { return }
+        pendingLeave = false
         app.isGamePresented = false
+    }
+
+    private func closeTapped() {
+        if session.isOver { leave() } else { confirmLeave = true }
+    }
+
+    private var closeButton: some View {
+        Button(action: closeTapped) {
+            Image(systemName: "xmark").font(.subheadline.weight(.bold)).frame(width: 36, height: 36)
+        }
+        .background(Theme.surfaceRaised, in: Circle())
+        .accessibilityLabel(session.isOver ? "Back to menu" : "Leave game")
     }
 
     // MARK: Pieces
@@ -68,6 +100,7 @@ struct GameView: View {
                 .foregroundStyle(Theme.textSecondary)
             Spacer()
             TimerChip(remaining: session.timeRemaining, enabled: session.config.timerSeconds > 0)
+            closeButton
         }
         .frame(minHeight: 36)
     }
@@ -116,23 +149,37 @@ struct GameView: View {
         return "\(player.name) formed \(what)"
     }
 
+    @ViewBuilder
     private var controls: some View {
         HStack(spacing: 10) {
-            Button {
-                let everyone = Set(session.game.players.map(\.id))
-                session.hiddenShapeOwners = session.hiddenShapeOwners.isEmpty ? everyone : []
-            } label: {
-                Label(session.hiddenShapeOwners.isEmpty ? "Shapes on" : "Shapes off", systemImage: "eye")
-            }
-            Button { session.isGameOverPresented = true } label: {
-                Label("Stats", systemImage: "chart.line.uptrend.xyaxis")
-            }
-            Button { isMenuPresented = true } label: {
-                Label("Menu", systemImage: "line.3.horizontal")
+            if session.isOver {
+                Button { session.restart() } label: {
+                    Label("Rematch", systemImage: "arrow.counterclockwise")
+                }
+                Button { session.isGameOverPresented = true } label: {
+                    Label("Results", systemImage: "trophy")
+                }
+                Button(action: leave) {
+                    Label("Home", systemImage: "house")
+                }
+            } else {
+                Button {
+                    let everyone = Set(session.game.players.map(\.id))
+                    session.hiddenShapeOwners = session.hiddenShapeOwners.isEmpty ? everyone : []
+                } label: {
+                    Label(session.hiddenShapeOwners.isEmpty ? "Shapes on" : "Shapes off", systemImage: "eye")
+                }
+                Button { session.isGameOverPresented = true } label: {
+                    Label("Stats", systemImage: "chart.line.uptrend.xyaxis")
+                }
+                Button { isMenuPresented = true } label: {
+                    Label("Menu", systemImage: "line.3.horizontal")
+                }
             }
         }
         .buttonStyle(SecondaryButtonStyle())
         .labelStyle(.titleAndIcon)
+        .animation(.easeOut(duration: 0.2), value: session.isOver)
     }
 
     private var sidebar: some View {
@@ -145,6 +192,7 @@ struct GameView: View {
                 }
                 .accessibilityLabel("Game menu")
                 .background(Theme.surfaceRaised, in: Circle())
+                closeButton
             }
             HStack {
                 turnBanner

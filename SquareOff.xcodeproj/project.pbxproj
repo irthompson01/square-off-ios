@@ -15,14 +15,19 @@
 		434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B838FCE08AF16CD75A5164 /* BoardView.swift */; };
 		4465A51D5918EC4A957D17F6 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487284783B713FADBD398B72 /* GameSession.swift */; };
 		62E4814E05C980BE16EC3C56 /* OnlineViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 136C9DB5B8E80AE63467AA7A /* OnlineViews.swift */; };
+		751EE4FAAFF0B5824306C465 /* GameServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868473B183874E9A64D3A161 /* GameServices.swift */; };
 		773C6133F378A3F308C43085 /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */; };
 		798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A75DEBAA85846A0A294853 /* AppModel.swift */; };
-		A2D9AC16F7D85E03EEB1964E /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = BF92E48A6E8511778471FEFD /* SquareOffNet */; };
+		933569DBBF8E5D82F7BC0705 /* RulebookDemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 479A55F3B6526664D723838B /* RulebookDemoTests.swift */; };
 		A37046962888562B757AD05A /* RulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44298EA4BF8BCFC2F12E634A /* RulesView.swift */; };
 		AD5F4A157A8A60C13698A431 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107387F876BA286D923E9C51 /* Theme.swift */; };
+		B056BFF38E887532F2978F72 /* DemoBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41CFF102A0CF12ACA419DF6C /* DemoBoardView.swift */; };
 		B551473D8B2F0442F71CE721 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6D7E66472DC336B993FFC2 /* GameView.swift */; };
+		BDD09628C48B63530709A25E /* Starfield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8196D783170D869DCCDC9C2B /* Starfield.swift */; };
+		D8E46AB1863F2F73FCC4E1F1 /* RulebookDemos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */; };
 		E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */; };
 		EAF3C39ACD0328E5315BCC3A /* button.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BE69ABA9011BBE77ED79CC73 /* button.mp3 */; };
+		F393246D2F1F4AB8EFF0BC4B /* Rulebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74745FC152F4FDAAF183028 /* Rulebook.swift */; };
 		FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB2294F1158530A790037386 /* GameSessionTests.swift */; };
 		FDFAA2C9B9D9EE232AB4E605 /* SquareOffCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7E6CA20F495728696B29D026 /* SquareOffCore */; };
 		FE1B2ECA03213661B6DACC0B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */; };
@@ -44,15 +49,21 @@
 		136C9DB5B8E80AE63467AA7A /* OnlineViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineViews.swift; sourceTree = "<group>"; };
 		1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2D425CAA288550260774CEA5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		41CFF102A0CF12ACA419DF6C /* DemoBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoBoardView.swift; sourceTree = "<group>"; };
 		44298EA4BF8BCFC2F12E634A /* RulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulesView.swift; sourceTree = "<group>"; };
+		479A55F3B6526664D723838B /* RulebookDemoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulebookDemoTests.swift; sourceTree = "<group>"; };
 		487284783B713FADBD398B72 /* GameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSession.swift; sourceTree = "<group>"; };
 		6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquareOffApp.swift; sourceTree = "<group>"; };
+		7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulebookDemos.swift; sourceTree = "<group>"; };
+		8196D783170D869DCCDC9C2B /* Starfield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Starfield.swift; sourceTree = "<group>"; };
+		868473B183874E9A64D3A161 /* GameServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameServices.swift; sourceTree = "<group>"; };
 		86A75DEBAA85846A0A294853 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		86B0E77FE8776AD7519B095E /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		8D707DF5DF0D3AC29A6E544E /* SquareOffTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SquareOffTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		90B838FCE08AF16CD75A5164 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		917EBEA674D7D753E4323871 /* SquareOff.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SquareOff.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A74745FC152F4FDAAF183028 /* Rulebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rulebook.swift; sourceTree = "<group>"; };
 		BE69ABA9011BBE77ED79CC73 /* button.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = button.mp3; sourceTree = "<group>"; };
 		BF6D7E66472DC336B993FFC2 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
 		D8FA79E9B968B77B90DDAE5D /* spin.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = spin.mp3; sourceTree = "<group>"; };
@@ -68,7 +79,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FDFAA2C9B9D9EE232AB4E605 /* SquareOffCore in Frameworks */,
-				A2D9AC16F7D85E03EEB1964E /* SquareOffNet in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,6 +89,7 @@
 			isa = PBXGroup;
 			children = (
 				90B838FCE08AF16CD75A5164 /* BoardView.swift */,
+				868473B183874E9A64D3A161 /* GameServices.swift */,
 				487284783B713FADBD398B72 /* GameSession.swift */,
 				EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */,
 				BF6D7E66472DC336B993FFC2 /* GameView.swift */,
@@ -143,6 +154,9 @@
 		5823EDDE485FD7409FAA3A5C /* Learn */ = {
 			isa = PBXGroup;
 			children = (
+				41CFF102A0CF12ACA419DF6C /* DemoBoardView.swift */,
+				A74745FC152F4FDAAF183028 /* Rulebook.swift */,
+				7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */,
 				44298EA4BF8BCFC2F12E634A /* RulesView.swift */,
 			);
 			path = Learn;
@@ -182,6 +196,7 @@
 			isa = PBXGroup;
 			children = (
 				DB2294F1158530A790037386 /* GameSessionTests.swift */,
+				479A55F3B6526664D723838B /* RulebookDemoTests.swift */,
 			);
 			path = SquareOffTests;
 			sourceTree = "<group>";
@@ -201,6 +216,7 @@
 			children = (
 				86A75DEBAA85846A0A294853 /* AppModel.swift */,
 				6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */,
+				8196D783170D869DCCDC9C2B /* Starfield.swift */,
 				107387F876BA286D923E9C51 /* Theme.swift */,
 			);
 			path = App;
@@ -232,7 +248,6 @@
 			name = SquareOff;
 			packageProductDependencies = (
 				7E6CA20F495728696B29D026 /* SquareOffCore */,
-				BF92E48A6E8511778471FEFD /* SquareOffNet */,
 			);
 			productName = SquareOff;
 			productReference = 917EBEA674D7D753E4323871 /* SquareOff.app */;
@@ -313,16 +328,21 @@
 			files = (
 				798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */,
 				434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */,
+				B056BFF38E887532F2978F72 /* DemoBoardView.swift in Sources */,
+				751EE4FAAFF0B5824306C465 /* GameServices.swift in Sources */,
 				4465A51D5918EC4A957D17F6 /* GameSession.swift in Sources */,
 				312D360DF6E2C4E950F3334F /* GameSheets.swift in Sources */,
 				B551473D8B2F0442F71CE721 /* GameView.swift in Sources */,
 				08477A5A7B1E58504CABC758 /* HomeView.swift in Sources */,
 				62E4814E05C980BE16EC3C56 /* OnlineViews.swift in Sources */,
 				E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */,
+				F393246D2F1F4AB8EFF0BC4B /* Rulebook.swift in Sources */,
+				D8E46AB1863F2F73FCC4E1F1 /* RulebookDemos.swift in Sources */,
 				A37046962888562B757AD05A /* RulesView.swift in Sources */,
 				3F94D50BC885FD3CE8321BC9 /* SetupForm.swift in Sources */,
 				773C6133F378A3F308C43085 /* SoundPlayer.swift in Sources */,
 				06FBF9760296FECD619954DA /* SquareOffApp.swift in Sources */,
+				BDD09628C48B63530709A25E /* Starfield.swift in Sources */,
 				AD5F4A157A8A60C13698A431 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -332,6 +352,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */,
+				933569DBBF8E5D82F7BC0705 /* RulebookDemoTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -588,10 +609,6 @@
 		7E6CA20F495728696B29D026 /* SquareOffCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SquareOffCore;
-		};
-		BF92E48A6E8511778471FEFD /* SquareOffNet */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = SquareOffNet;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

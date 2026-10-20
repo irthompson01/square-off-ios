@@ -1,23 +1,8 @@
 import Observation
 import SquareOffCore
-import SquareOffNet
 import SwiftUI
 
-/// Which server the app talks to. Mock by default so the app runs with no backend.
-enum Backend: String, CaseIterable, Identifiable {
-    case mock
-    case local
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .mock: "Mock (offline)"
-        case .local: "Local server"
-        }
-    }
-}
-
+/// Who is playing. v1 is guest-only; `signedIn` is the seam for a later accounts pass.
 enum Account: Equatable {
     case guest
     case signedIn(username: String)
@@ -58,46 +43,26 @@ struct SetupPlayer: Equatable, Identifiable {
     var colorHex: String
 }
 
+enum AppTab: Hashable {
+    case play, learn, profile
+}
+
 @Observable
 final class AppModel {
-    var backend: Backend {
-        didSet {
-            UserDefaults.standard.set(backend.rawValue, forKey: "backend")
-            api = Self.makeAPI(backend)
-        }
-    }
-
-    private(set) var api: any SquareOffAPI
     var account: Account = .guest
+    var selectedTab: AppTab = .play
+    /// Debug deep links (`-demoScreen`): screens to open once the root view appears.
+    var pendingPlayRoute: PlayMode?
+    var pendingSignIn = false
+    var pendingRulesSection: String?
+    var pendingColorPicker = false
     /// The game on screen (presented full screen). Kept after it ends so Home can offer "Continue".
     var activeGame: GameSession?
     var isGamePresented = false
 
-    init() {
-        let backend = Backend(rawValue: UserDefaults.standard.string(forKey: "backend") ?? "") ?? .mock
-        self.backend = backend
-        self.api = Self.makeAPI(backend)
-    }
-
-    private static func makeAPI(_ backend: Backend) -> any SquareOffAPI {
-        switch backend {
-        case .mock: MockSquareOffAPI()
-        case .local: LiveSquareOffAPI(environment: .local)
-        }
-    }
-
     func start(_ config: GameConfig) {
-        activeGame = GameSession(config: config, api: api, account: account)
+        activeGame?.stop()
+        activeGame = GameSession(config: config)
         isGamePresented = true
-    }
-
-    func signIn(username: String, password: String) async throws {
-        try await api.login(LoginRequest(emailOrUsername: username, password: password))
-        account = .signedIn(username: username)
-    }
-
-    func signOut() async {
-        try? await api.logout()
-        account = .guest
     }
 }

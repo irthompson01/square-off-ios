@@ -15,7 +15,7 @@ enum PlayMode: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .cpu: "Six AI levels, from Random to Max-Min-IO"
+        case .cpu: "Five AI levels, from Random to Max-Min-IO"
         case .passAndPlay: "2–4 friends sharing this device"
         case .online: "Quick match, room code or open lobby"
         }
@@ -35,7 +35,6 @@ enum PlayMode: String, CaseIterable, Identifiable {
 struct HomeView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var isSignInPresented = false
     @State private var selectedMode: PlayMode = .cpu
 
     var body: some View {
@@ -46,8 +45,7 @@ struct HomeView: View {
                 compactLayout
             }
         }
-        .background(Theme.background)
-        .sheet(isPresented: $isSignInPresented) { SignInView() }
+        .appBackground()
     }
 
     // MARK: iPhone
@@ -65,7 +63,6 @@ struct HomeView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 continueCard.padding(.top, 10)
-                if app.account == .guest { signInPrompt }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
@@ -86,7 +83,6 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
                 continueCard.padding(.top, 8)
-                if app.account == .guest { signInPrompt }
                 Spacer()
             }
             .frame(width: 380)
@@ -141,20 +137,6 @@ struct HomeView: View {
             .buttonStyle(.plain)
         }
     }
-
-    private var signInPrompt: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Save your stats").font(.headline)
-            Text("You're playing as a guest. Sign in to track wins and play online under your name.")
-                .font(.footnote)
-                .foregroundStyle(Theme.textSecondary)
-            Button("Sign in") { isSignInPresented = true }
-                .buttonStyle(SecondaryButtonStyle())
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
-    }
 }
 
 struct PlayModeView: View {
@@ -172,7 +154,7 @@ struct PlayModeView: View {
             .buttonStyle(.plain)
             .padding(20)
         }
-        .background(Theme.background)
+        .appBackground()
         .navigationTitle("Play")
     }
 }

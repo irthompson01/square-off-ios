@@ -35,6 +35,14 @@ extension Color {
             blue: Double(value & 0xFF) / 255
         )
     }
+
+    /// `#RRGGBB` in sRGB, the format the web and the server store player colours in.
+    var hexString: String {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        let clamp = { (v: CGFloat) in Int((min(max(v, 0), 1) * 255).rounded()) }
+        return String(format: "#%02X%02X%02X", clamp(r), clamp(g), clamp(b))
+    }
 }
 
 struct CardBackground: ViewModifier {

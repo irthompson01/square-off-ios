@@ -1,14 +1,15 @@
 import SwiftUI
 
+/// Guest-only for v1: a guest card, the feel settings, and a preview of the sign-in screen.
 struct ProfileView: View {
     @Environment(AppModel.self) private var app
     @AppStorage("soundEnabled") private var soundEnabled = true
     @AppStorage("musicEnabled") private var musicEnabled = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
+    @AppStorage("starsEnabled") private var starsEnabled = true
     @State private var isSignInPresented = false
 
     var body: some View {
-        @Bindable var app = app
         Form {
             Section {
                 HStack(spacing: 14) {
@@ -18,22 +19,20 @@ struct ProfileView: View {
                         .background(Color(hex: Theme.playerColors[0]), in: RoundedRectangle(cornerRadius: 18))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(app.account.displayName).font(.title3.bold())
-                        Text(app.account == .guest ? "Playing as a guest" : "Signed in")
+                        Text(app.account == .guest ? "Playing as a guest on this device" : "Signed in")
                             .font(.footnote)
                             .foregroundStyle(Theme.textSecondary)
                     }
                 }
                 .padding(.vertical, 4)
-                if app.account == .guest {
-                    Button("Sign in or create account") { isSignInPresented = true }
-                }
+                Button("Sign in (preview)") { isSignInPresented = true }
             }
 
             Section("Stats") {
                 LabeledContent("Games", value: "—")
                 LabeledContent("Win rate", value: "—")
                 LabeledContent("Best turn", value: "—")
-                Text("Stats and replays will load from /stats_view once signed in.")
+                Text("Stats and replays arrive with accounts.")
                     .font(.footnote)
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -42,40 +41,28 @@ struct ProfileView: View {
                 Toggle("Sound effects", isOn: $soundEnabled)
                 Toggle("Music", isOn: $musicEnabled)
                 Toggle("Haptics", isOn: $hapticsEnabled)
-            }
-
-            Section {
-                Picker("Backend", selection: $app.backend) {
-                    ForEach(Backend.allCases) { Text($0.title).tag($0) }
-                }
-            } header: {
-                Text("Developer")
-            } footer: {
-                Text("Local server = docker-compose backend at https://localhost:8002. The simulator must trust the mkcert root (see README).")
-            }
-
-            if app.account != .guest {
-                Section {
-                    Button("Sign out", role: .destructive) { Task { await app.signOut() } }
-                }
+                Toggle("Stars background", isOn: $starsEnabled)
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Theme.background)
+        .appBackground()
         .navigationTitle("Profile")
         .sheet(isPresented: $isSignInPresented) { SignInView() }
+        .onAppear {
+            if app.pendingSignIn {
+                app.pendingSignIn = false
+                isSignInPresented = true
+            }
+        }
     }
 }
 
-/// Password + guest login for v1. Apple / Google / GitHub are placeholders until Sign in with
-/// Apple works on the web (the server needs mobile OAuth redirects first).
+/// Static mockup of the web's login page. Nothing here signs in: every button explains that
+/// accounts aren't in this build. Guest play needs no account.
 struct SignInView: View {
-    @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var username = ""
     @State private var password = ""
-    @State private var isWorking = false
-    @State private var error: String?
     @State private var comingSoon: String?
 
     var body: some View {
@@ -88,26 +75,24 @@ struct SignInView: View {
                         .autocorrectionDisabled()
                     SecureField("Password", text: $password)
                         .textContentType(.password)
-                    if let error {
-                        Text(error).font(.footnote).foregroundStyle(Theme.destructive)
+                    Button { comingSoon = "Sign in" } label: {
+                        Text("Sign in").bold()
                     }
-                    Button {
-                        Task { await signIn() }
-                    } label: {
-                        HStack {
-                            Text("Sign in").bold()
-                            if isWorking { Spacer(); ProgressView() }
-                        }
-                    }
-                    .disabled(username.isEmpty || password.isEmpty || isWorking)
+                    .disabled(username.isEmpty || password.isEmpty)
                 }
 
                 Section {
-                    socialButton("Sign in with Apple", systemImage: "apple.logo", background: .white, foreground: .black)
-                    socialButton("Continue with Google", systemImage: "g.circle.fill", background: Theme.surfaceRaised, foreground: .white)
-                    socialButton("Continue with GitHub", systemImage: "chevron.left.forwardslash.chevron.right", background: Theme.surfaceRaised, foreground: .white)
+                    socialButton("Sign in with Apple", background: .white, foreground: .black) {
+                        Image(systemName: "apple.logo")
+                    }
+                    socialButton("Continue with Google", background: Theme.surfaceRaised, foreground: .white) {
+                        Image(systemName: "g.circle.fill")
+                    }
+                    socialButton("Continue with GitHub", background: Theme.surfaceRaised, foreground: .white) {
+                        Image("github-mark").resizable().scaledToFit().frame(width: 20, height: 20)
+                    }
                 } footer: {
-                    Text("Coming soon. These turn on once Sign in with Apple ships on the web.")
+                    Text("Preview only. Accounts and Sign in with Apple come in a later build.")
                 }
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(Color.clear)
@@ -131,9 +116,9 @@ struct SignInView: View {
         }
     }
 
-    private func socialButton(_ title: String, systemImage: String, background: Color, foreground: Color) -> some View {
+    private func socialButton(_ title: String, background: Color, foreground: Color, @ViewBuilder icon: () -> some View) -> some View {
         Button { comingSoon = title } label: {
-            Label(title, systemImage: systemImage)
+            Label { Text(title) } icon: { icon() }
                 .font(.headline)
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .foregroundStyle(foreground)
@@ -141,16 +126,5 @@ struct SignInView: View {
                 .opacity(0.55)
         }
         .buttonStyle(.plain)
-    }
-
-    private func signIn() async {
-        isWorking = true
-        defer { isWorking = false }
-        do {
-            try await app.signIn(username: username, password: password)
-            dismiss()
-        } catch {
-            self.error = "Couldn't sign in. Check your details and try again."
-        }
     }
 }

@@ -1,24 +1,34 @@
 import Observation
 import SquareOffCore
-import SquareOffNet
 import SwiftUI
 
 /// A spin request for one tile. `id` changes every time so the same tile can spin again.
+/// The rules say corners spin `2 × shapes` turns, accumulating when a tile belongs to several
+/// shapes; on a 12×12 with a big multiplier that is many seconds of spinning, so the view caps it.
 struct SpinEvent: Equatable {
+    static let maxTurns = 3
+
     let id: Int
     let turns: Int
+
+    init(id: Int, turns: Int) {
+        self.id = id
+        self.turns = min(max(turns, 1), Self.maxTurns)
+    }
 }
 
-/// Drives one game: local rules from SquareOffCore, server calls in the same order as the web
-/// (`/guests` + `/cpu_player` → `/start` → `/{id}/turns` per move, `/cpu_move` on CPU turns).
+/// Drives one game entirely on device: rules from SquareOffCore, CPU moves from a
+/// `CPUMoveProvider`, and every move handed to a `GameRecorder` (a no-op in v1).
 @Observable
 final class GameSession: Identifiable {
     let id = UUID()
     let config: GameConfig
-    private let api: any SquareOffAPI
+    private let cpu: any CPUMoveProvider
+    private let recorder: any GameRecorder
+    /// CPU "think" time in milliseconds. The web waits `Math.random() * 1000 + 500`.
+    private let thinkDelay: ClosedRange<Int>
 
     private(set) var game: Game
-    private(set) var serverGameID: Int?
     private(set) var spins: [Cell: SpinEvent] = [:]
     private(set) var lastMove: MoveResult?
     private(set) var isCPUThinking = false
@@ -33,10 +43,18 @@ final class GameSession: Identifiable {
 
     private var spinSequence = 0
     private var timerTask: Task<Void, Never>?
+    private var cpuTask: Task<Void, Never>?
 
-    init(config: GameConfig, api: any SquareOffAPI, account: Account) {
+    init(
+        config: GameConfig,
+        cpu: any CPUMoveProvider = LocalCPUMoveProvider(),
+        recorder: any GameRecorder = NoOpGameRecorder(),
+        thinkDelay: ClosedRange<Int> = 500...1500
+    ) {
         self.config = config
-        self.api = api
+        self.cpu = cpu
+        self.recorder = recorder
+        self.thinkDelay = thinkDelay
         self.game = Game(boardSize: config.boardSize, players: Self.seats(for: config), timerSeconds: config.timerSeconds)
     }
 
@@ -44,8 +62,9 @@ final class GameSession: Identifiable {
     var currentPlayer: PlayerState { game.currentPlayer }
     var canTap: Bool { !isOver && !currentPlayer.isCPU && !isCPUThinking }
 
+    /// Shapes in the order they were formed, minus any owner the player has hidden.
     var visibleShapes: [BoardShape] {
-        game.allShapes.filter { !hiddenShapeOwners.contains($0.ownerID) }
+        game.moves.flatMap(\.newShapes).filter { !hiddenShapeOwners.contains($0.ownerID) }
     }
 
     var turnLabel: String {
@@ -58,26 +77,25 @@ final class GameSession: Identifiable {
     // MARK: Lifecycle
 
     func start() async {
-        do {
-            try await registerWithServer()
-        } catch {
-            notice = "Couldn't reach the server. This game won't be saved."
-        }
+        await recorder.gameStarted(game, config: config)
         startTurn()
     }
 
     func restart() {
         timerTask?.cancel()
+        cpuTask?.cancel()
+        isCPUThinking = false
         game = Game(boardSize: config.boardSize, players: Self.seats(for: config), timerSeconds: config.timerSeconds)
-        serverGameID = nil
         spins = [:]
         lastMove = nil
+        timeRemaining = nil
         isGameOverPresented = false
         Task { await start() }
     }
 
     func stop() {
         timerTask?.cancel()
+        cpuTask?.cancel()
     }
 
     // MARK: Moves
@@ -105,7 +123,8 @@ final class GameSession: Identifiable {
             SoundPlayer.shared.play(.place)
         }
 
-        recordTurn(result, mover: game.players.first { $0.id == mover.id } ?? mover)
+        let updatedMover = game.players.first { $0.id == mover.id } ?? mover
+        Task { [recorder] in await recorder.record(result, by: updatedMover) }
 
         if game.isOver {
             Task {
@@ -120,7 +139,7 @@ final class GameSession: Identifiable {
     private func startTurn() {
         guard !game.isOver else { return }
         if currentPlayer.isCPU {
-            Task { await playCPUTurn() }
+            cpuTask = Task { await playCPUTurn() }
         } else {
             startTimer()
         }
@@ -130,16 +149,14 @@ final class GameSession: Identifiable {
         isCPUThinking = true
         defer { isCPUThinking = false }
         // Same feel as the web: the CPU never answers instantly.
-        try? await Task.sleep(for: .milliseconds(650))
-        let request = CPUMoveRequest(gameID: serverGameID ?? 0, game: game)
-        var cell: Cell
-        do {
-            cell = try await api.cpuMove(request).cell
-        } catch {
-            // The web stalls here; we keep the game going and say why.
-            notice = "CPU server error (\(currentPlayer.cpuLevel?.shortName ?? "CPU")). Played a random move."
-            cell = game.board.emptyCells.randomElement() ?? Cell(row: 0, col: 0)
-        }
+        let delay = thinkDelay.lowerBound == thinkDelay.upperBound ? thinkDelay.lowerBound : Int.random(in: thinkDelay)
+        if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
+        guard !Task.isCancelled else { return }
+
+        let level = currentPlayer.cpuLevel ?? .random
+        var cell = await cpu.move(for: game, level: level)
+        // A restart while thinking must not apply a stale move to the new board.
+        guard !Task.isCancelled else { return }
         if game.board[cell] != nil, let fallback = game.board.emptyCells.randomElement() {
             cell = fallback
         }
@@ -156,45 +173,9 @@ final class GameSession: Identifiable {
                 guard !Task.isCancelled else { return }
                 timeRemaining = remaining - 1
             }
-            // Time's up: play a random tile, like the online server does on TURN_COMPLETE.
+            // Time's up: play a random tile, like the web does for local games.
             if let cell = game.board.emptyCells.randomElement() { apply(cell) }
         }
-    }
-
-    // MARK: Server
-
-    private func registerWithServer() async throws {
-        let guests = try await api.guests().guests
-        var players = game.players
-        var guestIndex = 0
-        for i in players.indices {
-            if let level = players[i].cpuLevel {
-                let cpu = try await api.cpuPlayer(level)
-                players[i].serverPlayerID = String(cpu.id)
-            } else {
-                players[i].serverPlayerID = guests.indices.contains(guestIndex) ? guests[guestIndex] : nil
-                guestIndex += 1
-            }
-        }
-        let response = try await api.startGame(
-            StartGameRequest(boardSize: game.board.size, timer: config.timerSeconds, players: players, type: .local)
-        )
-        serverGameID = response.gameId
-        var participants: [Int: Int] = [:]
-        for (seat, participant) in zip(players, response.participants) {
-            participants[seat.id] = participant.participantId
-        }
-        game = Game(boardSize: game.board.size, players: players.map { seat in
-            var seat = seat
-            seat.participantID = participants[seat.id]
-            return seat
-        }, timerSeconds: config.timerSeconds)
-    }
-
-    private func recordTurn(_ move: MoveResult, mover: PlayerState) {
-        guard let gameID = serverGameID else { return }
-        let request = GameTurnRequest(move: move, player: mover)
-        Task { [api] in _ = try? await api.insertTurn(gameID: gameID, request) }
     }
 
     private static func seats(for config: GameConfig) -> [PlayerState] {
@@ -202,9 +183,10 @@ final class GameSession: Identifiable {
         case .cpu(let level):
             let me = config.players[0]
             let cpuColor = me.colorHex == Theme.playerColors[1] ? Theme.playerColors[0] : Theme.playerColors[1]
+            let played = level.offlineFallback
             return [
                 PlayerState(id: 1, name: me.name, colorHex: me.colorHex),
-                PlayerState(id: 2, name: "CPU · L\(level.number)", colorHex: cpuColor, isCPU: true, cpuLevel: level),
+                PlayerState(id: 2, name: "CPU · L\(played.number)", colorHex: cpuColor, isCPU: true, cpuLevel: played),
             ]
         case .passAndPlay, .onlineMock:
             return config.players.map { PlayerState(id: $0.id, name: $0.name, colorHex: $0.colorHex) }

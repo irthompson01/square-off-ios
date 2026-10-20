@@ -36,15 +36,12 @@ struct BoardView: View {
                     }
                 }
 
-                ForEach(session.visibleShapes) { shape in
-                    ShapeOverlay(
-                        shape: shape,
-                        color: color(for: shape.ownerID) ?? .white,
-                        layout: layout,
-                        startCorner: session.lastMove?.cell
-                    )
-                }
-                .allowsHitTesting(false)
+                ShapeLayer(
+                    shapes: session.visibleShapes,
+                    layout: layout,
+                    startCorner: session.lastMove?.cell,
+                    color: { color(for: $0) ?? .white }
+                )
             }
             .frame(width: side, height: side)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -112,31 +109,45 @@ struct TileView: View {
     }
 }
 
-/// Outline + translucent pane for a formed shape. New shapes draw their outline starting from
-/// the tapped corner, and the pane fades in as the corner spins settle.
-struct ShapeOverlay: View {
-    let shape: BoardShape
-    let color: Color
+/// Every formed shape on the board. `shapes` must be in the order they were formed.
+///
+/// Fills are flattened into one layer at a fixed opacity, so a 12×12 board full of overlapping
+/// shapes never darkens past that and empty tiles stay readable. Outlines follow the web: the
+/// newest few stay bright, older ones fade back.
+struct ShapeLayer: View {
+    let shapes: [BoardShape]
     let layout: BoardLayout
     let startCorner: Cell?
+    let color: (Int) -> Color
 
-    @State private var progress: CGFloat = 0
-    @State private var fill: Double = 0
+    static let paneOpacity = 0.12
+    static let recentOutlines = 5
 
     var body: some View {
-        let path = outline()
-        ZStack {
-            path.fill(color.opacity(0.13 * fill))
-            path.trim(from: 0, to: progress)
-                .stroke(color.mix(with: .white, by: 0.45), style: StrokeStyle(lineWidth: max(2.5, layout.tile * 0.07), lineCap: .round, lineJoin: .round))
+        let recent = Set(shapes.suffix(Self.recentOutlines).map(\.id))
+        ZStack(alignment: .topLeading) {
+            ZStack(alignment: .topLeading) {
+                ForEach(shapes) { shape in
+                    ShapePane(path: Self.outline(shape, layout: layout, startCorner: startCorner), color: color(shape.ownerID))
+                }
+            }
+            .compositingGroup()
+            .opacity(Self.paneOpacity)
+
+            ForEach(shapes) { shape in
+                ShapeOutline(
+                    path: Self.outline(shape, layout: layout, startCorner: startCorner),
+                    color: color(shape.ownerID),
+                    lineWidth: max(2, layout.tile * 0.07),
+                    emphasis: recent.contains(shape.id) ? 1 : 0.22
+                )
+            }
         }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.9).delay(0.3)) { progress = 1 }
-            withAnimation(.easeOut(duration: 0.5).delay(0.6)) { fill = 1 }
-        }
+        .allowsHitTesting(false)
     }
 
-    private func outline() -> Path {
+    /// Corner path starting at the tapped corner so the outline draws out from it.
+    static func outline(_ shape: BoardShape, layout: BoardLayout, startCorner: Cell?) -> Path {
         var corners = shape.corners
         if let start = startCorner, let index = corners.firstIndex(of: start) {
             corners = Array(corners[index...] + corners[..<index])
@@ -145,5 +156,35 @@ struct ShapeOverlay: View {
         path.addLines(corners.map(layout.center(of:)))
         path.closeSubpath()
         return path
+    }
+}
+
+/// Solid pane that fades in once the corner spins settle. Opacity is applied by `ShapeLayer`.
+private struct ShapePane: View {
+    let path: Path
+    let color: Color
+    @State private var shown = false
+
+    var body: some View {
+        path.fill(color)
+            .opacity(shown ? 1 : 0)
+            .onAppear { withAnimation(.easeOut(duration: 0.5).delay(0.6)) { shown = true } }
+    }
+}
+
+/// Outline drawn out from the tapped corner, then faded back as newer shapes arrive.
+private struct ShapeOutline: View {
+    let path: Path
+    let color: Color
+    let lineWidth: CGFloat
+    let emphasis: Double
+    @State private var progress: CGFloat = 0
+
+    var body: some View {
+        path.trim(from: 0, to: progress)
+            .stroke(color.mix(with: .white, by: 0.45), style: StrokeStyle(lineWidth: lineWidth * (0.5 + 0.5 * emphasis), lineCap: .round, lineJoin: .round))
+            .opacity(emphasis)
+            .animation(.easeOut(duration: 0.4), value: emphasis)
+            .onAppear { withAnimation(.easeInOut(duration: 0.9).delay(0.3)) { progress = 1 } }
     }
 }

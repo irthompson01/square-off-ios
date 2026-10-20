@@ -26,10 +26,10 @@ targets:
     sources:
       - path: SquareOff
     dependencies:
+      # The app links only the rules package. SquareOffNet (server DTOs + clients) stays in the
+      # repo with its contract tests, but nothing in the v1 game flow talks to a server.
       - package: SquareOffKit
         product: SquareOffCore
-      - package: SquareOffKit
-        product: SquareOffNet
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff

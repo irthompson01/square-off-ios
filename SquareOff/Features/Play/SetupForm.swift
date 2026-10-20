@@ -19,6 +19,7 @@ struct SetupForm: View {
 
     static let boardSizes = Array(6...12)
     static let timers = [0, 10, 20, 30, 60]
+    @State private var debugColorSheet = false
 
     var body: some View {
         ScrollView {
@@ -31,7 +32,7 @@ struct SetupForm: View {
             }
             .padding(16)
         }
-        .background(Theme.background)
+        .appBackground()
         .safeAreaInset(edge: .bottom) {
             Button(action: startGame) {
                 Label("Start Game", systemImage: "play.fill")
@@ -42,21 +43,30 @@ struct SetupForm: View {
             .background(Theme.background.opacity(0.95))
         }
         .navigationTitle(kind == .cpu ? "Vs Computer" : "Pass & Play")
+        .sheet(isPresented: $debugColorSheet) {
+            ColorSwatchSheet(selection: $players[0].colorHex)
+                .presentationDetents([.height(340)])
+                .presentationBackground(Theme.surface)
+        }
+        .onAppear {
+            if app.pendingColorPicker {
+                app.pendingColorPicker = false
+                debugColorSheet = true
+            }
+        }
     }
 
     private var boardSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(spacing: 10) {
                 SectionLabel("Board size")
                 Spacer()
+                BoardPreview(size: boardSize).frame(width: 34, height: 34)
                 Text(tileNote).font(.footnote).foregroundStyle(tilePoints < 40 ? Theme.warning : Theme.textSecondary)
             }
-            HStack(spacing: 14) {
-                BoardPreview(size: boardSize).frame(width: 76, height: 76)
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
-                    ForEach(Self.boardSizes, id: \.self) { size in
-                        ChipButton(title: "\(size)×\(size)", isSelected: boardSize == size) { boardSize = size }
-                    }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+                ForEach(Self.boardSizes, id: \.self) { size in
+                    ChipButton(title: "\(size)×\(size)", isSelected: boardSize == size) { boardSize = size }
                 }
             }
         }
@@ -74,7 +84,9 @@ struct SetupForm: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 6), spacing: 6) {
                 ForEach(CPULevel.allCases) { option in
                     ChipButton(title: "\(option.number)", isSelected: level == option, height: 44) { level = option }
-                        .accessibilityLabel("Level \(option.number), \(option.shortName)")
+                        .disabled(!option.isAvailableOffline)
+                        .opacity(option.isAvailableOffline ? 1 : 0.35)
+                        .accessibilityLabel("Level \(option.number), \(option.shortName)\(option.isAvailableOffline ? "" : ", unavailable in this build")")
                 }
             }
             HStack {
@@ -84,11 +96,9 @@ struct SetupForm: View {
             }
             .font(.caption)
             .foregroundStyle(Theme.textSecondary)
-            if level == .cnn {
-                Label("Level 3 runs on the server and currently only supports 8×8, 2 players.", systemImage: "info.circle")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.warning)
-            }
+            Label("Level 3 (CNN) runs on the server and isn't available in this build.", systemImage: "info.circle")
+                .font(.footnote)
+                .foregroundStyle(Theme.textSecondary)
         }
         .padding(14)
         .card()
@@ -128,7 +138,7 @@ struct SetupForm: View {
                         .padding(.horizontal, 12)
                         .frame(height: 44)
                         .background(Theme.background, in: RoundedRectangle(cornerRadius: 12))
-                    ColorMenu(selection: $players[index].colorHex)
+                    ColorSwatchPicker(selection: $players[index].colorHex)
                 }
             }
         }
@@ -171,6 +181,9 @@ struct ChipButton: View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 4)
                 .frame(maxWidth: .infinity, minHeight: height)
                 .foregroundStyle(isSelected ? .white : Color(hex: "#C8C8D6"))
                 .background(
@@ -187,24 +200,85 @@ struct ChipButton: View {
     }
 }
 
-struct ColorMenu: View {
+/// Player colour: the eight preset swatches, or any colour from the system colour wheel.
+struct ColorSwatchPicker: View {
     @Binding var selection: String
+    @State private var isPresented = false
 
     var body: some View {
-        Menu {
-            ForEach(Theme.swatches, id: \.self) { hex in
-                Button { selection = hex } label: {
-                    Label(hex, systemImage: selection == hex ? "checkmark.circle.fill" : "circle.fill")
-                }
-                .tint(Color(hex: hex))
-            }
-        } label: {
+        Button { isPresented = true } label: {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color(hex: selection))
                 .frame(width: 44, height: 44)
                 .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.white.opacity(0.6), lineWidth: 2))
         }
-        .accessibilityLabel("Color")
+        .buttonStyle(.plain)
+        .accessibilityLabel("Color \(selection)")
+        .sheet(isPresented: $isPresented) {
+            ColorSwatchSheet(selection: $selection)
+                .presentationDetents([.height(340)])
+                .presentationBackground(Theme.surface)
+        }
+    }
+}
+
+struct ColorSwatchSheet: View {
+    @Binding var selection: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var custom: Color
+
+    init(selection: Binding<String>) {
+        _selection = selection
+        _custom = State(initialValue: Color(hex: selection.wrappedValue))
+    }
+
+    private var isPreset: Bool { Theme.swatches.contains(selection.uppercased()) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("Pick a color").font(.headline)
+                Spacer()
+                Button("Done") { dismiss() }.font(.headline)
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
+                ForEach(Theme.swatches, id: \.self) { hex in
+                    Button {
+                        selection = hex
+                        custom = Color(hex: hex)
+                    } label: {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color(hex: hex))
+                            .aspectRatio(1.4, contentMode: .fit)
+                            .overlay {
+                                if selection.uppercased() == hex {
+                                    Image(systemName: "checkmark").font(.headline.weight(.bold)).foregroundStyle(.white).shadow(radius: 2)
+                                }
+                            }
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(selection.uppercased() == hex ? 0.9 : 0.15), lineWidth: 2))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(hex)
+                }
+            }
+            HStack(spacing: 12) {
+                ColorPicker(selection: $custom, supportsOpacity: false) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Custom color").font(.subheadline.weight(.semibold))
+                        Text(isPreset ? "Open the color wheel to pick any shade" : "Using \(selection.uppercased())")
+                            .font(.caption).foregroundStyle(Theme.textSecondary)
+                    }
+                }
+                .onChange(of: custom) { _, color in
+                    let hex = color.hexString
+                    if hex != selection.uppercased() { selection = hex }
+                }
+            }
+            .padding(14)
+            .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            Spacer(minLength: 0)
+        }
+        .padding(20)
     }
 }
 
@@ -212,7 +286,7 @@ struct BoardPreview: View {
     let size: Int
 
     var body: some View {
-        Grid(horizontalSpacing: 2, verticalSpacing: 2) {
+        Grid(horizontalSpacing: 1, verticalSpacing: 1) {
             ForEach(0..<size, id: \.self) { _ in
                 GridRow {
                     ForEach(0..<size, id: \.self) { _ in

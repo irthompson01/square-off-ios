@@ -67,6 +67,19 @@ public struct MoveResult: Hashable, Sendable {
     }
 }
 
+/// The outcome of a hypothetical placement: what `Game.place(at:)` would add to the mover.
+public struct PlacementPreview: Hashable, Sendable {
+    public let newSquares: [BoardShape]
+    public let newDiamonds: [BoardShape]
+    /// Points gained, with the multiplier already applied (Python `calculate_score()[1]`).
+    public let scoreIncrease: Int
+    /// The mover's multiplier after the move (Python `calculate_score()[2]`).
+    public let multiplierAfter: Int
+    public let multiplierIncrease: Int
+
+    public var newShapeCount: Int { newSquares.count + newDiamonds.count }
+}
+
 public enum MoveError: Error, Equatable {
     case gameOver
     case outOfBounds
@@ -82,9 +95,19 @@ public struct Game: Hashable, Sendable {
     public let timerSeconds: Int
 
     public init(boardSize: Int, players: [PlayerState], timerSeconds: Int = 0) {
+        self.init(board: Board(size: boardSize), players: players, currentPlayerIndex: 0, timerSeconds: timerSeconds)
+    }
+
+    /// Restores a game from an existing position (saved games, replays, CPU test fixtures).
+    /// Python's `Game.from_state` equivalent. Seats must be numbered 1…n in order so that
+    /// "next player" is `players[(index + 1) % n]`, exactly like the server's `players[id % n]`.
+    public init(board: Board, players: [PlayerState], currentPlayerIndex: Int = 0, timerSeconds: Int = 0) {
         precondition((2...4).contains(players.count), "Square Off supports 2–4 players")
-        self.board = Board(size: boardSize)
+        precondition(players.map(\.id) == Array(1...players.count), "Seats must be numbered 1…n in order")
+        precondition(players.indices.contains(currentPlayerIndex), "currentPlayerIndex out of range")
+        self.board = board
         self.players = players
+        self.currentPlayerIndex = currentPlayerIndex
         self.timerSeconds = timerSeconds
     }
 
@@ -120,39 +143,14 @@ public struct Game: Hashable, Sendable {
 
         let index = currentPlayerIndex
         let mover = players[index]
+        let preview = preview(placing: cell, byPlayerAt: index)
+
         board[cell] = mover.id
-
-        let existing = Set(allShapes.map(\.dedupeKey))
-        // Only the mover can complete a shape with their own tile, so filter to the mover
-        // exactly as the web does (`s.occupantId === player.id`).
-        let newSquares = board.findNewSquares(excluding: existing).filter { $0.ownerID == mover.id }
-        let newDiamonds = board.findNewDiamonds(excluding: existing).filter { $0.ownerID == mover.id }
-        let newCount = newSquares.count + newDiamonds.count
-        let points = (newSquares + newDiamonds).reduce(0) { $0 + $1.points }
-
         var updated = mover
-        updated.squares += newSquares
-        updated.diamonds += newDiamonds
-
-        let scoreIncrease: Int
-        let multiplierIncrease: Int
-        switch newCount {
-        case 0:
-            updated.multiplier = 1
-            scoreIncrease = 0
-            multiplierIncrease = 0
-        case 1:
-            updated.multiplier = 1
-            scoreIncrease = points
-            multiplierIncrease = 0
-            updated.score += points
-        default:
-            // Rulebook: new multiplier = current + shapes − 1 (from ×1 that is just `shapes`).
-            updated.multiplier = mover.multiplier > 1 ? mover.multiplier + newCount - 1 : newCount
-            multiplierIncrease = newCount - 1
-            scoreIncrease = points * updated.multiplier
-            updated.score += scoreIncrease
-        }
+        updated.squares += preview.newSquares
+        updated.diamonds += preview.newDiamonds
+        updated.multiplier = preview.multiplierAfter
+        updated.score += preview.scoreIncrease
 
         players[index] = updated
         for i in players.indices {
@@ -162,16 +160,57 @@ public struct Game: Hashable, Sendable {
         let result = MoveResult(
             cell: cell,
             playerID: mover.id,
-            newSquares: newSquares,
-            newDiamonds: newDiamonds,
-            scoreIncrease: scoreIncrease,
-            multiplierIncrease: multiplierIncrease,
+            newSquares: preview.newSquares,
+            newDiamonds: preview.newDiamonds,
+            scoreIncrease: preview.scoreIncrease,
+            multiplierIncrease: preview.multiplierIncrease,
             scoreAfter: updated.score,
             multiplierAfter: updated.multiplier
         )
         moves.append(result)
         currentPlayerIndex = (currentPlayerIndex + 1) % players.count
         return result
+    }
+
+    // MARK: Preview
+
+    /// What `place(at:)` would score if `players[index]` put a tile on `cell`, without mutating.
+    /// Precondition: `cell` is in bounds and empty.
+    public func preview(placing cell: Cell, byPlayerAt index: Int) -> PlacementPreview {
+        preview(placing: cell, byPlayerAt: index, existing: Set(allShapes.map(\.dedupeKey)))
+    }
+
+    /// Same as above with the dedupe set precomputed (the CPU evaluator calls this 2×N times per turn).
+    func preview(placing cell: Cell, byPlayerAt index: Int, existing: Set<String>) -> PlacementPreview {
+        let mover = players[index]
+        var simulated = board
+        simulated[cell] = mover.id
+
+        // Only the mover can complete a shape with their own tile, so filter to the mover
+        // exactly as the web does (`s.occupantId === player.id`).
+        let newSquares = simulated.findNewSquares(excluding: existing).filter { $0.ownerID == mover.id }
+        let newDiamonds = simulated.findNewDiamonds(excluding: existing).filter { $0.ownerID == mover.id }
+        let newCount = newSquares.count + newDiamonds.count
+        let points = (newSquares + newDiamonds).reduce(0) { $0 + $1.points }
+
+        // Same rule as the web's `computeLocalMoveResult` and the server's `calculate_score`:
+        // 0 shapes → ×1, +0; 1 shape → ×1, +points; n ≥ 2 → multiplier + n − 1, × that.
+        switch newCount {
+        case 0:
+            return PlacementPreview(newSquares: [], newDiamonds: [], scoreIncrease: 0, multiplierAfter: 1, multiplierIncrease: 0)
+        case 1:
+            return PlacementPreview(newSquares: newSquares, newDiamonds: newDiamonds, scoreIncrease: points, multiplierAfter: 1, multiplierIncrease: 0)
+        default:
+            // Rulebook: new multiplier = current + shapes − 1 (from ×1 that is just `shapes`).
+            let multiplier = mover.multiplier > 1 ? mover.multiplier + newCount - 1 : newCount
+            return PlacementPreview(
+                newSquares: newSquares,
+                newDiamonds: newDiamonds,
+                scoreIncrease: points * multiplier,
+                multiplierAfter: multiplier,
+                multiplierIncrease: newCount - 1
+            )
+        }
     }
 
     /// Writes server ids returned by `POST /start` back onto the seats.

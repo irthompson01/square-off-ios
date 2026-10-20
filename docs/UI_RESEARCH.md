@@ -226,7 +226,12 @@ Keep the dependency list small. None of these are needed for the wireframe phase
 - **Environments:** a mock backend by default; the local docker server (`https://localhost:8002/api`) via Profile › Developer.
 - **Universal iPhone + iPad**, REST/WebSocket parity with the web, the translucent shape fill, and the web's tile spin timings.
 
-**Offline CPU play: deferred, not v1.** It's feasible but needs two things the web doesn't have:
+**Decided (2026-10-19), supersedes the CPU and sign-in lines above**
+- **CPU moves are computed on device** for levels 1, 2, 4, 5 and 6 (`SquareOffCore/CPU/CPUStrategy.swift`, a line-for-line port of `model.py` including its tie-break quirks; tests assert candidate sets, seeded determinism and full CPU-vs-CPU games on 6×6–12×12). Level 3 (CNN) stays online-only and is greyed out in setup; `CPULevel.offlineFallback` maps it to Max-Min-Optimal if it ever reaches a session.
+- **No server calls in the v1 game flow.** The app target links only `SquareOffCore`. `GameSession` takes a `CPUMoveProvider` and a `GameRecorder`; the server-backed versions come in a later pass.
+- **Guest only.** Sign-in is a static mockup reached from Profile. No password login, no backend switch.
+
+**Offline CPU play: originally deferred (2026-10-17), now done (see above). Sync queue still open.** It's feasible but needs two things the web doesn't have:
 1. **On-device CPU.** Port levels 1, 2, 4–6 (see the CPU section). Level 3 (CNN) stays online-only, or later moves to Core ML.
 2. **A sync queue.** Record the game locally, then on reconnect replay it to the server: `POST /start`, then each `POST /{id}/turns` in order.
    - **Duplicates on retry:** the server has no idempotency keys, so a retry after a timeout can duplicate turns. Fix: an `Idempotency-Key` header, or one batch endpoint for a whole finished game.
