@@ -301,6 +301,40 @@ public actor MockSquareOffAPI: SquareOffAPI {
         }
     }
 
+    public func statsViewHuman(boardSize: Int?, timer: Int?) async throws -> PlayerStatsView {
+        try await pause()
+        let user = try currentUser()
+        let mine = finishedGames(of: user).filter { game in
+            guard game.cpuType == nil else { return false }
+            if let boardSize, game.boardSize != boardSize { return false }
+            if let timer, game.timer != timer { return false }
+            return true
+        }
+        let outcomes = mine.map { outcome(of: $0, for: user) }
+        let wins = outcomes.filter { $0.result == "W" }.count
+        return PlayerStatsView(
+            playerId: user.id, username: user.username, email: user.email, firstName: user.firstName,
+            lastName: user.lastName, color: user.color, createdAt: user.createdAt,
+            totalGamesPlayed: mine.count, gamesWon: wins, gamesLost: mine.count - wins,
+            winPercentage: Self.percentage(wins, of: mine.count),
+            avgGameDuration: Self.averageMinutes(mine),
+            highestScore: outcomes.map(\.myScore).max() ?? 0,
+            avgFinalScore: Self.average(outcomes.map(\.myScore)),
+            localGamesPlayed: mine.filter { $0.type == "local" }.count
+        )
+    }
+
+    public func profileStatsFilters(scope: String) async throws -> ProfileStatsFilters {
+        try await pause()
+        let user = try currentUser()
+        let mine = finishedGames(of: user).filter { scope == "cpu" ? $0.cpuType != nil : $0.cpuType == nil }
+        return ProfileStatsFilters(
+            boardSizes: Array(Set(mine.map(\.boardSize))).sorted(),
+            timers: Array(Set(mine.map(\.timer))).sorted(),
+            cpuTypes: scope == "cpu" ? Array(Set(mine.compactMap(\.cpuType))).sorted() : []
+        )
+    }
+
     public func recentGames(limit: Int, offset: Int) async throws -> RecentGamesPage {
         try await pause()
         let user = try currentUser()

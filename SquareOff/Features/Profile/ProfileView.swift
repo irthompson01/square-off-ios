@@ -1,297 +1,271 @@
 import SquareOffNet
 import SwiftUI
 
-/// Account card (guest or signed in), stats and recent games for signed-in users, the feel
-/// settings and, in debug builds, the backend switch.
+/// Profile (web `/profile`): the account panel with label/value rows and inline editing, the
+/// stats link, the feel settings and, in debug builds, the backend switch.
 struct ProfileView: View {
     @Environment(AppModel.self) private var app
     @AppStorage("soundEnabled") private var soundEnabled = true
-    @AppStorage("musicEnabled") private var musicEnabled = false
+    @AppStorage(MusicPlayer.defaultsKey) private var musicEnabled = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("starsEnabled") private var starsEnabled = true
-    @State private var isSignInPresented = false
-    @State private var isEditPresented = false
-    @State private var stats: PlayerStatsView?
-    @State private var recent: RecentGamesPage?
-    @State private var statsError: String?
+    @State private var signIn: SignInView.Mode?
+    @State private var isEditing = false
+    @State private var firstName = ""
+    @State private var lastName = ""
+    @State private var colorHex = Theme.playerColors[0]
+    @State private var isSaving = false
+    @State private var saveError: String?
 
     var body: some View {
-        Form {
-            accountSection
-            statsSection
-            if app.account.isSignedIn { recentGamesSection }
-
-            Section("Settings") {
-                Toggle("Sound effects", isOn: $soundEnabled)
-                Toggle("Music", isOn: $musicEnabled)
-                Toggle("Haptics", isOn: $hapticsEnabled)
-                Toggle("Stars background", isOn: $starsEnabled)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                PageHeading(title: "Profile", description: "Your account, and how you appear in games.")
+                if app.account.isSignedIn {
+                    accountPanel
+                    NavigationLink { StatsView() } label: {
+                        HStack {
+                            Label("Game stats", systemImage: "chart.bar")
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.foreground)
+                        .padding(16)
+                        .card()
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    guestPanel
+                }
+                settingsPanel
+                #if DEBUG
+                developerPanel
+                #endif
             }
-
-            #if DEBUG
-            developerSection
-            #endif
+            .padding(16)
+            .frame(maxWidth: 672)
+            .frame(maxWidth: .infinity)
         }
-        .scrollContentBackground(.hidden)
         .appBackground()
-        .navigationTitle("Profile")
-        .sheet(isPresented: $isSignInPresented) { SignInView() }
-        .sheet(isPresented: $isEditPresented) {
-            if let profile = app.account.profile { EditProfileSheet(profile: profile) }
-        }
-        .task(id: app.account) { await loadStats() }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $signIn) { mode in SignInView(initialMode: mode) }
         .onAppear {
             if app.pendingSignIn {
                 app.pendingSignIn = false
-                isSignInPresented = true
+                signIn = .signIn
+            }
+        }
+        .onChange(of: app.account) { _, _ in
+            isEditing = false
+            saveError = nil
+        }
+    }
+
+    // MARK: Account
+
+    private var accountPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Account").font(Theme.display(18, relativeTo: .headline)).foregroundStyle(Theme.foreground)
+                Spacer()
+                if !isEditing {
+                    Button { beginEditing() } label: { Label("Edit profile", systemImage: "pencil") }
+                        .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
+                }
+            }
+            if let error = saveError {
+                AlertBox(.danger, title: "Something went wrong", message: error)
+            }
+            if let profile = app.account.profile {
+                if isEditing {
+                    editor(profile)
+                } else {
+                    rows(profile)
+                }
+            } else if app.accounts.isRestoring {
+                ForEach(0..<6, id: \.self) { _ in
+                    HStack {
+                        SkeletonBar(width: 96)
+                        Spacer()
+                        SkeletonBar(width: 144)
+                    }
+                    .padding(.vertical, 10)
+                }
+            }
+        }
+        .padding(20)
+        .card()
+    }
+
+    private func rows(_ profile: ProfileResponse) -> some View {
+        VStack(spacing: 0) {
+            row("Username", profile.username)
+            row("Email", profile.email)
+            row("First name", profile.firstName.isEmpty ? "Not set" : profile.firstName, dim: profile.firstName.isEmpty)
+            row("Last name", profile.lastName.isEmpty ? "Not set" : profile.lastName, dim: profile.lastName.isEmpty)
+            HStack {
+                Text("Color").font(.subheadline).foregroundStyle(Theme.muted)
+                Spacer()
+                Circle().fill(Color(hex: profile.color)).frame(width: 14, height: 14)
+                Text(ColorNames.name(for: profile.color)).font(.subheadline.weight(.medium)).foregroundStyle(Theme.foreground)
+            }
+            .padding(.vertical, 12)
+            Theme.separator.frame(height: 1)
+            row("Member since", Self.memberSince(profile.createdAt) ?? "—")
+        }
+    }
+
+    private func row(_ label: String, _ value: String, dim: Bool = false) -> some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(label).font(.subheadline).foregroundStyle(Theme.muted)
+                Spacer()
+                Text(value)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(dim ? Theme.muted : Theme.foreground)
+                    .multilineTextAlignment(.trailing)
+            }
+            .padding(.vertical, 12)
+            Theme.separator.frame(height: 1)
+        }
+    }
+
+    private func editor(_ profile: ProfileResponse) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            LabeledField(label: "First name") {
+                TextField("First name", text: $firstName).textContentType(.givenName).foregroundStyle(Theme.foreground)
+            }
+            LabeledField(label: "Last name") {
+                TextField("Last name", text: $lastName).textContentType(.familyName).foregroundStyle(Theme.foreground)
+            }
+            HStack(spacing: 12) {
+                ColorSwatchPicker(selection: $colorHex, allowCustom: true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Color").font(.subheadline.weight(.medium)).foregroundStyle(Theme.foreground)
+                    Text("\(ColorNames.name(for: colorHex)) · shown on your tiles and in rooms").font(.caption).foregroundStyle(Theme.muted)
+                }
+            }
+            HStack(spacing: 10) {
+                Button(action: save) {
+                    PendingLabel(title: "Save changes", pendingTitle: "Saving…", symbol: "checkmark", isPending: isSaving)
+                }
+                .buttonStyle(PrimaryButtonStyle(fullWidth: false))
+                .disabled(isSaving)
+                Button {
+                    isEditing = false
+                    saveError = nil
+                } label: { Label("Cancel", systemImage: "xmark") }
+                    .buttonStyle(TertiaryButtonStyle(fullWidth: false))
+                    .disabled(isSaving)
             }
         }
     }
 
-    // MARK: Sections
+    private func beginEditing() {
+        guard let profile = app.account.profile else { return }
+        firstName = profile.firstName
+        lastName = profile.lastName
+        colorHex = profile.color.isEmpty ? Theme.playerColors[0] : profile.color
+        saveError = nil
+        isEditing = true
+    }
 
-    private var accountSection: some View {
-        Section {
+    private func save() {
+        isSaving = true
+        saveError = nil
+        Task {
+            defer { isSaving = false }
+            do {
+                try await app.accounts.updateProfile(firstName: firstName, lastName: lastName, colorHex: colorHex)
+                isEditing = false
+                app.toasts.success("Profile updated")
+            } catch {
+                saveError = error.localizedDescription
+            }
+        }
+    }
+
+    private var guestPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 14) {
                 Text(String(app.account.displayName.prefix(1)).uppercased())
-                    .font(.title.weight(.heavy))
-                    .frame(width: 60, height: 60)
-                    .background(Color(hex: app.account.colorHex), in: RoundedRectangle(cornerRadius: 18))
+                    .font(Theme.display(22, relativeTo: .title2))
+                    .foregroundStyle(Theme.background)
+                    .frame(width: 52, height: 52)
+                    .background(Color(hex: app.account.colorHex), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(app.account.profile?.displayName ?? app.account.displayName).font(.title3.bold())
-                    Text(app.account.profile?.email ?? "Playing as a guest on this device")
-                        .font(.footnote)
-                        .foregroundStyle(Theme.textSecondary)
-                    if let profile = app.account.profile, let since = Self.memberSince(profile.createdAt) {
-                        Text("Member since \(since)").font(.caption).foregroundStyle(Theme.textSecondary)
-                    }
+                    Text(app.account.displayName).font(Theme.display(17, relativeTo: .headline)).foregroundStyle(Theme.foreground)
+                    Text("Playing as a guest on this device").font(.footnote).foregroundStyle(Theme.foregroundSecondary)
                 }
             }
-            .padding(.vertical, 4)
+            Text("Sign in to keep stats and replays.").font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
+            HStack(spacing: 10) {
+                Button { signIn = .signIn } label: { Label("Log in", systemImage: "arrow.right.to.line") }
+                    .buttonStyle(PrimaryButtonStyle(fullWidth: false))
+                Button { signIn = .register } label: { Label("Create account", systemImage: "person.badge.plus") }
+                    .buttonStyle(SecondaryButtonStyle(fullWidth: false))
+            }
+        }
+        .padding(20)
+        .card()
+    }
+
+    private var settingsPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("Preferences")
+            SettingsToggle(title: "Sound effects", isOn: $soundEnabled)
+            SettingsToggle(title: "Music", description: "Music by Missy Cundiff", isOn: $musicEnabled)
+            SettingsToggle(title: "Haptics", isOn: $hapticsEnabled)
+            SettingsToggle(title: "Starfield", isOn: $starsEnabled)
             if app.account.isSignedIn {
-                Button("Edit profile") { isEditPresented = true }
-                Button("Sign out", role: .destructive) { Task { await app.accounts.signOut() } }
-            } else {
-                Button("Sign in") { isSignInPresented = true }
+                Theme.separator.frame(height: 1).padding(.vertical, 4)
+                Button { Task { await app.accounts.signOut() } } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
+                    .buttonStyle(DangerButtonStyle(soft: true))
             }
         }
-    }
-
-    private var statsSection: some View {
-        Section("Stats") {
-            if let stats {
-                LabeledContent("Games", value: "\(stats.totalGamesPlayed)")
-                LabeledContent("Win rate", value: stats.totalGamesPlayed == 0 ? "—" : String(format: "%.0f%%", stats.winPercentage))
-                LabeledContent("Best score", value: "\(stats.highestScore)")
-                LabeledContent("Average score", value: String(format: "%.0f", stats.avgFinalScore))
-                NavigationLink("Vs CPU breakdown") { CPUStatsView() }
-            } else {
-                LabeledContent("Games", value: "—")
-                LabeledContent("Win rate", value: "—")
-                LabeledContent("Best score", value: "—")
-                Text(statsError ?? (app.account.isSignedIn ? "Loading…" : "Sign in to keep stats and replays."))
-                    .font(.footnote)
-                    .foregroundStyle(Theme.textSecondary)
-            }
-        }
-    }
-
-    private var recentGamesSection: some View {
-        Section("Recent games") {
-            if let recent, !recent.games.isEmpty {
-                ForEach(recent.games) { row in
-                    NavigationLink { ReplayView(gameID: row.gameId) } label: {
-                        HStack(spacing: 12) {
-                            Text(row.result)
-                                .font(.headline)
-                                .frame(width: 28, height: 28)
-                                .background(Self.resultColor(row.result).opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("vs \(row.opponentLabel)").font(.subheadline.weight(.semibold))
-                                Text(row.gameType.capitalized).font(.caption).foregroundStyle(Theme.textSecondary)
-                            }
-                            Spacer()
-                            Text("\(row.myScore)").font(.headline).monospacedDigit()
-                        }
-                    }
-                }
-                if recent.total > recent.games.count {
-                    Text("Showing \(recent.games.count) of \(recent.total)").font(.footnote).foregroundStyle(Theme.textSecondary)
-                }
-            } else {
-                Text(recent == nil ? "Loading…" : "No finished games yet. Play one and it shows up here.")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.textSecondary)
-            }
-        }
+        .padding(20)
+        .card()
     }
 
     #if DEBUG
-    private var developerSection: some View {
-        Section {
-            Picker("Backend", selection: Binding(
-                get: { app.backend.configuration.kind },
-                set: { app.switchBackend(to: $0) }
-            )) {
-                ForEach(BackendKind.allCases) { Text($0.title).tag($0) }
+    private var developerPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("Developer")
+            HStack {
+                Text("Backend").font(.subheadline).foregroundStyle(Theme.foreground)
+                Spacer()
+                Picker("Backend", selection: Binding(
+                    get: { app.backend.configuration.kind },
+                    set: { app.switchBackend(to: $0) }
+                )) {
+                    ForEach(BackendKind.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 220)
             }
-            Toggle("CPU moves from server", isOn: Binding(
+            SettingsToggle(title: "CPU moves from server", isOn: Binding(
                 get: { app.backend.configuration.cpuMovesFromServer },
                 set: { app.setCPUMovesFromServer($0) }
             ))
-            LabeledContent("API", value: app.backend.configuration.environment.baseURL.absoluteString)
-                .font(.footnote)
-            LabeledContent("Guest ID", value: app.backend.identity.guest.map { String($0.playerID.prefix(13)) + "…" } ?? "—")
-                .font(.footnote)
+            row("API", app.backend.configuration.environment.baseURL.absoluteString)
+            row("Guest ID", app.backend.identity.guest.map { String($0.playerID.prefix(13)) + "…" } ?? "—")
             Button("Reset guest identity") { app.backend.identity.reset() }
-        } header: {
-            Text("Developer")
-        } footer: {
+                .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
             Text("Applies to new games. Launch argument: -backend mock|live. The docker stack needs the mkcert CA trusted in this simulator (scripts/trust-mkcert-simulator.sh).")
+                .font(.caption).foregroundStyle(Theme.muted)
         }
+        .padding(20)
+        .card()
     }
     #endif
-
-    // MARK: Data
-
-    private func loadStats() async {
-        stats = nil
-        recent = nil
-        statsError = nil
-        guard app.account.isSignedIn else { return }
-        let api = app.backend.api
-        do {
-            async let statsView = api.statsView()
-            async let page = api.recentGames(limit: 10, offset: 0)
-            stats = try await statsView
-            recent = try await page
-        } catch {
-            statsError = "Couldn't load stats: \((error as? APIError)?.detail ?? error.localizedDescription)"
-        }
-    }
 
     static func memberSince(_ createdAt: String) -> String? {
         guard createdAt.count >= 10 else { return nil }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         guard let date = formatter.date(from: String(createdAt.prefix(10))) else { return nil }
-        return date.formatted(.dateTime.month(.wide).year())
-    }
-
-    static func resultColor(_ result: String) -> Color {
-        switch result {
-        case "W": Theme.go
-        case "L": Theme.destructive
-        default: Theme.warning
-        }
-    }
-}
-
-/// `GET /stats_view_cpu` with the web's filters.
-struct CPUStatsView: View {
-    @Environment(AppModel.self) private var app
-    @State private var rows: [PlayerStatsCPUView] = []
-    @State private var boardSize: Int?
-    @State private var timer: Int?
-    @State private var error: String?
-
-    var body: some View {
-        List {
-            Section {
-                Picker("Board", selection: $boardSize) {
-                    Text("Any board").tag(Int?.none)
-                    ForEach(PlaySetupModel.boardSizes, id: \.self) { Text("\($0)×\($0)").tag(Int?.some($0)) }
-                }
-                Picker("Timer", selection: $timer) {
-                    Text("Any timer").tag(Int?.none)
-                    ForEach(PlaySetupModel.timers, id: \.self) { Text($0 == 0 ? "Off" : "\($0)s").tag(Int?.some($0)) }
-                }
-            }
-            Section("By level") {
-                if rows.isEmpty {
-                    Text(error ?? "No games against the CPU yet.").font(.footnote).foregroundStyle(Theme.textSecondary)
-                }
-                ForEach(rows) { row in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(row.username).font(.subheadline.weight(.semibold))
-                        HStack {
-                            Text("\(row.totalGamesPlayed) games · \(row.gamesWon) won")
-                            Spacer()
-                            Text(String(format: "%.0f%%", row.winPercentage)).monospacedDigit()
-                        }
-                        .font(.footnote)
-                        .foregroundStyle(Theme.textSecondary)
-                    }
-                }
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .appBackground()
-        .navigationTitle("Vs CPU")
-        .task(id: "\(boardSize ?? 0)-\(timer ?? -1)") {
-            do {
-                rows = try await app.backend.api.statsViewCPU(boardSize: boardSize, timer: timer, cpuType: nil)
-                error = nil
-            } catch {
-                self.error = "Couldn't load: \((error as? APIError)?.detail ?? error.localizedDescription)"
-            }
-        }
-    }
-}
-
-struct EditProfileSheet: View {
-    @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
-    @State private var firstName: String
-    @State private var lastName: String
-    @State private var colorHex: String
-    @State private var isBusy = false
-    @State private var error: String?
-
-    init(profile: ProfileResponse) {
-        _firstName = State(initialValue: profile.firstName)
-        _lastName = State(initialValue: profile.lastName)
-        _colorHex = State(initialValue: profile.color)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Name") {
-                    TextField("First name", text: $firstName)
-                    TextField("Last name", text: $lastName)
-                }
-                Section("Colour") {
-                    HStack {
-                        Text("Player colour")
-                        Spacer()
-                        ColorSwatchPicker(selection: $colorHex, allowCustom: true)
-                    }
-                }
-                if let error { Text(error).foregroundStyle(Theme.destructive).font(.footnote) }
-            }
-            .scrollContentBackground(.hidden)
-            .background(Theme.surface)
-            .navigationTitle("Edit profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(isBusy ? "Saving…" : "Save") {
-                        isBusy = true
-                        Task {
-                            defer { isBusy = false }
-                            do {
-                                try await app.accounts.updateProfile(firstName: firstName, lastName: lastName, colorHex: colorHex)
-                                dismiss()
-                            } catch {
-                                self.error = error.localizedDescription
-                            }
-                        }
-                    }
-                    .disabled(isBusy)
-                }
-            }
-        }
+        return date.formatted(date: .numeric, time: .omitted)
     }
 }

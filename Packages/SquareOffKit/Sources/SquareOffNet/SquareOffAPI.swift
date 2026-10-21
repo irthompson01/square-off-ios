@@ -37,6 +37,10 @@ public protocol SquareOffAPI: Sendable {
     // MARK: stats (signed-in users only)
     func statsView() async throws -> PlayerStatsView
     func statsViewCPU(boardSize: Int?, timer: Int?, cpuType: String?) async throws -> [PlayerStatsCPUView]
+    /// `GET /stats_view_human`: the same summary over games against people only.
+    func statsViewHuman(boardSize: Int?, timer: Int?) async throws -> PlayerStatsView
+    /// `GET /profile_stats_filters?scope=human|cpu`: the board sizes, timers (and CPU types) with games.
+    func profileStatsFilters(scope: String) async throws -> ProfileStatsFilters
     func recentGames(limit: Int, offset: Int) async throws -> RecentGamesPage
 
     // MARK: modelAPI

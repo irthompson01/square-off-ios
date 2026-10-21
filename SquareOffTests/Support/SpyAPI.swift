@@ -68,6 +68,8 @@ actor SpyAPI: SquareOffAPI {
     }
     func statsViewCPU(boardSize: Int?, timer: Int?, cpuType: String?) async throws -> [PlayerStatsCPUView] { try await hit("statsViewCPU"); return [] }
     func recentGames(limit: Int, offset: Int) async throws -> RecentGamesPage { try await hit("recentGames"); return RecentGamesPage(games: [], total: 0) }
+    func statsViewHuman(boardSize: Int?, timer: Int?) async throws -> PlayerStatsView { try await hit("statsViewHuman"); return try await statsView() }
+    func profileStatsFilters(scope: String) async throws -> ProfileStatsFilters { try await hit("profileStatsFilters"); return ProfileStatsFilters(boardSizes: [], timers: [], cpuTypes: []) }
     func cpuMove(_ request: CPUMoveRequest) async throws -> CPUMoveResponse { try await hit("cpuMove"); return cpuMoveReply }
 }
 

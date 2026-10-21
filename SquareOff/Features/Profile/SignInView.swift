@@ -4,16 +4,16 @@ import Security
 import SquareOffNet
 import SwiftUI
 
-/// Password sign-in and registration, Sign in with Apple (native) and Google/GitHub through a
-/// web authentication session. On the mock backend every path signs in the demo account.
+/// Log in / Create account (web `AuthCard` + `/login`, `/register`): one centred card with the
+/// icon well, title and subtitle, a danger alert for server errors, labelled fields with inline
+/// validation, the primary action, an "OR" divider and the three social buttons.
 struct SignInView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
     @Environment(\.webAuthenticationSession) private var webAuth
 
     enum Mode: String, CaseIterable, Identifiable {
-        case signIn = "Sign in"
-        case register = "Create account"
+        case signIn, register
         var id: String { rawValue }
     }
 
@@ -28,100 +28,170 @@ struct SignInView: View {
     @State private var password = ""
     @State private var isBusy = false
     @State private var error: AuthError?
+    @State private var fieldErrors: [String: String] = [:]
     @State private var appleNonce = ""
 
-    private var canSubmit: Bool {
-        switch mode {
-        case .signIn: !identifier.isEmpty && !password.isEmpty
-        case .register: !username.trimmingCharacters(in: .whitespaces).isEmpty && email.contains("@") && password.count >= 8
+    static let emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                header
+                if let error, error != .cancelled {
+                    AlertBox(.danger, message: error.localizedDescription)
+                }
+                fields
+                Button(action: submit) {
+                    PendingLabel(title: mode == .signIn ? "Log in" : "Create account",
+                                 pendingTitle: mode == .signIn ? "Signing in…" : "Creating account…",
+                                 symbol: nil, isPending: isBusy)
+                }
+                .buttonStyle(PrimaryButtonStyle(large: true))
+                .disabled(isBusy)
+                divider
+                social
+                footer
+            }
+            .padding(24)
+            .frame(maxWidth: 448)
+            .frame(maxWidth: .infinity)
+            .card(fill: Theme.surface)
+            .padding(16)
+            .frame(maxWidth: .infinity)
+        }
+        .background(Theme.overlay)
+        .overlay(alignment: .topTrailing) {
+            Button { dismiss() } label: {
+                Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close")
+            .padding(8)
+        }
+        .onChange(of: mode) { _, _ in
+            error = nil
+            fieldErrors = [:]
         }
     }
 
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Picker("Mode", selection: $mode) {
-                        ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
+    // MARK: Pieces
 
-                Section {
-                    if mode == .signIn {
-                        TextField("Email or username", text: $identifier)
-                            .textContentType(.username)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                    } else {
-                        TextField("Username", text: $username)
-                            .textContentType(.username)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                        TextField("Email", text: $email)
-                            .textContentType(.emailAddress)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                    }
-                    SecureField(mode == .signIn ? "Password" : "Password (8+ characters)", text: $password)
-                        .textContentType(mode == .signIn ? .password : .newPassword)
-                    Button(action: submitPassword) {
-                        HStack {
-                            Text(mode.rawValue).bold()
-                            if isBusy { Spacer(); ProgressView().controlSize(.small) }
-                        }
-                    }
-                    .disabled(!canSubmit || isBusy)
-                } footer: {
-                    if let error, error != .cancelled {
-                        Text(error.localizedDescription).foregroundStyle(Theme.destructive)
-                    } else if app.backend.configuration.kind == .mock {
-                        Text("Mock server: try \(MockSquareOffAPI.demoUsername) / \(MockSquareOffAPI.demoPassword), or create any account.")
-                    }
-                }
-
-                Section {
-                    appleButton
-                    socialButton("Continue with Google", background: Theme.surfaceRaised, foreground: .white) {
-                        Image(systemName: "g.circle.fill")
-                    } action: { signIn(with: .google) }
-                    socialButton("Continue with GitHub", background: Theme.surfaceRaised, foreground: .white) {
-                        Image("github-mark").resizable().scaledToFit().frame(width: 20, height: 20)
-                    } action: { signIn(with: .github) }
-                }
-                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .disabled(isBusy)
-
-                Section {
-                    Button("Keep playing as a guest") { dismiss() }
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(Theme.surface)
-            .navigationTitle(mode.rawValue)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            }
-            .onChange(of: mode) { _, _ in error = nil }
+    private var header: some View {
+        VStack(spacing: 10) {
+            Image(systemName: mode == .signIn ? "arrow.right.to.line" : "person.badge.plus")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Theme.link)
+                .frame(width: 48, height: 48)
+                .background(Theme.surfaceSecondary, in: Circle())
+            Text(mode == .signIn ? "Log in" : "Create account")
+                .font(Theme.display(24, relativeTo: .title2))
+                .foregroundStyle(Theme.foreground)
+                .accessibilityAddTraits(.isHeader)
+            Text(mode == .signIn ? "Welcome back" : "It only takes a minute")
+                .font(.subheadline)
+                .foregroundStyle(Theme.foregroundSecondary)
         }
+        .padding(.top, 12)
+    }
+
+    @ViewBuilder
+    private var fields: some View {
+        VStack(spacing: 16) {
+            if mode == .signIn {
+                LabeledField(label: "Email or username", error: fieldErrors["identifier"]) {
+                    TextField("you@example.com", text: $identifier)
+                        .textContentType(.username)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .foregroundStyle(Theme.foreground)
+                }
+            } else {
+                LabeledField(label: "Username", error: fieldErrors["username"]) {
+                    TextField("your_username", text: $username)
+                        .textContentType(.username)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .foregroundStyle(Theme.foreground)
+                }
+                LabeledField(label: "Email", help: "Only used for account functions such as login and password reset.", error: fieldErrors["email"]) {
+                    TextField("you@example.com", text: $email)
+                        .textContentType(.emailAddress)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .foregroundStyle(Theme.foreground)
+                }
+            }
+            LabeledField(label: "Password", error: fieldErrors["password"]) {
+                SecureField("••••••••", text: $password)
+                    .textContentType(mode == .signIn ? .password : .newPassword)
+                    .foregroundStyle(Theme.foreground)
+            }
+            if app.backend.configuration.kind == .mock {
+                Text("Mock server: try \(MockSquareOffAPI.demoUsername) / \(MockSquareOffAPI.demoPassword), or create any account.")
+                    .font(.caption).foregroundStyle(Theme.muted).frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var divider: some View {
+        HStack(spacing: 12) {
+            Theme.separator.frame(height: 1)
+            Text("OR").font(Theme.display(11, relativeTo: .caption2)).tracking(2).foregroundStyle(Theme.muted)
+            Theme.separator.frame(height: 1)
+        }
+    }
+
+    private var social: some View {
+        VStack(spacing: 10) {
+            socialButton("Continue with Google", background: Theme.controlFill, foreground: Theme.foreground) {
+                Image(systemName: "g.circle.fill")
+            } action: { signIn(with: .google) }
+            appleButton
+            socialButton("Continue with GitHub", background: Theme.controlFill, foreground: Theme.foreground) {
+                Image("github-mark").resizable().scaledToFit().frame(width: 20, height: 20)
+            } action: { signIn(with: .github) }
+        }
+        .disabled(isBusy)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 4) {
+            Text(mode == .signIn ? "New here?" : "Already have an account?").foregroundStyle(Theme.muted)
+            Button(mode == .signIn ? "Create an account" : "Log in") {
+                mode = mode == .signIn ? .register : .signIn
+            }
+            .foregroundStyle(Theme.link)
+            .underline()
+        }
+        .font(.subheadline)
+        .padding(.bottom, 8)
     }
 
     // MARK: Password
 
-    private func submitPassword() {
+    private func submit() {
+        var errors: [String: String] = [:]
+        switch mode {
+        case .signIn:
+            if identifier.trimmingCharacters(in: .whitespaces).isEmpty { errors["identifier"] = "Enter your email or username" }
+            if password.isEmpty { errors["password"] = "Enter your password" }
+        case .register:
+            if username.trimmingCharacters(in: .whitespaces).isEmpty { errors["username"] = "Choose a username" }
+            if email.trimmingCharacters(in: .whitespaces).wholeMatch(of: Self.emailPattern) == nil { errors["email"] = "Enter a valid email address" }
+            if password.isEmpty { errors["password"] = "Choose a password" }
+        }
+        fieldErrors = errors
+        guard errors.isEmpty else { return }
         run {
             switch mode {
             case .signIn:
                 try await app.accounts.signIn(emailOrUsername: identifier.trimmingCharacters(in: .whitespaces), password: password)
+                app.toasts.success("Logged in", description: "Welcome back.")
             case .register:
                 try await app.accounts.register(username: username.trimmingCharacters(in: .whitespaces),
                                                 email: email.trimmingCharacters(in: .whitespaces), password: password)
+                app.toasts.success("Account created", description: "You're logged in and ready to play.")
             }
         }
     }
@@ -131,7 +201,7 @@ struct SignInView: View {
     @ViewBuilder
     private var appleButton: some View {
         if app.backend.isLive {
-            SignInWithAppleButton(.signIn) { request in
+            SignInWithAppleButton(.continue) { request in
                 let raw = AppleSignIn.randomNonce()
                 appleNonce = raw
                 request.requestedScopes = [.fullName, .email]
@@ -140,13 +210,16 @@ struct SignInView: View {
                 handleApple(result)
             }
             .signInWithAppleButtonStyle(.white)
-            .frame(height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .frame(height: 44)
+            .clipShape(Capsule())
         } else {
-            socialButton("Sign in with Apple", background: .white, foreground: .black) {
+            socialButton("Continue with Apple", background: .white, foreground: .black) {
                 Image(systemName: "apple.logo")
             } action: {
-                run { try await app.accounts.signInWithApple(.mock) }
+                run {
+                    try await app.accounts.signInWithApple(.mock)
+                    app.toasts.success("Logged in", description: "Welcome back.")
+                }
             }
         }
     }
@@ -157,7 +230,7 @@ struct SignInView: View {
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
                   let tokenData = credential.identityToken,
                   let token = String(data: tokenData, encoding: .utf8) else {
-                error = .server(status: 0)
+                error = .oauth(OAuthCallback.message(for: "apple_failed"))
                 return
             }
             let code = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
@@ -166,10 +239,11 @@ struct SignInView: View {
             run {
                 try await app.accounts.signInWithApple(AppleNativeCredential(
                     identityToken: token, authorizationCode: code, fullName: name.isEmpty ? nil : name, rawNonce: nonce))
+                app.toasts.success("Logged in", description: "Welcome back.")
             }
         case .failure(let failure):
             if (failure as? ASAuthorizationError)?.code == .canceled { return }
-            error = .server(status: 0)
+            error = .oauth(OAuthCallback.message(for: "apple_failed"))
         }
     }
 
@@ -181,6 +255,7 @@ struct SignInView: View {
                 try await app.accounts.signInWithProvider(provider) { url, scheme in
                     try await webAuth.authenticate(using: url, callbackURLScheme: scheme, preferredBrowserSession: .shared)
                 }
+                app.toasts.success("Logged in", description: "Welcome back.")
             } catch let failure as ASWebAuthenticationSessionError where failure.code == .canceledLogin {
                 throw AuthError.cancelled
             }
@@ -205,10 +280,11 @@ struct SignInView: View {
                               @ViewBuilder icon: () -> some View, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label { Text(title) } icon: { icon() }
-                .font(.headline)
-                .frame(maxWidth: .infinity, minHeight: 48)
+                .font(Theme.display(15, relativeTo: .body))
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .foregroundStyle(foreground)
-                .background(background, in: RoundedRectangle(cornerRadius: 12))
+                .background(background, in: Capsule())
+                .overlay(Capsule().strokeBorder(background == .white ? .clear : Theme.border))
         }
         .buttonStyle(.plain)
     }

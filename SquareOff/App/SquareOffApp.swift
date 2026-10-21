@@ -8,6 +8,10 @@ struct SquareOffApp: App {
 
     init() {
         #if DEBUG
+        // `-demoSignedIn`: the mock backend restores the demo account from this token at launch.
+        if UserDefaults.standard.bool(forKey: "demoSignedIn") {
+            UserDefaults.standard.set("mock:\(MockSquareOffAPI.demoUsername)", forKey: "mockAccessToken")
+        }
         // `-demoOnline host|guest|spectator|quickmatch` forces the mock backend with quick bots.
         if UserDefaults.standard.string(forKey: "demoOnline") != nil {
             var rooms = MockRoomServer.Configuration()

@@ -7,6 +7,7 @@ import SwiftUI
 struct ReplayView: View {
     let gameID: Int
     @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
 
     @State private var payload: GameReplayPayload?
     @State private var loadError: String?
@@ -29,9 +30,14 @@ struct ReplayView: View {
                 ProgressView("Loading replay…")
             }
         }
-        .appBackground()
-        .navigationTitle("Replay")
+        .background(Theme.overlay)
+        .navigationTitle("Game replay")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button { dismiss() } label: { Image(systemName: "xmark") }.accessibilityLabel("Close replay")
+            }
+        }
         .task { await load() }
         .task(id: isPlaying) { await autoplay() }
     }
@@ -39,9 +45,13 @@ struct ReplayView: View {
     private func content(_ payload: GameReplayPayload, _ game: Game) -> some View {
         ScrollView {
             VStack(spacing: 14) {
-                HStack(spacing: 10) {
+                Text("Game #\(payload.gameId) · \(payload.gameType) · \(payload.boardSize)×\(payload.boardSize). The highlighted card is the side to move; scores update after each move.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.foregroundSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                     ForEach(game.players) { player in
-                        PlayerCard(player: player, variant: .compact(dense: game.players.count > 2), isActive: player.id == game.currentPlayer.id && index < payload.turns.count)
+                        PlayerCard(player: player, variant: .row(seat: nil, showsScore: true), isActive: player.id == game.currentPlayer.id && index < payload.turns.count)
                     }
                 }
                 PlaybackBoardView(game: game, spins: spins, lastMove: lastMove)
@@ -52,9 +62,9 @@ struct ReplayView: View {
                     .frame(height: 160)
                     .padding(14)
                     .card()
-                Text("\(payload.boardSize)×\(payload.boardSize) · \(payload.gameType) · \(payload.turns.count) moves")
-                    .font(.caption)
-                    .foregroundStyle(Theme.textSecondary)
+                if payload.turns.isEmpty {
+                    Text("No moves recorded for this game.").font(.footnote).foregroundStyle(Theme.muted)
+                }
             }
             .padding(16)
         }
@@ -67,21 +77,26 @@ struct ReplayView: View {
             HStack(spacing: 10) {
                 Button { seek(to: index - 1) } label: { Image(systemName: "backward.frame.fill") }
                     .disabled(index == 0)
-                Button { isPlaying.toggle() } label: {
+                    .accessibilityLabel("Previous move")
+                Button {
+                    if !isPlaying, index >= payload.turns.count { seek(to: 0) }
+                    isPlaying.toggle()
+                } label: {
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill").frame(minWidth: 60)
                 }
-                .disabled(index >= payload.turns.count && !isPlaying)
+                .accessibilityLabel(isPlaying ? "Pause" : "Play")
                 Button { step() } label: { Image(systemName: "forward.frame.fill") }
                     .disabled(index >= payload.turns.count)
+                    .accessibilityLabel("Next move")
                 Spacer()
                 Menu {
-                    ForEach([0.5, 1.0, 2.0], id: \.self) { value in
+                    ForEach([0.5, 1.0, 2.0, 4.0], id: \.self) { value in
                         Button(value == speed ? "✓ \(value, specifier: "%g")×" : "\(value, specifier: "%g")×") { speed = value }
                     }
                 } label: {
                     Text("\(speed, specifier: "%g")×").font(.subheadline.weight(.semibold)).frame(minWidth: 44)
                 }
-                Text("\(index)/\(payload.turns.count)").font(.footnote.monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                Text("Move \(index) / \(payload.turns.count)").font(.footnote.monospacedDigit()).foregroundStyle(Theme.textSecondary)
             }
             .buttonStyle(SecondaryButtonStyle())
         }
@@ -160,7 +175,7 @@ struct ReplayView: View {
     private func autoplay() async {
         guard isPlaying else { return }
         while isPlaying, !Task.isCancelled, let payload, index < payload.turns.count {
-            try? await Task.sleep(for: .milliseconds(Int(650 / speed)))
+            try? await Task.sleep(for: .milliseconds(max(80, Int(650 / speed))))
             guard isPlaying, !Task.isCancelled else { return }
             step()
         }

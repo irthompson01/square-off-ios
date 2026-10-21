@@ -97,6 +97,17 @@ public struct LiveSquareOffAPI: SquareOffAPI {
         return try await client.send("GET", "stats_view_cpu", query: query)
     }
 
+    public func statsViewHuman(boardSize: Int?, timer: Int?) async throws -> PlayerStatsView {
+        var query: [URLQueryItem] = []
+        if let boardSize { query.append(URLQueryItem(name: "board_size", value: String(boardSize))) }
+        if let timer { query.append(URLQueryItem(name: "timer", value: String(timer))) }
+        return try await client.send("GET", "stats_view_human", query: query)
+    }
+
+    public func profileStatsFilters(scope: String) async throws -> ProfileStatsFilters {
+        try await client.send("GET", "profile_stats_filters", query: [URLQueryItem(name: "scope", value: scope)])
+    }
+
     public func recentGames(limit: Int, offset: Int) async throws -> RecentGamesPage {
         try await client.send("GET", "recent_games", query: [
             URLQueryItem(name: "limit", value: String(limit)),

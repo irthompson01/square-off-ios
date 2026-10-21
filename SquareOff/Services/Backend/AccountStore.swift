@@ -20,9 +20,12 @@ enum AuthError: LocalizedError, Equatable {
     case appleNoEmail
     case cancelled
     case server(status: Int)
+    /// A provider sign-in that came back with `?error=<code>` (web `oauth-errors.ts` wording).
+    case oauth(String)
 
     var errorDescription: String? {
         switch self {
+        case .oauth(let message): message
         case .invalidCredentials: "Wrong email/username or password."
         case .alreadyRegistered: "That username or email is already taken."
         case .tooManyAttempts: "Too many attempts. Try again in a minute."
@@ -137,6 +140,10 @@ final class AccountStore {
             throw AuthError.wrap(error)
         }
         let callback = login.url.scheme == OAuthCallback.scheme ? login.url : try await authenticate(login.url, OAuthCallback.scheme)
+        if let code = OAuthCallback.errorCode(from: callback) {
+            if code.hasSuffix("cancelled") || code.hasSuffix("canceled") { throw AuthError.cancelled }
+            throw AuthError.oauth(OAuthCallback.message(for: code))
+        }
         guard let token = OAuthCallback.token(from: callback) else { throw AuthError.server(status: 0) }
         try await adopt(token: token)
     }
@@ -185,5 +192,33 @@ nonisolated enum OAuthCallback {
         guard url.scheme == scheme, url.host() == "auth" else { return nil }
         return URLComponents(url: url, resolvingAgainstBaseURL: false)?
             .queryItems?.first { $0.name == "token" }?.value
+    }
+
+    /// `squareoff://auth?error=<code>` (the web receives `?oauth_error=<code>`).
+    static func errorCode(from url: URL) -> String? {
+        guard url.scheme == scheme, url.host() == "auth" else { return nil }
+        return URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "error" || $0.name == "oauth_error" }?.value
+    }
+
+    /// The web's `oauth-errors.ts` table.
+    static func message(for code: String) -> String {
+        let parts = code.split(separator: "_", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return "Sign-in failed. Please try again." }
+        let provider: String
+        switch parts[0] {
+        case "apple": provider = "Apple"
+        case "google": provider = "Google"
+        case "github": provider = "GitHub"
+        default: return "Sign-in failed. Please try again."
+        }
+        switch parts[1] {
+        case "cancelled", "canceled": return "\(provider) sign-in was cancelled."
+        case "expired": return "Your \(provider) sign-in session expired. Please try again."
+        case "failed": return "\(provider) sign-in failed. Please try again."
+        case "no_email" where provider == "Apple":
+            return "Apple didn't share an email for this account. Remove Square Off under Apple ID › Sign in with Apple, then try again."
+        default: return "Sign-in failed. Please try again."
+        }
     }
 }
