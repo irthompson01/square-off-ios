@@ -1,9 +1,13 @@
+import Foundation
 import Observation
 import SquareOffCore
+import SquareOffNet
 
 /// What a game screen may offer for this session.
 struct GameCapabilities: Equatable {
     var canRestart = true
+    /// "Reset game" in the menu: local games and the online host.
+    var canReset = true
     var isSpectator = false
     var isOnline = false
     var roomCode: Int?
@@ -14,6 +18,13 @@ enum RematchState: Equatable {
     case none
     case hostCanStart
     case waitingForHost
+}
+
+/// Room status shown above the board (web `StatusBanner` / `useRoomStatus`).
+enum StatusBanner: Equatable {
+    case connecting
+    case hostAway
+    case error(String)
 }
 
 /// Everything `GameView` (and its board, strip and sheets) needs from a game, whether it runs on
@@ -28,6 +39,8 @@ protocol GamePresenting: AnyObject, Observable, Identifiable {
     /// Someone else is deciding (the CPU, or a remote player).
     var isCPUThinking: Bool { get }
     var timeRemaining: Int? { get }
+    /// When the running turn timer expires; nil while no timer runs. Drives the ring.
+    var turnDeadline: Date? { get }
     var notice: String? { get set }
     var hiddenShapeOwners: Set<Int> { get set }
     var isGameOverPresented: Bool { get set }
@@ -45,6 +58,12 @@ protocol GamePresenting: AnyObject, Observable, Identifiable {
     var rematchState: RematchState { get }
     /// "Reconnecting…" and friends; nil when nothing is wrong.
     var connectionLabel: String? { get }
+    /// The seat this device plays; nil for local games (everyone shares the device).
+    var mySeatID: Int? { get }
+    var role: OnlineRole? { get }
+    var spectatorCount: Int { get }
+    var awaySeats: Set<Int> { get }
+    var statusBanner: StatusBanner? { get }
 
     /// Idempotent: the game view calls it every time it appears.
     func start() async

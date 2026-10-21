@@ -2,59 +2,91 @@ import Charts
 import SquareOffCore
 import SwiftUI
 
+/// Bottom-sheet game menu (web `GameMenu`): players with show-shapes switches, preferences,
+/// How to play, Reset, Leave.
 struct GameMenuSheet<Session: GamePresenting>: View {
     @Bindable var session: Session
+    let onReset: () -> Void
     let onLeave: () -> Void
+    let onRules: () -> Void
 
     @AppStorage("soundEnabled") private var soundEnabled = true
-    @AppStorage("musicEnabled") private var musicEnabled = false
+    @AppStorage(MusicPlayer.defaultsKey) private var musicEnabled = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("starsEnabled") private var starsEnabled = true
     @Environment(\.dismiss) private var dismiss
-    @State private var confirmLeave = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Show shapes for") {
-                    ForEach(session.game.players) { player in
-                        Toggle(isOn: visibility(for: player.id)) {
-                            HStack(spacing: 10) {
-                                RoundedRectangle(cornerRadius: 4).fill(Color(hex: player.colorHex)).frame(width: 14, height: 14)
-                                Text(player.name)
-                                Spacer()
-                                Text("\(player.score) pts").foregroundStyle(Theme.textSecondary).monospacedDigit()
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "slider.horizontal.3").foregroundStyle(Theme.muted)
+                Text("Game menu").font(Theme.display(18, relativeTo: .headline)).foregroundStyle(Theme.foreground)
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close menu")
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .padding(.bottom, 12)
+            Theme.separator.frame(height: 1)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let code = session.capabilities.roomCode {
+                        VStack(alignment: .leading, spacing: 4) {
+                            SectionLabel("Room code")
+                            Text(String(code)).font(Theme.display(22, relativeTo: .title2)).tracking(2.5).monospacedDigit().foregroundStyle(Theme.foreground)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .card()
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionLabel("Players")
+                        ForEach(session.game.players) { player in
+                            PlayerCard(player: player, variant: .row(seat: nil, showsScore: true), isMine: player.id == session.mySeatID,
+                                       isHost: session.capabilities.isOnline && player.id == 1) {
+                                Toggle("Show \(player.name)'s shapes", isOn: visibility(for: player.id))
+                                    .labelsHidden()
+                                    .tint(Theme.accent)
                             }
                         }
+                        ForEach(0..<session.spectatorCount, id: \.self) { _ in SpectatorRow() }
                     }
-                }
-                Section("Feel") {
-                    Toggle("Sound effects", isOn: $soundEnabled)
-                    Toggle("Music", isOn: $musicEnabled)
-                    Toggle("Haptics", isOn: $hapticsEnabled)
-                    Toggle("Stars background", isOn: $starsEnabled)
-                }
-                Section {
-                    NavigationLink("Rules") { RulesView() }
-                    if session.capabilities.canRestart, !session.capabilities.isOnline {
-                        Button("Restart") {
-                            session.restart()
-                            dismiss()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        SectionLabel("Preferences")
+                        SettingsToggle(title: "Sound effects", isOn: $soundEnabled)
+                        SettingsToggle(title: "Music", isOn: $musicEnabled)
+                        SettingsToggle(title: "Haptics", isOn: $hapticsEnabled)
+                        SettingsToggle(title: "Starfield", isOn: $starsEnabled)
+                    }
+                    .padding(16)
+                    .card()
+
+                    VStack(spacing: 8) {
+                        Button { onRules() } label: { Label("How to play", systemImage: "book") }
+                            .buttonStyle(TertiaryButtonStyle())
+                        if session.capabilities.canReset {
+                            Button {
+                                dismiss()
+                                onReset()
+                            } label: { Label("Reset game", systemImage: "arrow.counterclockwise") }
+                            .buttonStyle(SecondaryButtonStyle())
                         }
+                        Button {
+                            dismiss()
+                            onLeave()
+                        } label: { Label(session.capabilities.isOnline ? "Leave room" : "Leave game", systemImage: "rectangle.portrait.and.arrow.right") }
+                        .buttonStyle(DangerButtonStyle())
                     }
-                    Button(session.capabilities.isOnline ? "Leave room" : "Leave game", role: .destructive) { confirmLeave = true }
                 }
-            }
-            .scrollContentBackground(.hidden)
-            .navigationTitle("Paused")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-            }
-            .confirmationDialog(session.capabilities.isOnline ? "Leave this room?" : "Leave this game?", isPresented: $confirmLeave, titleVisibility: .visible) {
-                Button(session.capabilities.isOnline ? "Leave room" : "Leave game", role: .destructive, action: onLeave)
-            } message: {
-                Text(session.capabilities.isOnline ? "The others keep playing without you." : "Your progress in this game will be lost.")
+                .padding(16)
+                .padding(.bottom, 24)
             }
         }
     }
@@ -69,92 +101,157 @@ struct GameMenuSheet<Session: GamePresenting>: View {
     }
 }
 
+/// Results (web `GameOverModal`): standings, per-player stats, score chart and the exits.
+/// Dismissable; the "Results" button in the banner reopens it.
 struct GameOverSheet<Session: GamePresenting>: View {
     let session: Session
-    let onHome: () -> Void
+    let onExit: (AppModel.GameExit) -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         let standings = session.game.standings
+        let isOver = session.isOver
         ScrollView {
-            VStack(spacing: 18) {
-                VStack(spacing: 8) {
-                    Image(systemName: session.isOver ? "trophy" : "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 30))
-                        .frame(width: 64, height: 64)
-                        .background(Color(hex: standings[0].colorHex).opacity(0.22), in: RoundedRectangle(cornerRadius: 20))
-                    Text(session.winnerHeadline)
-                        .font(Theme.display(28))
-                        .multilineTextAlignment(.center)
-                    Text("\(session.title) · \(session.game.scoreHistoryLength) moves")
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(spacing: 10) {
+                    Image(systemName: "trophy").foregroundStyle(Theme.warning)
+                    Text(isOver ? "GAME OVER" : "SCORES SO FAR")
+                        .font(Theme.display(20, relativeTo: .title3)).tracking(1.5).foregroundStyle(Theme.foreground)
+                    Spacer()
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 32, height: 32)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close results")
                 }
-                .padding(.top, 24)
+                .padding(.top, 16)
 
-                VStack(spacing: 8) {
-                    ForEach(Array(standings.enumerated()), id: \.element.id) { rank, player in
-                        HStack(spacing: 12) {
-                            Text("\(rank + 1)").font(.headline).frame(width: 22)
-                            RoundedRectangle(cornerRadius: 4).fill(Color(hex: player.colorHex)).frame(width: 14, height: 14)
-                            Text(player.name).font(.headline)
-                            Spacer()
-                            Text("\(player.shapeCount) shapes").font(.footnote).foregroundStyle(Theme.textSecondary)
-                            Text("\(player.score)").font(.title3.weight(.heavy)).monospacedDigit().frame(minWidth: 44, alignment: .trailing)
-                        }
-                        .padding(14)
-                        .card(tint: rank == 0 && session.isOver ? Color(hex: player.colorHex) : nil)
+                if isOver {
+                    summary(standings)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionLabel(isOver ? "Final standings" : "Standings")
+                    ForEach(Array(ranks(standings).enumerated()), id: \.element.player.id) { _, entry in
+                        PlayerCard(player: entry.player, variant: .result(rank: isOver ? entry.rank : entry.position),
+                                   isMine: entry.player.id == session.mySeatID,
+                                   isHost: session.capabilities.isOnline && entry.player.id == 1)
                     }
                 }
 
-                ScoreChart(players: session.game.players)
-                    .frame(height: 180)
-                    .padding(14)
-                    .card()
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) { ForEach(standings) { statCard($0) } }
+                    VStack(spacing: 10) { ForEach(standings) { statCard($0) } }
+                }
 
-                VStack(spacing: 10) {
-                    if session.isOver {
-                        switch session.rematchState {
-                        case .hostCanStart:
-                            Button { session.startRematch() } label: { Label("Start rematch", systemImage: "play.fill") }
-                                .buttonStyle(PrimaryButtonStyle(color: Theme.go))
-                        case .waitingForHost:
-                            Label("Waiting for the host to start the rematch…", systemImage: "hourglass")
-                                .font(.subheadline).foregroundStyle(Theme.textSecondary)
-                        case .none:
-                            if session.capabilities.canRestart {
-                                Button { session.restart() } label: {
-                                    Label(session.capabilities.isOnline ? "Rematch (reset room)" : "Rematch", systemImage: "arrow.counterclockwise")
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Score over time").font(Theme.display(15, relativeTo: .subheadline)).foregroundStyle(Theme.foreground)
+                        Spacer()
+                        HStack(spacing: 10) {
+                            ForEach(session.game.players) { player in
+                                HStack(spacing: 4) {
+                                    Circle().fill(Color(hex: player.colorHex)).frame(width: 8, height: 8)
+                                    Text(player.name).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
                                 }
-                                .buttonStyle(PrimaryButtonStyle())
-                            } else if session.capabilities.isOnline, !session.capabilities.isSpectator {
-                                Label("The host can start a rematch", systemImage: "info.circle")
-                                    .font(.subheadline).foregroundStyle(Theme.textSecondary)
                             }
                         }
-                        HStack(spacing: 10) {
-                            Button { onHome() } label: { Label("Home", systemImage: "house") }
-                            ShareLink(item: shareText(standings)) { Label("Share", systemImage: "square.and.arrow.up") }
-                        }
-                        .buttonStyle(SecondaryButtonStyle())
-                    } else {
-                        Button("Back to game") { dismiss() }.buttonStyle(SecondaryButtonStyle())
                     }
+                    ScoreChart(players: session.game.players, showsTitle: false).frame(height: 220)
                 }
+                .padding(14)
+                .card()
+
+                footer
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
     }
 
-    private func shareText(_ standings: [PlayerState]) -> String {
-        let lines = standings.map { "\($0.name): \($0.score)" }.joined(separator: ", ")
-        return "Square Off \(session.game.board.size)×\(session.game.board.size): \(lines)"
+    private func summary(_ standings: [PlayerState]) -> some View {
+        Group {
+            if session.game.isDraw {
+                (Text("Tie game").fontWeight(.bold) + Text(" · same score, shapes and diamonds"))
+            } else {
+                (Text(standings[0].name).fontWeight(.bold) + Text(" wins · \(standings[0].score) pts"))
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(Theme.foregroundSecondary)
+    }
+
+    /// Ranks with ties shared at the top (the web shows 1, 1, 3 for a tied pair).
+    private func ranks(_ standings: [PlayerState]) -> [(position: Int, rank: Int, player: PlayerState)] {
+        standings.enumerated().map { index, player in
+            let rank = index == 1 && session.game.isDraw ? 1 : index + 1
+            return (index + 1, rank, player)
+        }
+    }
+
+    private func statCard(_ player: PlayerState) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            PlayerIdentity(player: player, nameFont: .system(size: 13, weight: .semibold))
+            HStack(spacing: 14) {
+                Stat(label: "Score", value: "\(player.score)", size: 20)
+                Stat(label: "Squares", value: "\(player.squares.count)", size: 20)
+                Stat(label: "Diamonds", value: "\(player.diamonds.count)", size: 20)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    @ViewBuilder
+    private var footer: some View {
+        let isOnline = session.capabilities.isOnline
+        let isHost = session.role == .host
+        let isGuest = isOnline && !isHost
+        VStack(spacing: 10) {
+            if session.isOver {
+                if isGuest, session.rematchState != .hostCanStart {
+                    Chip(text: "Waiting for the host to restart…", symbol: "hourglass")
+                        .frame(maxWidth: .infinity)
+                }
+                switch session.rematchState {
+                case .hostCanStart:
+                    Button { session.startRematch() } label: { Label("Start rematch", systemImage: "play.fill") }
+                        .buttonStyle(PrimaryButtonStyle())
+                case .waitingForHost:
+                    EmptyView()
+                case .none:
+                    if session.capabilities.canRestart {
+                        Button { session.restart() } label: {
+                            Label(isOnline ? "Rematch" : "Play again", systemImage: "arrow.counterclockwise")
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                    }
+                }
+                HStack(spacing: 10) {
+                    ShareLink(item: shareText) { Label("Share", systemImage: "square.and.arrow.up") }
+                        .buttonStyle(TertiaryButtonStyle(fullWidth: false))
+                    Spacer()
+                    Button("Home") { onExit(.home) }.buttonStyle(TertiaryButtonStyle(fullWidth: false))
+                    Button(isGuest ? "Leave" : "New game") { onExit(.setup) }
+                        .buttonStyle(SecondaryButtonStyle(fullWidth: false))
+                }
+            } else {
+                Button("Back to game") { dismiss() }.buttonStyle(SecondaryButtonStyle())
+            }
+        }
+    }
+
+    private var shareText: String {
+        let lines = session.game.standings.map { "\($0.name) \($0.score)" }.joined(separator: " · ")
+        return "\(lines) — Square Off"
     }
 }
 
 /// Score after each move, one line per player (Swift Charts replaces the web's recharts).
 struct ScoreChart: View {
     let players: [PlayerState]
+    var showsTitle = true
 
     private struct Point: Identifiable {
         let id: String
@@ -169,17 +266,25 @@ struct ScoreChart: View {
                 Point(id: "\(player.id)-\(move)", player: player.name, move: move, score: score)
             }
         }
+        let top = max(10, Int((Double(points.map(\.score).max() ?? 0) * 1.1).rounded(.up)))
         VStack(alignment: .leading, spacing: 8) {
-            Text("Score by move").font(.footnote.weight(.semibold))
+            if showsTitle { Text("Score by move").font(.footnote.weight(.semibold)) }
             Chart(points) { point in
                 LineMark(x: .value("Move", point.move), y: .value("Score", point.score))
                     .foregroundStyle(by: .value("Player", point.player))
-                    .lineStyle(by: .value("Player", point.player))
+                    .lineStyle(StrokeStyle(lineWidth: 2))
                     .interpolationMethod(.monotone)
             }
             .chartForegroundStyleScale(domain: players.map(\.name), range: players.map { Color(hex: $0.colorHex) })
+            .chartYScale(domain: 0...top)
             .chartXAxis(.hidden)
-            .chartLegend(position: .bottom, alignment: .leading)
+            .chartYAxis {
+                AxisMarks(position: .leading) { _ in
+                    AxisGridLine().foregroundStyle(Theme.separator)
+                    AxisValueLabel().foregroundStyle(Theme.muted).font(.system(size: 11))
+                }
+            }
+            .chartLegend(.hidden)
         }
     }
 }

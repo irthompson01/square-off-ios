@@ -90,10 +90,10 @@ struct SquareOffApp: App {
             }
         case "cnn":
             // Level 3 against the server's model (needs `-backend live` and the docker stack).
-            app.start(GameConfig(mode: .cpu(.cnn), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "You", colorHex: Theme.playerColors[0])]))
+            app.start(GameConfig(mode: .cpu(.cnn), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Player 1", colorHex: Theme.playerColors[0])]))
             app.activeGame?.tap(Cell(row: 3, col: 3))
         default:
-            app.start(GameConfig(mode: .cpu(.maxMin), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "You", colorHex: Theme.playerColors[0])]))
+            app.start(GameConfig(mode: .cpu(.maxMin), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Player 1", colorHex: Theme.playerColors[0])]))
         }
         #endif
     }
@@ -129,8 +129,13 @@ struct RootView: View {
         }
         .onChange(of: app.pendingPlayRoute, initial: true) { _, route in
             guard let route else { return }
-            playPath.append(route)
+            if playPath.isEmpty { playPath.append(route) }
             app.pendingPlayRoute = nil
+        }
+        .onChange(of: app.pendingPopToRoot) { _, pop in
+            guard pop else { return }
+            playPath = NavigationPath()
+            app.pendingPopToRoot = false
         }
         .tabViewStyle(.sidebarAdaptable)
         .appBackground()

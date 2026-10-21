@@ -27,7 +27,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
     let roomCode: Int
     let timerSeconds: Int
     private(set) var boardSize: Int
-    private(set) var role: OnlineRole
+    private(set) var onlineRole: OnlineRole
     private(set) var mySeat: Int?
     private(set) var game: Game
     private(set) var phase: Phase = .playing
@@ -40,6 +40,8 @@ final class OnlineGameSession: @MainActor GamePresenting {
     private(set) var spins: [Cell: SpinEvent] = [:]
     private(set) var lastMove: MoveResult?
     private(set) var timeRemaining: Int?
+    private(set) var turnDeadline: Date?
+    private(set) var hostAway = false
     var notice: String?
     var hiddenShapeOwners: Set<Int> = []
     var isGameOverPresented = false
@@ -63,7 +65,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
         self.transport = transport
         self.me = me
         self.roomCode = roomCode
-        self.role = role
+        self.onlineRole = role
         self.mySeat = seat
         self.game = game
         self.boardSize = game.board.size
@@ -85,11 +87,11 @@ final class OnlineGameSession: @MainActor GamePresenting {
     var currentPlayer: PlayerState { game.currentPlayer }
 
     var isCPUThinking: Bool {
-        phase == .playing && !game.isOver && role != .spectator && game.currentPlayer.id != mySeat
+        phase == .playing && !game.isOver && onlineRole != .spectator && game.currentPlayer.id != mySeat
     }
 
     var canTap: Bool {
-        phase == .playing && !game.isOver && role != .spectator
+        phase == .playing && !game.isOver && onlineRole != .spectator
             && game.currentPlayer.id == mySeat && pendingCell == nil && connection == .online
     }
 
@@ -108,24 +110,34 @@ final class OnlineGameSession: @MainActor GamePresenting {
         }
         let mover = game.currentPlayer.id
         if awaySeats.contains(mover) { return "\(name(of: mover)) is away…" }
-        if role == .spectator { return "Spectating · \(name(of: mover))'s turn" }
+        if onlineRole == .spectator { return "Spectating · \(name(of: mover))'s turn" }
         return mover == mySeat ? "Your turn" : "\(name(of: mover))'s turn"
     }
 
     var winnerHeadline: String {
         guard game.isOver else { return "Scores so far" }
         if game.isDraw { return "Tie game" }
-        let winner = game.standings[0].id
-        return winner == mySeat ? "You win" : "\(name(of: winner)) wins"
+        let winner = game.standings[0]
+        return "\(name(of: winner.id)) wins · \(winner.score) pts"
     }
 
     var capabilities: GameCapabilities {
-        GameCapabilities(canRestart: role == .host, isSpectator: role == .spectator, isOnline: true, roomCode: roomCode)
+        GameCapabilities(canRestart: onlineRole == .host, canReset: onlineRole == .host, isSpectator: onlineRole == .spectator, isOnline: true, roomCode: roomCode)
+    }
+
+    var mySeatID: Int? { mySeat }
+    var role: OnlineRole? { onlineRole }
+
+    var statusBanner: StatusBanner? {
+        if case .roomClosed(let reason) = phase { return .error(reason) }
+        if hostAway { return .hostAway }
+        if connection != .online { return .connecting }
+        return nil
     }
 
     var rematchState: RematchState {
         guard case .awaitingRematch = phase else { return .none }
-        return role == .host ? .hostCanStart : .waitingForHost
+        return onlineRole == .host ? .hostCanStart : .waitingForHost
     }
 
     var connectionLabel: String? {
@@ -159,14 +171,14 @@ final class OnlineGameSession: @MainActor GamePresenting {
     }
 
     func restart() {
-        guard role == .host, case .over = phase else { return }
+        guard onlineRole == .host, case .over = phase else { return }
         Task {
             try? await transport.connection.send(.gameReset(boardSize: boardSize, timer: timerSeconds, gameID: gameID))
         }
     }
 
     func startRematch() {
-        guard role == .host, case .awaitingRematch = phase else { return }
+        guard onlineRole == .host, case .awaitingRematch = phase else { return }
         Task {
             if let gameID {
                 try? await transport.api.updatePlayers(gameID: gameID, players: seats)
@@ -187,7 +199,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
         OnlineSessionRecord.clear()
         let transport = transport
         let code = roomCode
-        let isHost = role == .host
+        let isHost = onlineRole == .host
         Task {
             if isHost { try? await transport.matcher.delist(roomCode: code) }
             await transport.connection.close()
@@ -228,16 +240,17 @@ final class OnlineGameSession: @MainActor GamePresenting {
             saveRecord(started: true)
             startTimerIfNeeded()
         case .promotedToPlayer(let seat, _):
-            role = .guest
+            onlineRole = .guest
             mySeat = seat
             notice = "You're in! You play as seat \(seat) next round."
             saveRecord(started: false)
         case .playerJoined(let player):
             if let player, !seats.contains(where: { $0.id == player.id }) { seats.append(player) }
         case .hostAway:
-            notice = "The host lost connection. Waiting up to a minute…"
+            hostAway = true
         case .hostDisconnected:
-            phase = .roomClosed("The host left the room")
+            hostAway = false
+            phase = .roomClosed("The host ended the room.")
             timerTask?.cancel()
             OnlineSessionRecord.clear()
         case .guestAway(let seat):
@@ -248,8 +261,9 @@ final class OnlineGameSession: @MainActor GamePresenting {
             }
         case .guestDisconnected(let seat):
             if let seat { awaySeats.remove(seat) }
-        case .playerRejoined(let seat, _):
+        case .playerRejoined(let seat, let who):
             if let seat { awaySeats.remove(seat) }
+            if who == .host || seat == 1 { hostAway = false }
             if notice?.hasPrefix("The host lost") == true || notice?.hasSuffix("lost connection") == true { notice = nil }
             stallTask?.cancel()
         case .spectatorCount(let count):
@@ -334,7 +348,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
             phase = .playing
             startTimerIfNeeded()
         } else {
-            phase = .awaitingRematch(hostReady: role == .host)
+            phase = .awaitingRematch(hostReady: onlineRole == .host)
         }
     }
 
@@ -350,11 +364,12 @@ final class OnlineGameSession: @MainActor GamePresenting {
         lastMove = nil
         pendingCell = nil
         timeRemaining = nil
+        turnDeadline = nil
         isGameOverPresented = false
         endPosted = false
         awaySeats = []
         spectatorCount = reset.spectatorCount ?? 0
-        phase = .awaitingRematch(hostReady: role == .host)
+        phase = .awaitingRematch(hostReady: onlineRole == .host)
         saveRecord(started: false)
     }
 
@@ -362,7 +377,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
         phase = .over
         timerTask?.cancel()
         stallTask?.cancel()
-        if role == .host, !endPosted, let gameID {
+        if onlineRole == .host, !endPosted, let gameID {
             endPosted = true
             let winner = game.isDraw ? "" : (playerID(of: game.standings[0].id) ?? "")
             let scores = game.players.map { ScoreEntry(playerId: playerID(of: $0.id) ?? String($0.id), score: $0.score) }
@@ -382,10 +397,10 @@ final class OnlineGameSession: @MainActor GamePresenting {
         reconnectTask?.cancel()
         connection = .reconnecting(attempt: 1)
         timerTask?.cancel()
-        let window: Duration = .seconds(role == .host ? 60 : 30)
+        let window: Duration = .seconds(onlineRole == .host ? 60 : 30)
         let code = roomCode
         let seat = mySeat ?? 0
-        let role = role
+        let role = onlineRole
         reconnectTask = Task {
             if immediately {
                 if (try? await transport.connection.connect()) != nil,
@@ -413,8 +428,10 @@ final class OnlineGameSession: @MainActor GamePresenting {
 
     private func startTimerIfNeeded() {
         timerTask?.cancel()
+        turnDeadline = nil
         guard timerSeconds > 0, case .playing = phase, !game.isOver else { return }
         timeRemaining = timerSeconds
+        turnDeadline = .now + TimeInterval(timerSeconds)
         timerTask = Task {
             while let remaining = timeRemaining, remaining > 0 {
                 try? await Task.sleep(for: .seconds(1))
@@ -427,7 +444,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
     }
 
     private func timerExpired() {
-        guard case .playing = phase, !game.isOver, game.currentPlayer.id == mySeat, role != .spectator else { return }
+        guard case .playing = phase, !game.isOver, game.currentPlayer.id == mySeat, onlineRole != .spectator else { return }
         Task { try? await transport.connection.send(.turnComplete) }
     }
 
@@ -435,7 +452,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
     /// can go on; the server plays a random tile for them.
     private func scheduleStallGuard() {
         stallTask?.cancel()
-        guard role == .host, case .playing = phase, !game.isOver, awaySeats.contains(game.currentPlayer.id) else { return }
+        guard onlineRole == .host, case .playing = phase, !game.isOver, awaySeats.contains(game.currentPlayer.id) else { return }
         let seat = game.currentPlayer.id
         stallTask = Task {
             try? await Task.sleep(for: .seconds(max(timerSeconds, 30)))
@@ -459,7 +476,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
     }
 
     private func saveRecord(started: Bool) {
-        OnlineSessionRecord(roomCode: roomCode, seat: mySeat, role: role, gameID: gameID, boardSize: boardSize,
+        OnlineSessionRecord(roomCode: roomCode, seat: mySeat, role: onlineRole, gameID: gameID, boardSize: boardSize,
                             timerSeconds: timerSeconds, started: started, savedAt: Date(), backendID: transport.backendID).save()
     }
 }

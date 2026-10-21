@@ -1,5 +1,6 @@
 import Observation
 import SquareOffCore
+import SquareOffNet
 import SwiftUI
 
 /// Drives one local game: rules from SquareOffCore, CPU moves from a `CPUMoveProvider`, and
@@ -18,6 +19,7 @@ final class GameSession: @MainActor GamePresenting {
     private(set) var lastMove: MoveResult?
     private(set) var isCPUThinking = false
     private(set) var timeRemaining: Int?
+    private(set) var turnDeadline: Date?
     var notice: String?
     var hiddenShapeOwners: Set<Int> = []
     var isGameOverPresented = false
@@ -56,13 +58,18 @@ final class GameSession: @MainActor GamePresenting {
     var capabilities: GameCapabilities { GameCapabilities() }
     var rematchState: RematchState { .none }
     var connectionLabel: String? { nil }
+    var mySeatID: Int? { nil }
+    var role: OnlineRole? { nil }
+    var spectatorCount: Int { 0 }
+    var awaySeats: Set<Int> { [] }
+    var statusBanner: StatusBanner? { nil }
 
+    /// "Blue wins · 28 pts" / "Tie game" (web `GameOverModal`).
     var winnerHeadline: String {
         guard isOver else { return "Scores so far" }
         if game.isDraw { return "Tie game" }
         let winner = game.standings[0]
-        if case .cpu = config.mode { return winner.isCPU ? "CPU wins" : "You win" }
-        return "\(winner.name) wins"
+        return "\(winner.name) wins · \(winner.score) pts"
     }
 
     /// Shapes in the order they were formed, minus any owner the player has hidden.
@@ -72,10 +79,9 @@ final class GameSession: @MainActor GamePresenting {
 
     var shapeHistory: [BoardShape] { game.moves.flatMap(\.newShapes) }
 
+    /// "Player 1's turn" for every seat, like the web's local `TurnBanner`.
     var turnLabel: String {
-        if isOver { return game.isDraw ? "Tie game" : "\(game.standings[0].name) wins" }
-        if currentPlayer.isCPU { return "CPU is thinking…" }
-        if case .cpu = config.mode { return "Your turn" }
+        if isOver { return game.isDraw ? "Game over · Tie game" : "Game over · \(game.standings[0].name) wins" }
         return "\(currentPlayer.name)'s turn"
     }
 
@@ -107,6 +113,7 @@ final class GameSession: @MainActor GamePresenting {
         spins = [:]
         lastMove = nil
         timeRemaining = nil
+        turnDeadline = nil
         isGameOverPresented = false
         Task { await start() }
     }
@@ -125,6 +132,7 @@ final class GameSession: @MainActor GamePresenting {
 
     private func apply(_ cell: Cell) {
         timerTask?.cancel()
+        turnDeadline = nil
         let mover = currentPlayer
         guard let result = try? game.place(at: cell) else { return }
 
@@ -188,6 +196,7 @@ final class GameSession: @MainActor GamePresenting {
     private func startTimer() {
         guard config.timerSeconds > 0 else { return }
         timeRemaining = config.timerSeconds
+        turnDeadline = .now + TimeInterval(config.timerSeconds)
         timerTask = Task {
             while let remaining = timeRemaining, remaining > 0 {
                 try? await Task.sleep(for: .seconds(1))
@@ -207,7 +216,7 @@ final class GameSession: @MainActor GamePresenting {
             // The seat keeps the chosen level; the move provider decides where it runs.
             return [
                 PlayerState(id: 1, name: me.name, colorHex: me.colorHex),
-                PlayerState(id: 2, name: "CPU · L\(level.number)", colorHex: cpuColor, isCPU: true, cpuLevel: level),
+                PlayerState(id: 2, name: "CPU (\(level.rawValue))", colorHex: cpuColor, isCPU: true, cpuLevel: level),
             ]
         case .passAndPlay:
             return config.players.map { PlayerState(id: $0.id, name: $0.name, colorHex: $0.colorHex) }

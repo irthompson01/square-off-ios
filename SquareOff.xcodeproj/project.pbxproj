@@ -17,6 +17,7 @@
 		2D790E8F51F8097C2C74BBE3 /* Grapple.ttf in Resources */ = {isa = PBXBuildFile; fileRef = BF00B0576C46BE465D8E6C21 /* Grapple.ttf */; };
 		2DBC0E09F13690F4F540C171 /* spin.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = D8FA79E9B968B77B90DDAE5D /* spin.mp3 */; };
 		312D360DF6E2C4E950F3334F /* GameSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */; };
+		357A0ED3149F5DD9BC1CEA61 /* GameChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3FAEFEC0D7C23852F8323A4 /* GameChrome.swift */; };
 		358B42A834C6F127FAE2B965 /* BackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */; };
 		3B7F64A5C168F961ED752E2B /* TokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2359DCD5F2870A09B8942D /* TokenStore.swift */; };
 		3F94D50BC885FD3CE8321BC9 /* SetupForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB1747F96A80DA887567AC77 /* SetupForm.swift */; };
@@ -125,6 +126,7 @@
 		EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSheets.swift; sourceTree = "<group>"; };
 		EB1747F96A80DA887567AC77 /* SetupForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupForm.swift; sourceTree = "<group>"; };
 		EDF29A616E9B017A4FC14F7C /* OFL-ChakraPetch.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-ChakraPetch.txt"; sourceTree = "<group>"; };
+		F3FAEFEC0D7C23852F8323A4 /* GameChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameChrome.swift; sourceTree = "<group>"; };
 		F8448742DCD971059730F73C /* GamePresenting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamePresenting.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -154,6 +156,7 @@
 			children = (
 				BD8FE6543EDAC30B5E9B1A43 /* BoardAnimation.swift */,
 				90B838FCE08AF16CD75A5164 /* BoardView.swift */,
+				F3FAEFEC0D7C23852F8323A4 /* GameChrome.swift */,
 				F8448742DCD971059730F73C /* GamePresenting.swift */,
 				868473B183874E9A64D3A161 /* GameServices.swift */,
 				487284783B713FADBD398B72 /* GameSession.swift */,
@@ -455,6 +458,7 @@
 				8CFE5678C10F9BE71874F89F /* BoardAnimation.swift in Sources */,
 				434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */,
 				B056BFF38E887532F2978F72 /* DemoBoardView.swift in Sources */,
+				357A0ED3149F5DD9BC1CEA61 /* GameChrome.swift in Sources */,
 				73BCAB838EC7809B291F3C45 /* GamePresenting.swift in Sources */,
 				751EE4FAAFF0B5824306C465 /* GameServices.swift in Sources */,
 				4465A51D5918EC4A957D17F6 /* GameSession.swift in Sources */,

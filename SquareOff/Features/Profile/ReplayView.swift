@@ -41,7 +41,7 @@ struct ReplayView: View {
             VStack(spacing: 14) {
                 HStack(spacing: 10) {
                     ForEach(game.players) { player in
-                        PlayerCard(player: player, isActive: player.id == game.currentPlayer.id && index < payload.turns.count, compact: game.players.count > 2)
+                        PlayerCard(player: player, variant: .compact(dense: game.players.count > 2), isActive: player.id == game.currentPlayer.id && index < payload.turns.count)
                     }
                 }
                 PlaybackBoardView(game: game, spins: spins, lastMove: lastMove)

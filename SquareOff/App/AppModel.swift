@@ -72,6 +72,23 @@ final class AppModel {
         accounts = AccountStore(backend: backend)
     }
 
+    /// Where leaving a game lands (web `handleLeave(to)`): Home pops to the root, Setup shows the Play page.
+    enum GameExit { case home, setup }
+    /// Set by `exitGame`; the root view pops its navigation stack and clears the flag.
+    var pendingPopToRoot = false
+
+    func exitGame(to destination: GameExit) {
+        isGamePresented = false
+        switch destination {
+        case .home:
+            pendingPopToRoot = true
+            selectedTab = .play
+        case .setup:
+            selectedTab = .play
+            if pendingPlayRoute == nil, activeOnlineGame == nil { pendingPlayRoute = .cpu }
+        }
+    }
+
     func presentOnline(_ session: OnlineGameSession) {
         activeGame?.stop()
         activeGame = nil
