@@ -35,6 +35,10 @@ struct SquareOffApp: App {
         }
     }
 
+    #if DEBUG
+    private static var didOpenDemoGame = false
+    #endif
+
     /// Debug launch arguments for screenshots / quick iteration:
     /// `-demoGame cpu|cnn|local4|busy|over`, `-demoScreen rules|setup|color|signin` (`-rulesSection <id>` with
     /// rules), `-demoOnline host|guest|spectator|quickmatch` and `-backend mock|live`.
@@ -76,7 +80,10 @@ struct SquareOffApp: App {
             }
             return
         }
-        guard let kind = UserDefaults.standard.string(forKey: "demoGame"), app.activeGame == nil else { return }
+        guard let kind = UserDefaults.standard.string(forKey: "demoGame"), !Self.didOpenDemoGame else { return }
+        Self.didOpenDemoGame = true
+        // A demo replaces any saved "Continue" game.
+        app.discardGame()
         switch kind {
         case "local4":
             app.start(GameConfig(mode: .passAndPlay, boardSize: 8, timerSeconds: 20, players: players))

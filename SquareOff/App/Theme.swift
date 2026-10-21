@@ -32,9 +32,10 @@ enum Theme {
     static let success = Color(hex: "#17C964")
     static let warning = Color(hex: "#F7B750")
 
-    // Board
-    static let tileEmpty = Color.white
-    static let tileBorder = Color(hex: "#ABABAB")
+    // Board. iOS keeps the dark empty tiles from v1 (the web switched to white); the faint
+    // white edge keeps the grid readable on the starfield.
+    static let tileEmpty = Color(hex: "#262634")
+    static let tileBorder = Color.white.opacity(0.05)
 
     /// Default seat colours (`--player-1..4`, also the server's `DEFAULT_COLORS`).
     static let playerColors = ["#4C8BF5", "#DD5144", "#1DA462", "#FFCD46"]
