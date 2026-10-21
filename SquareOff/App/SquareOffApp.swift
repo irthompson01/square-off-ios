@@ -127,6 +127,7 @@ struct RootView: View {
                         .navigationDestination(for: PlayRoute.self) { route in
                             switch route {
                             case .play: PlayView()
+                            case .online: PlayView(mode: .online, onlineTab: .quick)
                             case .stats: StatsView()
                             }
                         }

@@ -11,6 +11,8 @@ Local games (Vs Computer, Pass & Play) always play with the on-device rules and 
 
 ## Run it
 
+`make phone` builds, installs and launches on the connected iPhone (`make devices` lists UDIDs; override with `DEVICE=` / `TEAM=`). `make build` / `make test` use the simulator.
+
 1. Open `SquareOff.xcodeproj` in Xcode.
 2. Pick the **SquareOff** scheme and any iPhone or iPad simulator, then Run (⌘R).
 
@@ -70,7 +72,7 @@ SquareOff/                App target (SwiftUI)
   App/                    Entry point, AppModel, theme tokens + primitives, toasts, starfield
   Services/Backend        BackendConfiguration + Backend (mock | live), token stores, identities,
                           AccountStore, ServerGameRecorder, ServerCPUMoveProvider
-  Features/Play           Home (wordmark + neon tiles + Continue card), PlayView + PlaySetupModel, colour picker
+  Features/Play           Home (logo, Start Game / Online Match, Continue card, self-playing board), PlayView + PlaySetupModel
   Features/Game           GamePresenting, GameSession (local), board (flip / spins / shape draw-on), chrome, sheets
   Features/Online         RoomCoordinator (lobby), OnlineGameSession, OnlineConnection, OnlinePanel, WaitingRoomView
   Features/Learn          Accordion rulebook with the web's 13 scripted demo boards

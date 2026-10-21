@@ -6,7 +6,14 @@ import SwiftUI
 struct PlayView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var setup = PlaySetupModel()
+    @State private var setup: PlaySetupModel
+
+    init(mode: PlaySetupModel.Mode = .cpu, onlineTab: PlaySetupModel.OnlineTab = .create) {
+        let setup = PlaySetupModel()
+        setup.mode = mode
+        setup.onlineTab = onlineTab
+        _setup = State(initialValue: setup)
+    }
     @State private var isPending = false
     @State private var showRoom = false
     @State private var debugColorSheet = false
