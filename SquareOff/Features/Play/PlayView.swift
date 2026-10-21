@@ -34,7 +34,6 @@ struct PlayView: View {
         .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .bottom) { stickyBar }
         .navigationDestination(isPresented: $showRoom) { WaitingRoomView() }
         .task(id: app.account) { setup.prefill(from: app.account) }

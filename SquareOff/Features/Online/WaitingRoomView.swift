@@ -27,7 +27,6 @@ struct WaitingRoomView: View {
         .appBackground()
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .navigationBarBackButtonHidden(true)
         .onChange(of: app.online.state) { _, state in

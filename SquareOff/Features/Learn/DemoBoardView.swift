@@ -1,73 +1,84 @@
 import SquareOffCore
 import SwiftUI
 
-/// A mini board that plays a `RulebookDemo` on a loop with the real rules, tile spins and shape
-/// panes. Playback runs only while the view is on screen; tap to restart.
+/// A self-playing example board for the rulebook (web `DemoBoard`): the scenario's setup tiles
+/// appear at once, then the moves play about one per second on the real rules engine, with the
+/// same flips, spins and shape draw-on as a game. Loops; plays only while enabled and on screen.
 struct DemoBoardView: View {
     let demo: RulebookDemo
+    /// False while the owning section is collapsed: no timers, no playback.
+    var enabled = true
 
     @State private var game: Game
     @State private var spins: [Cell: SpinEvent] = [:]
     @State private var lastMove: MoveResult?
-    @State private var note = ""
-    @State private var played = 0
+    @State private var caption = DemoBoardView.openingCaption
+    @State private var visible = false
     @State private var run = 0
     @State private var spinSequence = 0
 
-    private static let stepDelay: Duration = .milliseconds(750)
-    private static let holdDelay: Duration = .seconds(3)
+    private static let openingCaption = "Blue and Red take turns placing tiles."
+    private static let stepDelay: Duration = .milliseconds(1100)
+    private static let scoringDelay: Duration = .milliseconds(2000)
+    private static let holdDelay: Duration = .milliseconds(3200)
 
-    init(demo: RulebookDemo) {
+    init(demo: RulebookDemo, enabled: Bool = true) {
         self.demo = demo
-        _game = State(initialValue: Self.freshGame(size: demo.size))
+        self.enabled = enabled
+        _game = State(initialValue: Self.initialGame(demo))
     }
 
     var body: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                ForEach(game.players) { player in
-                    HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 3).fill(Color(hex: player.colorHex)).frame(width: 10, height: 10)
-                        Text(player.name).font(.caption.weight(.semibold))
-                        Text("\(player.score)").font(.caption.weight(.bold)).monospacedDigit()
-                            .contentTransition(.numericText(value: Double(player.score)))
-                        if player.multiplier > 1 {
-                            Text("×\(player.multiplier)").font(.caption2.weight(.bold)).foregroundStyle(Theme.warning)
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .frame(height: 28)
-                    .background(Theme.surfaceRaised, in: Capsule())
-                    .overlay(Capsule().strokeBorder(player.id == game.currentPlayer.id && played < demo.moves.count ? Color(hex: player.colorHex) : .clear))
-                }
-                Spacer()
-                Text("\(min(played, demo.moves.count))/\(demo.moves.count)")
-                    .font(.caption2).monospacedDigit().foregroundStyle(Theme.textSecondary)
-            }
-            .animation(.easeOut(duration: 0.25), value: played)
-
-            board
+            PlaybackBoardView(game: game, spins: spins, lastMove: lastMove)
+                .padding(8)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .frame(maxWidth: 320)
-                .frame(maxWidth: .infinity)
-
-            Text(note.isEmpty ? " " : note)
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.9))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, minHeight: 36, alignment: .top)
-                .contentTransition(.opacity)
-                .animation(.easeOut(duration: 0.2), value: note)
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    ForEach(game.players) { player in
+                        HStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 3).fill(Color(hex: player.colorHex)).frame(width: 12, height: 12)
+                            Text(player.name).font(.caption.weight(.semibold)).foregroundStyle(Theme.foreground)
+                            Text("\(player.score)")
+                                .font(Theme.display(13, relativeTo: .caption))
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.foreground)
+                                .contentTransition(.numericText(value: Double(player.score)))
+                            Text("×\(player.multiplier)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(Theme.foregroundSecondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(.white.opacity(0.1), in: Capsule())
+                        }
+                        .padding(.horizontal, 10)
+                        .frame(height: 30)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.border))
+                        .animation(.easeOut(duration: 0.25), value: player.score)
+                    }
+                }
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(Theme.foregroundSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, minHeight: 40, alignment: .top)
+                    .contentTransition(.opacity)
+                    .animation(.easeOut(duration: 0.2), value: caption)
+            }
+            .frame(maxWidth: 320)
         }
-        .padding(12)
-        .background(Theme.background.opacity(0.6), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
         .onTapGesture { run += 1 }
-        .task(id: run) { await play() }
+        .onScrollVisibilityChange(threshold: 0.35) { visible = $0 }
+        .task(id: "\(run)-\(enabled && visible)") {
+            guard enabled, visible else { return }
+            await play()
+        }
         .accessibilityElement(children: .combine)
-    }
-
-    private var board: some View {
-        PlaybackBoardView(game: game, spins: spins, lastMove: lastMove)
+        .accessibilityLabel("Example: \(demo.id)")
     }
 
     private func play() async {
@@ -76,7 +87,11 @@ struct DemoBoardView: View {
             for move in demo.moves {
                 try? await Task.sleep(for: Self.stepDelay)
                 guard !Task.isCancelled else { return }
-                apply(move)
+                let scored = apply(move)
+                if scored {
+                    try? await Task.sleep(for: Self.scoringDelay - Self.stepDelay)
+                    guard !Task.isCancelled else { return }
+                }
             }
             try? await Task.sleep(for: Self.holdDelay)
             guard !Task.isCancelled else { return }
@@ -85,35 +100,50 @@ struct DemoBoardView: View {
     }
 
     private func reset() {
-        game = Self.freshGame(size: demo.size)
+        game = Self.initialGame(demo)
         spins = [:]
         lastMove = nil
-        note = ""
-        played = 0
+        caption = Self.openingCaption
     }
 
-    private func apply(_ move: RulebookDemo.Move) {
-        let mover = game.currentPlayer
-        guard let result = try? game.place(at: Cell(row: move.row, col: move.col)) else { return }
+    /// Plays one move; returns whether it scored (the web pauses longer after those).
+    private func apply(_ move: RulebookDemo.Move) -> Bool {
+        let mover = game.players.first { $0.id == move.player } ?? game.currentPlayer
+        guard let result = try? game.place(at: move.cell, by: move.player) else { return false }
         spinSequence += 1
         for (tile, event) in SpinSchedule.events(for: result, sequence: spinSequence, continuousIndex: false) {
             spins[tile] = event
         }
         lastMove = result
-        played += 1
-        note = move.note ?? Self.describe(result, by: mover)
+        caption = move.note ?? Self.describe(result, by: mover)
+        return result.newShapeCount > 0
     }
 
-    private static func describe(_ result: MoveResult, by player: PlayerState) -> String {
-        guard result.newShapeCount > 0 else { return "\(player.name) claims a tile" }
-        let names = result.newShapes.map { "\($0.size)×\($0.size) \($0.kind.rawValue)" }.joined(separator: " + ")
-        return "\(player.name): \(names), +\(result.scoreIncrease)"
+    /// The web's auto captions (`playMove` in `demo-board.tsx`).
+    static func describe(_ result: MoveResult, by mover: PlayerState) -> String {
+        let shapes = result.newShapes
+        if shapes.isEmpty {
+            return mover.multiplier > 1 ? "\(mover.name) forms no shape, so the multiplier resets to ×1" : "\(mover.name) places a tile"
+        }
+        if shapes.count == 1 {
+            return "\(mover.name) completes a \(describe(shapes[0])): +\(result.scoreIncrease)"
+        }
+        let parts = shapes.map { "a \(describe($0))" }
+        let list = parts.dropLast().joined(separator: ", ") + " and " + parts.last!
+        let points = shapes.map { String($0.points) }.joined(separator: " + ")
+        return "\(mover.name) completes \(list) at once: (\(points)) × \(result.multiplierAfter) = \(result.scoreIncrease)"
     }
 
-    private static func freshGame(size: Int) -> Game {
-        Game(boardSize: size, players: [
-            PlayerState(id: 1, name: "Blue", colorHex: Theme.playerColors[0]),
-            PlayerState(id: 2, name: "Red", colorHex: Theme.playerColors[1]),
-        ])
+    private static func describe(_ shape: BoardShape) -> String {
+        "\(shape.size)×\(shape.size) \(shape.kind.rawValue)"
+    }
+
+    /// Setup tiles go through the engine (scored, like the web) with nothing animated.
+    static func initialGame(_ demo: RulebookDemo) -> Game {
+        var game = Game(boardSize: demo.size, players: RulebookDemo.players)
+        for placement in demo.setup {
+            _ = try? game.place(at: placement.cell, by: placement.player)
+        }
+        return game
     }
 }
