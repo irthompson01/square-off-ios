@@ -18,7 +18,7 @@ struct GameView<Session: GamePresenting>: View {
             Group {
                 if landscape {
                     HStack(alignment: .top, spacing: 32) {
-                        BoardView(session: session, gap: 6)
+                        BoardView(session: session)
                             .frame(maxHeight: .infinity)
                         sidebar
                             .frame(width: 340)
@@ -29,7 +29,7 @@ struct GameView<Session: GamePresenting>: View {
                         header
                         PlayerStrip(session: session)
                         turnBanner
-                        BoardView(session: session, gap: proxy.size.width > 600 ? 6 : 4)
+                        BoardView(session: session)
                         lastMovePill
                         Spacer(minLength: 0)
                         controls

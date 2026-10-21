@@ -97,6 +97,8 @@ final class OnlineGameSession: @MainActor GamePresenting {
         shapeLog.filter { !hiddenShapeOwners.contains($0.ownerID) }
     }
 
+    var shapeHistory: [BoardShape] { shapeLog }
+
     var turnLabel: String {
         switch phase {
         case .roomClosed(let reason): return reason
@@ -283,8 +285,8 @@ final class OnlineGameSession: @MainActor GamePresenting {
            let result = try? trial.place(at: cell), trial.matches(state) {
             game = trial
             spinSequence += 1
-            for (tile, turns) in result.spinTurns {
-                spins[tile] = SpinEvent(id: spinSequence, turns: turns)
+            for (tile, event) in SpinSchedule.events(for: result, sequence: spinSequence, continuousIndex: true) {
+                spins[tile] = event
             }
             lastMove = result
             placeCount += 1
@@ -299,11 +301,8 @@ final class OnlineGameSession: @MainActor GamePresenting {
             game = rebuilt
             shapeLog = state.allShapes
             lastMove = nil
-            if let cell = state.moveCell {
-                spinSequence += 1
-                spins[cell] = SpinEvent(id: spinSequence, turns: 1)
-                placeCount += 1
-            }
+            // The owner change flips the tile; nothing to spin on a resync.
+            if state.moveCell != nil { placeCount += 1 }
             #if DEBUG
             notice = "Resynced with the server"
             #endif

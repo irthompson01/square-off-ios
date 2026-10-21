@@ -37,6 +37,8 @@ protocol GamePresenting: AnyObject, Observable, Identifiable {
     var currentPlayer: PlayerState { get }
     var canTap: Bool { get }
     var visibleShapes: [BoardShape] { get }
+    /// Every shape formed so far, in formation order (drives the overlay's age fading).
+    var shapeHistory: [BoardShape] { get }
     var turnLabel: String { get }
     var winnerHeadline: String { get }
     var capabilities: GameCapabilities { get }

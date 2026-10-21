@@ -38,6 +38,7 @@ final class AppModel {
     /// The server stack in use (mock or local docker). Rebuilt by `switchBackend`.
     private(set) var backend: Backend
     let accounts: AccountStore
+    let toasts = ToastCenter()
     var account: Account { accounts.account }
     var selectedTab: AppTab = .play
     /// Debug deep links (`-demoScreen`): screens to open once the root view appears.

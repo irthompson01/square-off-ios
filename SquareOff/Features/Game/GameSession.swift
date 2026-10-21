@@ -2,21 +2,6 @@ import Observation
 import SquareOffCore
 import SwiftUI
 
-/// A spin request for one tile. `id` changes every time so the same tile can spin again.
-/// The rules say corners spin `2 × shapes` turns, accumulating when a tile belongs to several
-/// shapes; on a 12×12 with a big multiplier that is many seconds of spinning, so the view caps it.
-struct SpinEvent: Equatable {
-    static let maxTurns = 3
-
-    let id: Int
-    let turns: Int
-
-    init(id: Int, turns: Int) {
-        self.id = id
-        self.turns = min(max(turns, 1), Self.maxTurns)
-    }
-}
-
 /// Drives one local game: rules from SquareOffCore, CPU moves from a `CPUMoveProvider`, and
 /// every move handed to a `GameRecorder` in order without ever waiting on it.
 @Observable
@@ -82,8 +67,10 @@ final class GameSession: @MainActor GamePresenting {
 
     /// Shapes in the order they were formed, minus any owner the player has hidden.
     var visibleShapes: [BoardShape] {
-        game.moves.flatMap(\.newShapes).filter { !hiddenShapeOwners.contains($0.ownerID) }
+        shapeHistory.filter { !hiddenShapeOwners.contains($0.ownerID) }
     }
+
+    var shapeHistory: [BoardShape] { game.moves.flatMap(\.newShapes) }
 
     var turnLabel: String {
         if isOver { return game.isDraw ? "Tie game" : "\(game.standings[0].name) wins" }
@@ -142,8 +129,8 @@ final class GameSession: @MainActor GamePresenting {
         guard let result = try? game.place(at: cell) else { return }
 
         spinSequence += 1
-        for (tile, turns) in result.spinTurns {
-            spins[tile] = SpinEvent(id: spinSequence, turns: turns)
+        for (tile, event) in SpinSchedule.events(for: result, sequence: spinSequence, continuousIndex: false) {
+            spins[tile] = event
         }
         lastMove = result
         placeCount += 1

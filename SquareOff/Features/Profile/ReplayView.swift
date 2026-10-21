@@ -44,7 +44,7 @@ struct ReplayView: View {
                         PlayerCard(player: player, isActive: player.id == game.currentPlayer.id && index < payload.turns.count, compact: game.players.count > 2)
                     }
                 }
-                PlaybackBoardView(game: game, spins: spins, lastMove: lastMove, gap: 4)
+                PlaybackBoardView(game: game, spins: spins, lastMove: lastMove)
                     .frame(maxWidth: 420)
                 Text(note ?? " ").font(.footnote).foregroundStyle(Theme.textSecondary).frame(minHeight: 20)
                 controls(payload)
@@ -149,7 +149,7 @@ struct ReplayView: View {
             return
         }
         spinSequence += 1
-        for (tile, turns) in move.spinTurns { spins[tile] = SpinEvent(id: spinSequence, turns: turns) }
+        for (tile, event) in SpinSchedule.events(for: move, sequence: spinSequence, continuousIndex: false) { spins[tile] = event }
         lastMove = move
         self.game = game
         index += 1

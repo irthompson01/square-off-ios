@@ -134,6 +134,8 @@ struct RootView: View {
         }
         .tabViewStyle(.sidebarAdaptable)
         .appBackground()
+        .overlay(alignment: .bottom) { ToastOverlay(center: app.toasts) }
+        .syncsMusic()
         .task { await app.accounts.restore() }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
@@ -149,13 +151,15 @@ struct RootView: View {
             }
         }
         .fullScreenCover(isPresented: $app.isGamePresented, onDismiss: app.gameDismissed) {
-            if let online = app.activeOnlineGame {
-                GameView(session: online)
-                    .environment(app)
-            } else if let session = app.activeGame {
-                GameView(session: session)
-                    .environment(app)
+            Group {
+                if let online = app.activeOnlineGame {
+                    GameView(session: online)
+                } else if let session = app.activeGame {
+                    GameView(session: session)
+                }
             }
+            .environment(app)
+            .overlay(alignment: .bottom) { ToastOverlay(center: app.toasts) }
         }
     }
 }

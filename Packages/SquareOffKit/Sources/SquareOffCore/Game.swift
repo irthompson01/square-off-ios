@@ -49,6 +49,18 @@ public struct MoveResult: Hashable, Sendable {
     public let scoreAfter: Int
     public let multiplierAfter: Int
 
+    public init(cell: Cell, playerID: Int, newSquares: [BoardShape], newDiamonds: [BoardShape],
+                scoreIncrease: Int, multiplierIncrease: Int, scoreAfter: Int, multiplierAfter: Int) {
+        self.cell = cell
+        self.playerID = playerID
+        self.newSquares = newSquares
+        self.newDiamonds = newDiamonds
+        self.scoreIncrease = scoreIncrease
+        self.multiplierIncrease = multiplierIncrease
+        self.scoreAfter = scoreAfter
+        self.multiplierAfter = multiplierAfter
+    }
+
     public var newShapes: [BoardShape] { newSquares + newDiamonds }
     public var newShapeCount: Int { newShapes.count }
 
@@ -134,6 +146,15 @@ public struct Game: Hashable, Sendable {
         return s[0].score == s[1].score
             && s[0].shapeCount == s[1].shapeCount
             && s[0].diamonds.count == s[1].diamonds.count
+    }
+
+    /// Places a tile for a specific seat regardless of whose turn it is, then advances the turn
+    /// from that seat as usual. Used by scripted demos whose moves name the player explicitly.
+    @discardableResult
+    public mutating func place(at cell: Cell, by playerID: Int) throws -> MoveResult {
+        guard let index = players.firstIndex(where: { $0.id == playerID }) else { throw MoveError.outOfBounds }
+        currentPlayerIndex = index
+        return try place(at: cell)
     }
 
     @discardableResult

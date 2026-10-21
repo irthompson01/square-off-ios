@@ -96,8 +96,8 @@ struct DemoBoardView: View {
         let mover = game.currentPlayer
         guard let result = try? game.place(at: Cell(row: move.row, col: move.col)) else { return }
         spinSequence += 1
-        for (tile, turns) in result.spinTurns {
-            spins[tile] = SpinEvent(id: spinSequence, turns: turns)
+        for (tile, event) in SpinSchedule.events(for: result, sequence: spinSequence, continuousIndex: false) {
+            spins[tile] = event
         }
         lastMove = result
         played += 1

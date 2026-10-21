@@ -47,6 +47,10 @@ targets:
       path: SquareOff/Info.plist
       properties:
         CFBundleDisplayName: Square Off
+        # Grapple (wordmark) and Chakra Petch Bold (headings, numbers), as on the web.
+        UIAppFonts:
+          - Grapple.ttf
+          - ChakraPetch-Bold.ttf
         UILaunchScreen:
           UIColorName: LaunchBackground
         # Dark-only for v1.

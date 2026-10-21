@@ -71,7 +71,7 @@ struct OnlineGameSessionTests {
 
         host.tap(Cell(row: 0, col: 0))
         try await waitUntil { host.game.moves.count == 1 && guest.game.moves.count == 1 }
-        #expect(host.spins[Cell(row: 0, col: 0)]?.turns == 1)
+        #expect(host.spins[Cell(row: 0, col: 0)] == nil && host.lastMove?.cell == Cell(row: 0, col: 0))
         #expect(guest.lastMove?.cell == Cell(row: 0, col: 0))
         #expect(guest.canTap && !host.canTap)
         #expect(host.turnLabel == "Guest's turn" && guest.turnLabel == "Your turn")

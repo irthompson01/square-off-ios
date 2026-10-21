@@ -13,6 +13,8 @@
 		0C0F0A4A0853B97B9B690106 /* BackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */; };
 		149C102E91949CE3D7F91E17 /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = 6C9256AFEBE1EC90FE2FE3B8 /* SquareOffNet */; };
 		214E565C1149225AFB14751D /* RoomCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 336B4CC0CDDD237CB9E76B9B /* RoomCoordinator.swift */; };
+		2CB2E036DB034FF16EE13709 /* harmonies.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8409128934C890FEAD654534 /* harmonies.mp3 */; };
+		2D790E8F51F8097C2C74BBE3 /* Grapple.ttf in Resources */ = {isa = PBXBuildFile; fileRef = BF00B0576C46BE465D8E6C21 /* Grapple.ttf */; };
 		2DBC0E09F13690F4F540C171 /* spin.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = D8FA79E9B968B77B90DDAE5D /* spin.mp3 */; };
 		312D360DF6E2C4E950F3334F /* GameSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */; };
 		358B42A834C6F127FAE2B965 /* BackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */; };
@@ -25,10 +27,14 @@
 		59D7DFFA7568CB5B57029EEF /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0172B922493BECDC43DE9382 /* Backend.swift */; };
 		5E161678E4FC7970C86A4DE3 /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CA05ED7DF92F2FF425110A0 /* ReplayView.swift */; };
 		62E4814E05C980BE16EC3C56 /* OnlineViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 136C9DB5B8E80AE63467AA7A /* OnlineViews.swift */; };
+		67E8C4A0D9EB2C7CF301B28B /* BoardAnimationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6384AE9FE5874CB287621059 /* BoardAnimationTests.swift */; };
 		73BCAB838EC7809B291F3C45 /* GamePresenting.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8448742DCD971059730F73C /* GamePresenting.swift */; };
+		74E2C2FEC1B3D96A428BE196 /* Primitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3655BE4C5C3C5CB89A054032 /* Primitives.swift */; };
 		751EE4FAAFF0B5824306C465 /* GameServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868473B183874E9A64D3A161 /* GameServices.swift */; };
 		773C6133F378A3F308C43085 /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */; };
 		798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A75DEBAA85846A0A294853 /* AppModel.swift */; };
+		8CFE5678C10F9BE71874F89F /* BoardAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8FE6543EDAC30B5E9B1A43 /* BoardAnimation.swift */; };
+		8F8535FFD48EE203961F9A7F /* MusicPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D81277C819AB3FD520ACF5C /* MusicPlayer.swift */; };
 		933569DBBF8E5D82F7BC0705 /* RulebookDemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 479A55F3B6526664D723838B /* RulebookDemoTests.swift */; };
 		9355CED32613CEC38B4BB099 /* ServerGameRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67E08E56B748BC04DDBADB46 /* ServerGameRecorder.swift */; };
 		A2D9AC16F7D85E03EEB1964E /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = BF92E48A6E8511778471FEFD /* SquareOffNet */; };
@@ -39,9 +45,12 @@
 		B2C02FB5088376D1738EC9B3 /* OnlineConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3AA042A0F12221F58C469C /* OnlineConnection.swift */; };
 		B551473D8B2F0442F71CE721 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6D7E66472DC336B993FFC2 /* GameView.swift */; };
 		BDD09628C48B63530709A25E /* Starfield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8196D783170D869DCCDC9C2B /* Starfield.swift */; };
+		CDAF2C499B43CD7D8603E6F2 /* OFL-ChakraPetch.txt in Resources */ = {isa = PBXBuildFile; fileRef = EDF29A616E9B017A4FC14F7C /* OFL-ChakraPetch.txt */; };
+		D350F1A468FDF2A1D82DB68C /* Toasts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59FC182B6B1E34B45CD2B8F /* Toasts.swift */; };
 		D8E46AB1863F2F73FCC4E1F1 /* RulebookDemos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */; };
 		E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */; };
 		E57C400C84D4C63066BA20A8 /* ServerCPUMoveProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD2B519948240DFD7932646D /* ServerCPUMoveProvider.swift */; };
+		E92CB0B4AE91A22056061C3A /* ChakraPetch-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9318B92B1F1DE0DF1580B97B /* ChakraPetch-Bold.ttf */; };
 		EAF3C39ACD0328E5315BCC3A /* button.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BE69ABA9011BBE77ED79CC73 /* button.mp3 */; };
 		EFC748E02CF368678FDA9BF1 /* SpyAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C87803714D621485DA8BFA65 /* SpyAPI.swift */; };
 		F0A67B8B58B6ED41BD4080F6 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143BAB6EB077E55B63A8DEE6 /* Identity.swift */; };
@@ -73,6 +82,7 @@
 		1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2D425CAA288550260774CEA5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		336B4CC0CDDD237CB9E76B9B /* RoomCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCoordinator.swift; sourceTree = "<group>"; };
+		3655BE4C5C3C5CB89A054032 /* Primitives.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Primitives.swift; sourceTree = "<group>"; };
 		41CFF102A0CF12ACA419DF6C /* DemoBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoBoardView.swift; sourceTree = "<group>"; };
 		44298EA4BF8BCFC2F12E634A /* RulesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulesView.swift; sourceTree = "<group>"; };
 		479A55F3B6526664D723838B /* RulebookDemoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulebookDemoTests.swift; sourceTree = "<group>"; };
@@ -81,25 +91,32 @@
 		56F28A7C137131805CC520B7 /* SquareOff.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SquareOff.entitlements; sourceTree = "<group>"; };
 		5C3AA042A0F12221F58C469C /* OnlineConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineConnection.swift; sourceTree = "<group>"; };
 		6168615F0BDEE92ED9F06B4A /* AccountStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountStore.swift; sourceTree = "<group>"; };
+		6384AE9FE5874CB287621059 /* BoardAnimationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardAnimationTests.swift; sourceTree = "<group>"; };
 		67E08E56B748BC04DDBADB46 /* ServerGameRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerGameRecorder.swift; sourceTree = "<group>"; };
 		6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquareOffApp.swift; sourceTree = "<group>"; };
 		72D4F43CDBE1EB8046527309 /* IdentityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentityStore.swift; sourceTree = "<group>"; };
 		7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulebookDemos.swift; sourceTree = "<group>"; };
 		8196D783170D869DCCDC9C2B /* Starfield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Starfield.swift; sourceTree = "<group>"; };
+		8409128934C890FEAD654534 /* harmonies.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = harmonies.mp3; sourceTree = "<group>"; };
 		868473B183874E9A64D3A161 /* GameServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameServices.swift; sourceTree = "<group>"; };
 		86A75DEBAA85846A0A294853 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		86B0E77FE8776AD7519B095E /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		8D707DF5DF0D3AC29A6E544E /* SquareOffTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SquareOffTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8D81277C819AB3FD520ACF5C /* MusicPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayer.swift; sourceTree = "<group>"; };
 		90B838FCE08AF16CD75A5164 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		917EBEA674D7D753E4323871 /* SquareOff.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SquareOff.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9318B92B1F1DE0DF1580B97B /* ChakraPetch-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ChakraPetch-Bold.ttf"; sourceTree = "<group>"; };
 		9CA05ED7DF92F2FF425110A0 /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		A74745FC152F4FDAAF183028 /* Rulebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rulebook.swift; sourceTree = "<group>"; };
 		BD2B519948240DFD7932646D /* ServerCPUMoveProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerCPUMoveProvider.swift; sourceTree = "<group>"; };
+		BD8FE6543EDAC30B5E9B1A43 /* BoardAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardAnimation.swift; sourceTree = "<group>"; };
 		BE69ABA9011BBE77ED79CC73 /* button.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = button.mp3; sourceTree = "<group>"; };
+		BF00B0576C46BE465D8E6C21 /* Grapple.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Grapple.ttf; sourceTree = "<group>"; };
 		BF6D7E66472DC336B993FFC2 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
 		C87803714D621485DA8BFA65 /* SpyAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpyAPI.swift; sourceTree = "<group>"; };
 		CB2359DCD5F2870A09B8942D /* TokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenStore.swift; sourceTree = "<group>"; };
+		D59FC182B6B1E34B45CD2B8F /* Toasts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toasts.swift; sourceTree = "<group>"; };
 		D8FA79E9B968B77B90DDAE5D /* spin.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = spin.mp3; sourceTree = "<group>"; };
 		DB2294F1158530A790037386 /* GameSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSessionTests.swift; sourceTree = "<group>"; };
 		E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPlayer.swift; sourceTree = "<group>"; };
@@ -107,6 +124,7 @@
 		E8AD0610459C3E001FD1FB5B /* OnlineGameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineGameSession.swift; sourceTree = "<group>"; };
 		EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSheets.swift; sourceTree = "<group>"; };
 		EB1747F96A80DA887567AC77 /* SetupForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupForm.swift; sourceTree = "<group>"; };
+		EDF29A616E9B017A4FC14F7C /* OFL-ChakraPetch.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-ChakraPetch.txt"; sourceTree = "<group>"; };
 		F8448742DCD971059730F73C /* GamePresenting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamePresenting.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -134,6 +152,7 @@
 		00AA92B5283D6AECD97791FD /* Game */ = {
 			isa = PBXGroup;
 			children = (
+				BD8FE6543EDAC30B5E9B1A43 /* BoardAnimation.swift */,
 				90B838FCE08AF16CD75A5164 /* BoardView.swift */,
 				F8448742DCD971059730F73C /* GamePresenting.swift */,
 				868473B183874E9A64D3A161 /* GameServices.swift */,
@@ -170,6 +189,7 @@
 			isa = PBXGroup;
 			children = (
 				91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */,
+				8AB6AB9187FB1418DEC97A81 /* Fonts */,
 				97FE30652F3AF59A90A663FE /* Sounds */,
 			);
 			path = Resources;
@@ -178,6 +198,7 @@
 		3B716BA078CC150106AB21B7 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				8D81277C819AB3FD520ACF5C /* MusicPlayer.swift */,
 				E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */,
 				8F4EFFD850B92DA59EE5AFA0 /* Backend */,
 			);
@@ -235,6 +256,16 @@
 			path = Features;
 			sourceTree = "<group>";
 		};
+		8AB6AB9187FB1418DEC97A81 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				9318B92B1F1DE0DF1580B97B /* ChakraPetch-Bold.ttf */,
+				BF00B0576C46BE465D8E6C21 /* Grapple.ttf */,
+				EDF29A616E9B017A4FC14F7C /* OFL-ChakraPetch.txt */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
 		8F4EFFD850B92DA59EE5AFA0 /* Backend */ = {
 			isa = PBXGroup;
 			children = (
@@ -254,6 +285,7 @@
 			isa = PBXGroup;
 			children = (
 				BE69ABA9011BBE77ED79CC73 /* button.mp3 */,
+				8409128934C890FEAD654534 /* harmonies.mp3 */,
 				D8FA79E9B968B77B90DDAE5D /* spin.mp3 */,
 			);
 			path = Sounds;
@@ -263,6 +295,7 @@
 			isa = PBXGroup;
 			children = (
 				48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */,
+				6384AE9FE5874CB287621059 /* BoardAnimationTests.swift */,
 				DB2294F1158530A790037386 /* GameSessionTests.swift */,
 				0B45F583465C822E5D3387DE /* OnlineGameSessionTests.swift */,
 				479A55F3B6526664D723838B /* RulebookDemoTests.swift */,
@@ -293,9 +326,11 @@
 			isa = PBXGroup;
 			children = (
 				86A75DEBAA85846A0A294853 /* AppModel.swift */,
+				3655BE4C5C3C5CB89A054032 /* Primitives.swift */,
 				6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */,
 				8196D783170D869DCCDC9C2B /* Starfield.swift */,
 				107387F876BA286D923E9C51 /* Theme.swift */,
+				D59FC182B6B1E34B45CD2B8F /* Toasts.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -397,7 +432,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				FE1B2ECA03213661B6DACC0B /* Assets.xcassets in Resources */,
+				E92CB0B4AE91A22056061C3A /* ChakraPetch-Bold.ttf in Resources */,
+				2D790E8F51F8097C2C74BBE3 /* Grapple.ttf in Resources */,
+				CDAF2C499B43CD7D8603E6F2 /* OFL-ChakraPetch.txt in Resources */,
 				EAF3C39ACD0328E5315BCC3A /* button.mp3 in Resources */,
+				2CB2E036DB034FF16EE13709 /* harmonies.mp3 in Resources */,
 				2DBC0E09F13690F4F540C171 /* spin.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -413,6 +452,7 @@
 				798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */,
 				59D7DFFA7568CB5B57029EEF /* Backend.swift in Sources */,
 				0C0F0A4A0853B97B9B690106 /* BackendConfiguration.swift in Sources */,
+				8CFE5678C10F9BE71874F89F /* BoardAnimation.swift in Sources */,
 				434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */,
 				B056BFF38E887532F2978F72 /* DemoBoardView.swift in Sources */,
 				73BCAB838EC7809B291F3C45 /* GamePresenting.swift in Sources */,
@@ -423,9 +463,11 @@
 				08477A5A7B1E58504CABC758 /* HomeView.swift in Sources */,
 				F0A67B8B58B6ED41BD4080F6 /* Identity.swift in Sources */,
 				47C7EE3F90FA57B5FF0657C3 /* IdentityStore.swift in Sources */,
+				8F8535FFD48EE203961F9A7F /* MusicPlayer.swift in Sources */,
 				B2C02FB5088376D1738EC9B3 /* OnlineConnection.swift in Sources */,
 				4657393DE71C4538518A515E /* OnlineGameSession.swift in Sources */,
 				62E4814E05C980BE16EC3C56 /* OnlineViews.swift in Sources */,
+				74E2C2FEC1B3D96A428BE196 /* Primitives.swift in Sources */,
 				E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */,
 				5E161678E4FC7970C86A4DE3 /* ReplayView.swift in Sources */,
 				214E565C1149225AFB14751D /* RoomCoordinator.swift in Sources */,
@@ -440,6 +482,7 @@
 				06FBF9760296FECD619954DA /* SquareOffApp.swift in Sources */,
 				BDD09628C48B63530709A25E /* Starfield.swift in Sources */,
 				AD5F4A157A8A60C13698A431 /* Theme.swift in Sources */,
+				D350F1A468FDF2A1D82DB68C /* Toasts.swift in Sources */,
 				3B7F64A5C168F961ED752E2B /* TokenStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -449,6 +492,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				358B42A834C6F127FAE2B965 /* BackendTests.swift in Sources */,
+				67E8C4A0D9EB2C7CF301B28B /* BoardAnimationTests.swift in Sources */,
 				FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */,
 				03625D3E9BD1349F86D93905 /* OnlineGameSessionTests.swift in Sources */,
 				933569DBBF8E5D82F7BC0705 /* RulebookDemoTests.swift in Sources */,

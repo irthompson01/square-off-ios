@@ -65,7 +65,7 @@ struct GameSessionTests {
         session.stop()
     }
 
-    @Test func placementSpinsTheTileOnce() async throws {
+    @Test func plainPlacementFlipsWithoutSpinning() async throws {
         let config = GameConfig(mode: .passAndPlay, boardSize: 6, players: [
             SetupPlayer(id: 1, name: "A", colorHex: Theme.playerColors[0]),
             SetupPlayer(id: 2, name: "B", colorHex: Theme.playerColors[1]),
@@ -73,7 +73,8 @@ struct GameSessionTests {
         let session = GameSession(config: config)
         await session.start()
         session.tap(Cell(row: 2, col: 3))
-        #expect(session.spins[Cell(row: 2, col: 3)]?.turns == 1)
+        #expect(session.spins[Cell(row: 2, col: 3)] == nil)
+        #expect(session.lastMove?.cell == Cell(row: 2, col: 3))
         #expect(session.placeCount == 1)
     }
 
