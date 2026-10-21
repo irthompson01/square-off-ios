@@ -4,10 +4,31 @@ import SquareOffNet
 import SwiftUI
 
 /// What the setup screens hand to a new game.
-struct GameConfig: Equatable {
-    enum Mode: Equatable {
+nonisolated struct GameConfig: Equatable, Codable, Sendable {
+    enum Mode: Equatable, Codable, Sendable {
         case cpu(CPULevel)
         case passAndPlay
+
+        private enum CodingKeys: String, CodingKey { case kind, level }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            switch try c.decode(String.self, forKey: .kind) {
+            case "cpu": self = .cpu(try c.decode(CPULevel.self, forKey: .level))
+            default: self = .passAndPlay
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .cpu(let level):
+                try c.encode("cpu", forKey: .kind)
+                try c.encode(level, forKey: .level)
+            case .passAndPlay:
+                try c.encode("local", forKey: .kind)
+            }
+        }
     }
 
     var mode: Mode
@@ -23,7 +44,7 @@ struct GameConfig: Equatable {
     }
 }
 
-struct SetupPlayer: Equatable, Identifiable {
+nonisolated struct SetupPlayer: Equatable, Identifiable, Codable, Sendable {
     let id: Int
     var name: String
     var colorHex: String
@@ -42,7 +63,7 @@ final class AppModel {
     var account: Account { accounts.account }
     var selectedTab: AppTab = .play
     /// Debug deep links (`-demoScreen`): screens to open once the root view appears.
-    var pendingPlayRoute: PlayMode?
+    var pendingPlayRoute: PlayRoute?
     var pendingSignIn = false
     var pendingRulesSection: String?
     var pendingColorPicker = false
@@ -66,10 +87,39 @@ final class AppModel {
         return coordinator
     }()
 
-    init(configuration: BackendConfiguration = .load()) {
+    /// The unfinished local game on disk; `activeGame` is rebuilt from it at launch.
+    let localGames: LocalGameStore
+
+    init(configuration: BackendConfiguration = .load(), localGames: LocalGameStore = LocalGameStore()) {
         let backend = Backend(configuration: configuration)
         self.backend = backend
+        self.localGames = localGames
         accounts = AccountStore(backend: backend)
+        if let snapshot = localGames.load(),
+           let restored = GameSession(restoring: snapshot, cpu: backend.makeCPUProvider(config: snapshot.config, notices: SessionNoticeRelay()), store: localGames),
+           !restored.isOver {
+            activeGame = restored
+        } else {
+            localGames.clear()
+        }
+    }
+
+    /// The Continue card: bring the saved local game back on screen.
+    func resumeGame() {
+        guard let activeGame, !activeGame.isOver else { return }
+        if activeOnlineGame != nil { return }
+        isGamePresented = true
+    }
+
+    func discardGame() {
+        activeGame?.leave()
+        activeGame = nil
+        localGames.clear()
+    }
+
+    /// The header arrow in a local game: back to the menu with the game kept for "Continue".
+    func minimizeGame() {
+        isGamePresented = false
     }
 
     /// Where leaving a game lands (web `handleLeave(to)`): Home pops to the root, Setup shows the Play page.
@@ -79,13 +129,17 @@ final class AppModel {
 
     func exitGame(to destination: GameExit) {
         isGamePresented = false
+        if activeOnlineGame == nil {
+            // Leaving a local game forgets it (web `handleLeave` clears the saved game).
+            activeGame = nil
+            localGames.clear()
+        }
+        selectedTab = .play
         switch destination {
         case .home:
             pendingPopToRoot = true
-            selectedTab = .play
         case .setup:
-            selectedTab = .play
-            if pendingPlayRoute == nil, activeOnlineGame == nil { pendingPlayRoute = .cpu }
+            pendingPlayRoute = .play
         }
     }
 
@@ -116,7 +170,8 @@ final class AppModel {
         let session = GameSession(
             config: config,
             cpu: backend.makeCPUProvider(config: config, notices: notices),
-            recorder: backend.makeRecorder(account: account, notices: notices)
+            recorder: backend.makeRecorder(account: account, notices: notices),
+            store: localGames
         )
         notices.session = session
         activeGame = session

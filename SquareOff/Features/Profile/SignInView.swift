@@ -17,7 +17,11 @@ struct SignInView: View {
         var id: String { rawValue }
     }
 
-    @State private var mode: Mode = .signIn
+    init(initialMode: Mode = .signIn) {
+        _mode = State(initialValue: initialMode)
+    }
+
+    @State private var mode: Mode
     @State private var identifier = ""
     @State private var username = ""
     @State private var email = ""

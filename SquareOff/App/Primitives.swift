@@ -103,6 +103,8 @@ struct Chip: View {
         .padding(.horizontal, 9)
         .frame(height: 24)
         .background(background, in: Capsule())
+        .fixedSize()
+        .layoutPriority(1)
     }
 
     private var foreground: Color {

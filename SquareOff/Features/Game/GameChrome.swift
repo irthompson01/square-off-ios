@@ -13,7 +13,7 @@ struct GameHeader<Session: GamePresenting>: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            GhostIconButton(symbol: "arrow.left", label: session.isOver ? "Back to menu" : "Leave game", action: onLeave)
+            GhostIconButton(symbol: "arrow.left", label: session.capabilities.isOnline && !session.isOver ? "Leave room" : "Back to menu", action: onLeave)
             Spacer(minLength: 0)
             HStack(spacing: 8) {
                 if let code = session.capabilities.roomCode {

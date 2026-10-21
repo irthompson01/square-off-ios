@@ -102,12 +102,17 @@ struct GameView<Session: GamePresenting>: View {
         app.exitGame(to: destination)
     }
 
+    /// Header arrow: a local game goes back to the menu and stays available on the Continue
+    /// card; an online room asks before leaving (the seat is lost).
     private func closeTapped() {
         if session.isOver || session.capabilities.isSpectator || session.statusBanner.isFatal {
             exit(.setup)
-        } else {
+        } else if session.capabilities.isOnline {
             isMenuPresented = false
             confirmLeave = true
+        } else {
+            session.stop()
+            app.minimizeGame()
         }
     }
 

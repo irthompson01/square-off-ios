@@ -41,9 +41,11 @@ struct SquareOffApp: App {
         case "rules":
             app.selectedTab = .learn
             app.pendingRulesSection = UserDefaults.standard.string(forKey: "rulesSection")
-        case "setup": app.pendingPlayRoute = .cpu
+        case "setup": app.pendingPlayRoute = .play
+        case "stats": app.pendingPlayRoute = .stats
+        case "profile": app.selectedTab = .profile
         case "color":
-            app.pendingPlayRoute = .cpu
+            app.pendingPlayRoute = .play
             app.pendingColorPicker = true
         case "signin":
             app.selectedTab = .profile
@@ -51,7 +53,7 @@ struct SquareOffApp: App {
         default: break
         }
         if let online = UserDefaults.standard.string(forKey: "demoOnline") {
-            app.pendingPlayRoute = .online
+            app.pendingPlayRoute = .play
             app.pendingOnlineRoom = true
             let roomServer = app.backend.roomServer
             Task {
@@ -111,11 +113,10 @@ struct RootView: View {
             Tab("Play", systemImage: "square.grid.2x2", value: AppTab.play) {
                 NavigationStack(path: $playPath) {
                     HomeView()
-                        .navigationDestination(for: PlayMode.self) { mode in
-                            switch mode {
-                            case .cpu: SetupForm(kind: .cpu)
-                            case .passAndPlay: SetupForm(kind: .passAndPlay)
-                            case .online: OnlineHubView()
+                        .navigationDestination(for: PlayRoute.self) { route in
+                            switch route {
+                            case .play: PlayView()
+                            case .stats: StatsView()
                             }
                         }
                 }
@@ -143,6 +144,7 @@ struct RootView: View {
         .syncsMusic()
         .task { await app.accounts.restore() }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .background { app.activeGame?.saveNow() }
             guard phase == .active else { return }
             Task { await app.accounts.restore() }
             app.activeOnlineGame?.sceneDidBecomeActive()
@@ -152,7 +154,7 @@ struct RootView: View {
             if let code = InviteLink.roomCode(from: url) {
                 app.pendingJoinCode = code
                 app.selectedTab = .play
-                app.pendingPlayRoute = .online
+                app.pendingPlayRoute = .play
             }
         }
         .fullScreenCover(isPresented: $app.isGamePresented, onDismiss: app.gameDismissed) {

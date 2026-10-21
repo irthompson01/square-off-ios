@@ -11,8 +11,12 @@ final class GameSession: @MainActor GamePresenting {
     let config: GameConfig
     private let cpu: any CPUMoveProvider
     private let recorder: any GameRecorder
+    /// Where the unfinished game is persisted for "Continue" (nil in tests).
+    private let store: LocalGameStore?
     /// CPU "think" time in milliseconds. The web waits `Math.random() * 1000 + 500`.
     private let thinkDelay: ClosedRange<Int>
+    /// When the game was last written to the store (shown on the Continue card).
+    private(set) var savedAt: Date?
 
     private(set) var game: Game
     private(set) var spins: [Cell: SpinEvent] = [:]
@@ -31,6 +35,7 @@ final class GameSession: @MainActor GamePresenting {
     private var spinSequence = 0
     private var timerTask: Task<Void, Never>?
     private var cpuTask: Task<Void, Never>?
+    private var saveTask: Task<Void, Never>?
     /// Recorder calls chained in order; the game never waits on them.
     private var recordingChain: Task<Void, Never>?
 
@@ -38,16 +43,36 @@ final class GameSession: @MainActor GamePresenting {
         config: GameConfig,
         cpu: any CPUMoveProvider = LocalCPUMoveProvider(),
         recorder: any GameRecorder = NoOpGameRecorder(),
-        thinkDelay: ClosedRange<Int> = 500...1500
+        thinkDelay: ClosedRange<Int> = 500...1500,
+        store: LocalGameStore? = nil
     ) {
         self.config = config
         self.cpu = cpu
         self.recorder = recorder
         self.thinkDelay = thinkDelay
+        self.store = store
         self.game = Game(boardSize: config.boardSize, players: Self.seats(for: config), timerSeconds: config.timerSeconds)
         // The game exists from here on, so the recorder hears about it before any move can be
         // queued behind it (debug launch arguments tap before the screen appears).
         enqueueRecording { [recorder, game, config] in await recorder.gameStarted(game, config: config) }
+        scheduleSave()
+    }
+
+    /// Rebuilds a saved game by replaying its moves. Not recorded to the server (the web's
+    /// resume makes no new `/start` call either). Nil if the moves don't replay cleanly.
+    init?(restoring snapshot: LocalGameStore.Snapshot, cpu: any CPUMoveProvider = LocalCPUMoveProvider(),
+          thinkDelay: ClosedRange<Int> = 500...1500, store: LocalGameStore? = nil) {
+        self.config = snapshot.config
+        self.cpu = cpu
+        self.recorder = NoOpGameRecorder()
+        self.thinkDelay = thinkDelay
+        self.store = store
+        var game = Game(boardSize: snapshot.config.boardSize, players: Self.seats(for: snapshot.config), timerSeconds: snapshot.config.timerSeconds)
+        for cell in snapshot.moves {
+            guard (try? game.place(at: cell)) != nil else { return nil }
+        }
+        self.game = game
+        self.savedAt = snapshot.savedAt
     }
 
     var isOver: Bool { game.isOver }
@@ -95,7 +120,38 @@ final class GameSession: @MainActor GamePresenting {
 
     func startRematch() { restart() }
 
-    func leave() { stop() }
+    func leave() {
+        stop()
+        saveTask?.cancel()
+        store?.clear()
+    }
+
+    /// Writes the game now (scene going to the background).
+    func saveNow() {
+        saveTask?.cancel()
+        persist()
+    }
+
+    private func scheduleSave() {
+        guard store != nil else { return }
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(for: .milliseconds(100))
+            guard !Task.isCancelled else { return }
+            persist()
+        }
+    }
+
+    private func persist() {
+        guard let store else { return }
+        if game.isOver {
+            store.clear()
+            return
+        }
+        let snapshot = LocalGameStore.Snapshot(config: config, moves: game.moves.map(\.cell), savedAt: .now)
+        store.save(snapshot)
+        savedAt = snapshot.savedAt
+    }
 
     private func enqueueRecording(_ operation: @escaping @Sendable () async -> Void) {
         recordingChain = Task { [previous = recordingChain] in
@@ -115,6 +171,7 @@ final class GameSession: @MainActor GamePresenting {
         timeRemaining = nil
         turnDeadline = nil
         isGameOverPresented = false
+        scheduleSave()
         Task { await start() }
     }
 
@@ -152,6 +209,7 @@ final class GameSession: @MainActor GamePresenting {
         let updatedMover = game.players.first { $0.id == mover.id } ?? mover
         enqueueRecording { [recorder] in await recorder.record(result, by: updatedMover) }
 
+        scheduleSave()
         if game.isOver {
             enqueueRecording { [recorder, game] in await recorder.gameEnded(game) }
             Task {

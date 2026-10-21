@@ -34,12 +34,12 @@ final class RoomCoordinator {
 
         var message: String {
             switch self {
-            case .roomNotFound: "That room doesn't exist (or has closed)."
-            case .roomFull: "That room is full."
-            case .hostLeft: "The host left before the game started."
-            case .rejoinFailed(let reason): "Couldn't rejoin: \(reason)."
+            case .roomNotFound: "That room doesn't exist (or was closed)."
+            case .roomFull: "That room is full or doesn't exist."
+            case .hostLeft: "The host ended the room."
+            case .rejoinFailed: "Couldn't rejoin the room."
             case .network(let text): text
-            case .matchTimeout: "Nobody showed up. Try again or create a room."
+            case .matchTimeout: "Quick match failed. Please retry."
             case .badRoomState: "The room sent a state this app can't play."
             }
         }
@@ -87,6 +87,10 @@ final class RoomCoordinator {
     private(set) var state: State = .idle
     /// A room this device can still rejoin (same backend, within the grace window).
     private(set) var rejoinable: OnlineSessionRecord?
+    /// The name and colour typed on the Play page; used for the seat instead of the account's defaults.
+    var seatPreference: (name: String, colorHex: String)?
+    /// The role of the room most recently joined or created, for error headings after `state` fails.
+    var lastRole: OnlineRole? { state.roomInfo?.role ?? role }
     var onPlay: (OnlineGameSession) -> Void = { _ in }
 
     private let makeTransport: @MainActor () -> OnlineTransport
@@ -115,7 +119,7 @@ final class RoomCoordinator {
         await leave()
         state = .connecting
         do {
-            let me = try await identityProvider()
+            let me = try await resolvedIdentity()
             self.me = me
             let transport = try await connectedTransport()
             role = .host
@@ -136,7 +140,7 @@ final class RoomCoordinator {
         await leave()
         state = .connecting
         do {
-            let me = try await identityProvider()
+            let me = try await resolvedIdentity()
             self.me = me
             let transport = try await connectedTransport()
             let record = OnlineSessionRecord.load()
@@ -165,7 +169,7 @@ final class RoomCoordinator {
         await leave()
         state = .matching(ticketID: nil, message: "Finding a match…")
         do {
-            let me = try await identityProvider()
+            let me = try await resolvedIdentity()
             self.me = me
             let transport = ensureTransport()
             let result = try await transport.matcher.quickMatch(QuickMatchRequest(requesterId: me.playerID, boardSize: boardSize, timer: timer))
@@ -234,6 +238,12 @@ final class RoomCoordinator {
         transport = nil
         state = .idle
         refreshRejoinable()
+    }
+
+    private func resolvedIdentity() async throws -> Identity {
+        let me = try await identityProvider()
+        guard let pref = seatPreference else { return me }
+        return Identity(playerID: me.playerID, displayName: pref.name, colorHex: pref.colorHex)
     }
 
     func refreshRejoinable() {
@@ -424,13 +434,15 @@ final class RoomCoordinator {
         case .joinRoom:
             ticketID = nil
             guard let code = result.roomCode else { return fail(.network("The matcher returned no room.")) }
+            state = .matching(ticketID: nil, message: "Match found — joining…")
             await join(code: code)
         case .createRoom:
             ticketID = nil
+            state = .matching(ticketID: nil, message: "Opening your room…")
             await host(boardSize: boardSize, timer: timer, listPublic: true, preferredCode: result.roomCode)
         case .queued, .waitForHost:
             ticketID = result.ticketId ?? ticketID
-            state = .matching(ticketID: ticketID, message: result.action == .waitForHost ? "Found a room, waiting for the host…" : "Finding a match…")
+            state = .matching(ticketID: ticketID, message: result.action == .waitForHost ? "Matched — waiting for the host to open the room…" : "In queue — waiting for a compatible player…")
             guard let ticketID, let transport, let me else { return fail(.network("The matcher returned no ticket.")) }
             pollTask?.cancel()
             let deadline = ContinuousClock.now + .seconds(180)

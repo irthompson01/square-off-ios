@@ -200,11 +200,11 @@ struct CPUStatsView: View {
             Section {
                 Picker("Board", selection: $boardSize) {
                     Text("Any board").tag(Int?.none)
-                    ForEach(SetupForm.boardSizes, id: \.self) { Text("\($0)×\($0)").tag(Int?.some($0)) }
+                    ForEach(PlaySetupModel.boardSizes, id: \.self) { Text("\($0)×\($0)").tag(Int?.some($0)) }
                 }
                 Picker("Timer", selection: $timer) {
                     Text("Any timer").tag(Int?.none)
-                    ForEach(SetupForm.timers, id: \.self) { Text($0 == 0 ? "Off" : "\($0)s").tag(Int?.some($0)) }
+                    ForEach(PlaySetupModel.timers, id: \.self) { Text($0 == 0 ? "Off" : "\($0)s").tag(Int?.some($0)) }
                 }
             }
             Section("By level") {
@@ -265,7 +265,7 @@ struct EditProfileSheet: View {
                     HStack {
                         Text("Player colour")
                         Spacer()
-                        ColorSwatchPicker(selection: $colorHex)
+                        ColorSwatchPicker(selection: $colorHex, allowCustom: true)
                     }
                 }
                 if let error { Text(error).foregroundStyle(Theme.destructive).font(.footnote) }
