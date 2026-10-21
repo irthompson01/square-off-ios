@@ -43,13 +43,6 @@ enum Theme {
 
     static let cardRadius: CGFloat = 16
 
-    // Compatibility aliases for the v1 names still used in a few places.
-    static var textSecondary: Color { foregroundSecondary }
-    static var surfaceRaised: Color { surfaceSecondary }
-    static var hairline: Color { border }
-    static var destructive: Color { dangerText }
-    static var go: Color { accent }
-
     // MARK: Type
 
     /// Chakra Petch Bold: headings, buttons, labels and every number (`--font-display`).

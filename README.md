@@ -2,12 +2,12 @@
 
 iOS / iPadOS app for Square Off. SwiftUI, iOS 18+, dark-only.
 
-Status: **server-integration pass**. Every flow works against two backends, picked under Profile › Developer (debug builds) or with `-backend mock|live`:
+Status: **design-refresh pass** on top of the server integration. The app follows the web client's design system (`square-off-react/square-off-app/docs/FRONTEND_DESIGN_SYSTEM.md`): the same tokens, Grapple + Chakra Petch Bold, white tiles with the claim flip and corner spins, two-stroke shape draw-on, the GameScreen chrome, merged Play page, accordion rulebook, auth card, profile and stats. Every flow works against two backends, picked under Profile › Developer (debug builds) or with `-backend mock|live`:
 
 - **Mock (default):** an in-app simulated server. Stateful REST mock (accounts, guests, games, turns, stats, replays; `demo` / `password`), an in-process room server with bot opponents for online play, and a simulated Level 3. Nothing to run.
 - **Live:** the docker stack from `square-off-react` (branch `feature/ios-integration`). Real sign-in (password, Sign in with Apple, Google/GitHub), games recorded to Postgres, Level 3 (CNN) from the server, real rooms against the web client.
 
-Local games (Vs Computer, Pass & Play) always play with the on-device rules and heuristics (levels 1, 2, 4, 5, 6 in `SquareOffCore/CPU`); the backend only records them and answers Level 3 (8×8, two players).
+Local games (Vs Computer, Pass & Play) always play with the on-device rules and heuristics (levels 1, 2, 4, 5, 6 in `SquareOffCore/CPU`); the backend only records them and answers Level 3 (8×8, two players). An unfinished local game is saved on device and offered on Home and Play as "Continue game" (the header arrow keeps it; Leave / Home / New game discard it).
 
 ## Run it
 
@@ -19,9 +19,14 @@ Debug shortcuts (Product › Scheme › Edit Scheme… › Run › Arguments):
 | Argument | Effect |
 |---|---|
 | `-demoGame cpu\|cnn\|local4\|busy\|over` | jump into a game (Level 4, Level 3 on the live server, 4-player, a busy 12×12, a finished one) |
-| `-demoScreen rules\|setup\|color\|signin` | open a screen (`-rulesSection <id>` with rules) |
+| `-demoScreen home\|setup\|rules\|signin\|profile\|stats\|color` | open a screen (`-rulesSection <id>` with rules) |
+| `-demoSignedIn YES` | restore the mock `demo` account at launch (pair with `-demoScreen profile\|stats`) |
 | `-demoOnline host\|guest\|spectator\|quickmatch` | online flows against the mock room server with quick bots |
 | `-backend mock\|live` | backend for this launch |
+
+## Fonts, music, sounds
+
+`SquareOff/Resources/Fonts/` bundles Grapple (`GrappleBRK`, the wordmark and short titles, copied from the web client) and Chakra Petch Bold (`ChakraPetch-Bold`, SIL Open Font License, `OFL-ChakraPetch.txt`; headings, buttons and every number). `Resources/Sounds/` holds `button.mp3`, `spin.mp3` and the looping `harmonies.mp3` ("Music by Missy Cundiff", off by default, toggled under Profile › Preferences or the in-game menu). `Theme.display(_:)` / `Theme.game(_:)` are the only places the font names appear.
 
 ## Local server
 
@@ -62,15 +67,15 @@ xcodebuild -project SquareOff.xcodeproj -scheme SquareOff \
 
 ```
 SquareOff/                App target (SwiftUI)
-  App/                    Entry point, AppModel, theme tokens, starfield
+  App/                    Entry point, AppModel, theme tokens + primitives, toasts, starfield
   Services/Backend        BackendConfiguration + Backend (mock | live), token stores, identities,
                           AccountStore, ServerGameRecorder, ServerCPUMoveProvider
-  Features/Play           Home, mode picker, setup (iPad: side by side)
-  Features/Game           GamePresenting, GameSession (local), board + tile spins + shape panes, sheets
-  Features/Online         RoomCoordinator (lobby), OnlineGameSession, OnlineConnection, hub / waiting room / open rooms
-  Features/Learn          Full rulebook with live mini-board demos
-  Features/Profile        Account card, sign-in (password / Apple / Google / GitHub), stats, recent games, ReplayView
-  Services/SoundPlayer    SFX with slight pitch variation
+  Features/Play           Home (wordmark + neon tiles + Continue card), PlayView + PlaySetupModel, colour picker
+  Features/Game           GamePresenting, GameSession (local), board (flip / spins / shape draw-on), chrome, sheets
+  Features/Online         RoomCoordinator (lobby), OnlineGameSession, OnlineConnection, OnlinePanel, WaitingRoomView
+  Features/Learn          Accordion rulebook with the web's 13 scripted demo boards
+  Features/Profile        Auth card, profile rows + inline edit, StatsView (donut, filters, history), ReplayView
+  Services/               SoundPlayer (SFX), MusicPlayer (loop), LocalGameStore (Continue game)
 Packages/SquareOffKit/
   SquareOffCore           Rules engine + CPU/ (port of server/src/routes/model.py)
   SquareOffNet            REST contract (Live + stateful Mock), MatcherAPI, WS/ (wire types, Game bridge,

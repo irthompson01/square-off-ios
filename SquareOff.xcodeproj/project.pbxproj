@@ -54,6 +54,7 @@
 		CDAF2C499B43CD7D8603E6F2 /* OFL-ChakraPetch.txt in Resources */ = {isa = PBXBuildFile; fileRef = EDF29A616E9B017A4FC14F7C /* OFL-ChakraPetch.txt */; };
 		D350F1A468FDF2A1D82DB68C /* Toasts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59FC182B6B1E34B45CD2B8F /* Toasts.swift */; };
 		D8E46AB1863F2F73FCC4E1F1 /* RulebookDemos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */; };
+		DC017CB1F8AC54893F335743 /* DesignRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C802CAC9CD4A80C2CDBA0C /* DesignRefreshTests.swift */; };
 		E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */; };
 		E57C400C84D4C63066BA20A8 /* ServerCPUMoveProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD2B519948240DFD7932646D /* ServerCPUMoveProvider.swift */; };
 		E92CB0B4AE91A22056061C3A /* ChakraPetch-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9318B92B1F1DE0DF1580B97B /* ChakraPetch-Bold.ttf */; };
@@ -129,6 +130,7 @@
 		D8FA79E9B968B77B90DDAE5D /* spin.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = spin.mp3; sourceTree = "<group>"; };
 		DB2294F1158530A790037386 /* GameSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSessionTests.swift; sourceTree = "<group>"; };
 		DCB16F9F098D5EFC49DF83A2 /* PlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayView.swift; sourceTree = "<group>"; };
+		E2C802CAC9CD4A80C2CDBA0C /* DesignRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignRefreshTests.swift; sourceTree = "<group>"; };
 		E41B4D8C491B435D4826B67D /* PlaySetupModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaySetupModel.swift; sourceTree = "<group>"; };
 		E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPlayer.swift; sourceTree = "<group>"; };
 		E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendConfiguration.swift; sourceTree = "<group>"; };
@@ -313,6 +315,7 @@
 			children = (
 				48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */,
 				6384AE9FE5874CB287621059 /* BoardAnimationTests.swift */,
+				E2C802CAC9CD4A80C2CDBA0C /* DesignRefreshTests.swift */,
 				DB2294F1158530A790037386 /* GameSessionTests.swift */,
 				0B45F583465C822E5D3387DE /* OnlineGameSessionTests.swift */,
 				479A55F3B6526664D723838B /* RulebookDemoTests.swift */,
@@ -517,6 +520,7 @@
 			files = (
 				358B42A834C6F127FAE2B965 /* BackendTests.swift in Sources */,
 				67E8C4A0D9EB2C7CF301B28B /* BoardAnimationTests.swift in Sources */,
+				DC017CB1F8AC54893F335743 /* DesignRefreshTests.swift in Sources */,
 				FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */,
 				03625D3E9BD1349F86D93905 /* OnlineGameSessionTests.swift in Sources */,
 				933569DBBF8E5D82F7BC0705 /* RulebookDemoTests.swift in Sources */,

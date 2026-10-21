@@ -56,7 +56,7 @@ struct ReplayView: View {
                 }
                 PlaybackBoardView(game: game, spins: spins, lastMove: lastMove)
                     .frame(maxWidth: 420)
-                Text(note ?? " ").font(.footnote).foregroundStyle(Theme.textSecondary).frame(minHeight: 20)
+                Text(note ?? " ").font(.footnote).foregroundStyle(Theme.foregroundSecondary).frame(minHeight: 20)
                 controls(payload)
                 ScoreChart(players: game.players)
                     .frame(height: 160)
@@ -96,7 +96,7 @@ struct ReplayView: View {
                 } label: {
                     Text("\(speed, specifier: "%g")×").font(.subheadline.weight(.semibold)).frame(minWidth: 44)
                 }
-                Text("Move \(index) / \(payload.turns.count)").font(.footnote.monospacedDigit()).foregroundStyle(Theme.textSecondary)
+                Text("Move \(index) / \(payload.turns.count)").font(.footnote.monospacedDigit()).foregroundStyle(Theme.foregroundSecondary)
             }
             .buttonStyle(SecondaryButtonStyle())
         }
