@@ -264,12 +264,15 @@ Keep the dependency list small. None of these are needed for the wireframe phase
 - The web sends explicit `null`s (e.g. `"cpu_type": null`), and the iOS encoders do the same.
 - All routes live under `/api`. Local dev serves HTTPS with an mkcert certificate on port 8002.
 
-**Still open (before launch)**
-- Server-side turn timer (the host now skips an absent player's turn from the client)?
-- iPhone over LAN: regenerate the mkcert cert with the Mac's IP, add the environment in Developer, trust the CA on the phone.
-- Session length: refresh tokens / longer mobile sessions?
-- "Your turn" push notifications (APNs) in v1?
-- Spectator mode in v1?
-- Licenses: Grapple font and the music / SFX are bundled from the web client (Chakra Petch is OFL); confirm before shipping.
-- Analytics on iOS?
-- Monetization: StoreKit for any paid features. Don't ship the crypto-support modal.
+**Resolved for launch (2026-10-25, `feature/release-integration`)**
+- Environments: `production` (square-off.com) is the Release default and the only kind a Release build loads; `local` (docker) and `mock` are Debug-only. Invite links point at square-off.com except on local docker.
+- Sessions: no refresh token on purpose. The server issues mobile tokens with `JWT_MOBILE_TOKEN_EXPIRE_MINUTES` (set long in prod) and the app treats a 401 `session_revoked` / `account_disabled` / expired token as a sign-out with a toast, so a short lifetime only costs a re-login.
+- Account deletion (5.1.1(v)), forgot/reset password, universal links (`applinks:square-off.com`, AASA served by Caddy) and the feedback form shipped; see the README's Release section.
+- Spectator mode: shipped with the online work.
+- LAN testing of the docker stack: the Debug-only `backendAPIBaseURL` default; production needs no setup.
+- Offline sync queue: **not before launch.** The recorder stops after the first failed `/turns` and never retries, so duplicate turns can't happen today; idempotency keys and a client `played_at` are server features to add together with the queue.
+
+**Still open (after launch)**
+- Server-side turn timer (the host skips an absent player's turn from the client).
+- "Your turn" push notifications (APNs), analytics, StoreKit: out of v1, which keeps the privacy manifest to UserDefaults + account data. Don't ship the crypto-support modal.
+- Licenses: Grapple font and the music / SFX are bundled from the web client (Chakra Petch is OFL); confirm before submitting.

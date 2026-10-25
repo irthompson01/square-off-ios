@@ -14,6 +14,8 @@ packages:
 
 settings:
   base:
+    # Signing: automatic with the Individual team (archives and `make phone` need it).
+    DEVELOPMENT_TEAM: 5M999SV4VM
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
@@ -44,7 +46,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff
         TARGETED_DEVICE_FAMILY: "1,2"
-        MARKETING_VERSION: "0.1.0"
+        # `make bump [VERSION=x.y.z] [BUILD=n]` edits these two; the generated Info.plist reads them.
+        MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -56,6 +59,11 @@ targets:
       path: SquareOff/Info.plist
       properties:
         CFBundleDisplayName: Square Off
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.board-games
+        # HTTPS only (no custom cryptography), so no export compliance paperwork per build.
+        ITSAppUsesNonExemptEncryption: false
         # Grapple (wordmark) and Chakra Petch Bold (headings, numbers), as on the web.
         UIAppFonts:
           - Grapple.ttf

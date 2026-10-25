@@ -21,14 +21,19 @@ Debug shortcuts (Product › Scheme › Edit Scheme… › Run › Arguments):
 | Argument | Effect |
 |---|---|
 | `-demoGame cpu\|cnn\|local4\|busy\|over` | jump into a game (Level 4, Level 3 on the live server, 4-player, a busy 12×12, a finished one) |
-| `-demoScreen home\|setup\|rules\|signin\|profile\|stats\|color` | open a screen (`-rulesSection <id>` with rules) |
+| `-demoScreen setup\|rules\|signin\|profile\|stats\|color\|forgot\|feedback` | open a screen or sheet (`-rulesSection <id>` with rules) |
 | `-demoSignedIn YES` | restore the mock `demo` account at launch (pair with `-demoScreen profile\|stats`) |
+| `-demoResetToken mock-reset-token-0123456789` | the reset-password sheet, as a universal link would open it |
 | `-demoOnline host\|guest\|spectator\|quickmatch` | online flows against the mock room server with quick bots |
-| `-backend mock\|live` | backend for this launch |
+| `-backend production\|local\|mock` | backend for this launch (Release builds only know `production`) |
 
 ## Fonts, music, sounds
 
 `SquareOff/Resources/Fonts/` bundles Grapple (`GrappleBRK`, the wordmark and short titles, copied from the web client) and Chakra Petch Bold (`ChakraPetch-Bold`, SIL Open Font License, `OFL-ChakraPetch.txt`; headings, buttons and every number). `Resources/Sounds/` holds `button.mp3`, `spin.mp3` and the looping `harmonies.mp3` ("Music by Missy Cundiff", off by default, toggled under Profile › Preferences or the in-game menu). `Theme.display(_:)` / `Theme.game(_:)` are the only places the font names appear.
+
+## Backends
+
+`production` is square-off.com and the only backend a Release build knows. Debug builds default to the in-app **mock** and can switch to **Local docker** or **Production** under Profile › Developer (or `-backend`). Shared invite links point at square-off.com except on local docker. When the server ends a session (`session_revoked`, `account_disabled`, an expired token) the app drops the token, falls back to the device guest and shows a toast; the mock's Developer panel has "Simulate revoked session".
 
 ## Local server
 
@@ -38,7 +43,24 @@ cd - && scripts/trust-mkcert-simulator.sh          # once per simulator (booted)
 ```
 Then Profile › Developer › **Local docker**, or launch with `-backend live`. Sign in with any account registered on the local server, or create one from the sign-in screen. Replays, stats and recent games need a signed-in account; guest games are still recorded.
 
-The server branch adds what the app needs (`Authorization: Bearer` alongside the cookie, `POST /api/apple/native`, `?client=ios` on Google/GitHub login, and three WebSocket fixes: turn ownership, no turn advance on a bad move, seats kept during a match). The web client is unchanged.
+The server side the app depends on is in `main` since the admin-console release (`Authorization: Bearer`, `POST /api/apple/native`, `?client=ios` on Google/GitHub login, WebSocket turn-ownership fixes) plus the `feature/ios-release` branch (`POST /api/account/delete`, `POST /api/password/forgot|reset`, the universal-links `apple-app-site-association` served by Caddy, `JWT_MOBILE_TOKEN_EXPIRE_MINUTES`). Run that branch in docker to exercise deletion, password reset and feedback end to end.
+
+## Release
+
+```bash
+make bump BUILD=2            # or VERSION=1.0.1; edits project.yml and regenerates the project
+make release-check           # Release archive + plist versions, entitlements, icon alpha, privacy manifest
+make testflight ASC_KEY_ID=<key id> ASC_ISSUER_ID=<issuer id>   # archive, export (ExportOptions.plist), upload
+```
+`make archive` / `make export` are the individual steps (`build-archive/`). The upload needs an App Store Connect API key (Users and Access › Integrations › App Store Connect API, role App Manager) saved as `~/.appstoreconnect/private_keys/AuthKey_<key id>.p8`.
+
+What the store build carries, for App Review:
+- Sign in with Apple next to Google and GitHub (guideline 4.8); guest play needs no account.
+- Account deletion in two taps: Profile › Account › Delete account (5.1.1(v)); Apple-linked accounts re-authorise so the server can revoke the Apple session.
+- `PrivacyInfo.xcprivacy`: no tracking, UserDefaults (CA92.1); data collected: email, name, user id (also a guest id), gameplay content, feedback — all linked to the user, none for tracking. The App Privacy answers in App Store Connect mirror that list.
+- `ITSAppUsesNonExemptEncryption = false`, category Board games, universal links for `square-off.com/guest/*` and `/reset-password` (associated domains + the AASA served by the site).
+- Review notes to include: a production demo account, "Level 3 uses our server; the other levels run on device", and that invite links open the app from a second device.
+- Still to confirm before submitting: the licences for the Grapple font and the bundled music/SFX.
 
 ## Tests
 
