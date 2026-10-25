@@ -48,6 +48,17 @@ enum SpinSchedule {
         return events
     }
 
+    /// When the last spin of a move's schedule ends (a plain placement only flips).
+    static func completion(of events: [Cell: SpinEvent]) -> Double {
+        events.values.map { $0.delay + $0.duration }.max() ?? flipDuration
+    }
+
+    /// The pause before the results sheet covers the board: the web's 1.6 s, or a little
+    /// longer when the final move's spins would still be running (two shapes take ~2.1 s).
+    static func resultsDelay(for events: [Cell: SpinEvent], reduceMotion: Bool = false) -> Double {
+        reduceMotion ? 1.6 : max(1.6, completion(of: events) + 0.3)
+    }
+
     /// `BoardShape.corners` is clockwise (TL, TR, BR, BL / top, right, bottom, left); the web
     /// staggers in reading order for squares and top, left, bottom, right for diamonds.
     static func staggerOrder(_ shape: BoardShape) -> [Cell] {

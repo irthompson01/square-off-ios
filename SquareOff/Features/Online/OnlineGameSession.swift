@@ -295,11 +295,13 @@ final class OnlineGameSession: @MainActor GamePresenting {
         if let gameID = snapshot.gameId { self.gameID = gameID }
 
         var trial = game
+        var events: [Cell: SpinEvent] = [:]
         if let cell = state.moveCell, !game.isOver, game.board[cell] == nil,
            let result = try? trial.place(at: cell), trial.matches(state) {
             game = trial
             spinSequence += 1
-            for (tile, event) in SpinSchedule.events(for: result, sequence: spinSequence, continuousIndex: true) {
+            events = SpinSchedule.events(for: result, sequence: spinSequence, continuousIndex: true)
+            for (tile, event) in events {
                 spins[tile] = event
             }
             lastMove = result
@@ -324,7 +326,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
         spectatorCount = snapshot.spectatorCount ?? spectatorCount
 
         if game.isOver {
-            finish()
+            finish(after: SpinSchedule.resultsDelay(for: events, reduceMotion: UIAccessibility.isReduceMotionEnabled))
         } else {
             phase = .playing
             startTimerIfNeeded()
@@ -373,7 +375,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
         saveRecord(started: false)
     }
 
-    private func finish() {
+    private func finish(after delay: Double = 1.6) {
         phase = .over
         timerTask?.cancel()
         stallTask?.cancel()
@@ -385,7 +387,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
             Task { try? await api.endGame(GameEndRequest(gameId: gameID, winnerId: winner, scores: scores)) }
         }
         Task {
-            try? await Task.sleep(for: .seconds(1.6))
+            try? await Task.sleep(for: .seconds(delay))
             if case .over = phase { isGameOverPresented = true }
         }
     }

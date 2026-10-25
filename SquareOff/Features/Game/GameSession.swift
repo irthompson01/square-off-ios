@@ -194,7 +194,8 @@ final class GameSession: @MainActor GamePresenting {
         guard let result = try? game.place(at: cell) else { return }
 
         spinSequence += 1
-        for (tile, event) in SpinSchedule.events(for: result, sequence: spinSequence, continuousIndex: false) {
+        let events = SpinSchedule.events(for: result, sequence: spinSequence, continuousIndex: false)
+        for (tile, event) in events {
             spins[tile] = event
         }
         lastMove = result
@@ -212,8 +213,10 @@ final class GameSession: @MainActor GamePresenting {
         scheduleSave()
         if game.isOver {
             enqueueRecording { [recorder, game] in await recorder.gameEnded(game) }
+            // Let the last tile's flip and spins finish before the sheet covers them.
+            let delay = SpinSchedule.resultsDelay(for: events, reduceMotion: UIAccessibility.isReduceMotionEnabled)
             Task {
-                try? await Task.sleep(for: .seconds(1.6))
+                try? await Task.sleep(for: .seconds(delay))
                 isGameOverPresented = true
             }
         } else {
@@ -241,10 +244,16 @@ final class GameSession: @MainActor GamePresenting {
         guard !Task.isCancelled else { return }
 
         let level = currentPlayer.cpuLevel ?? .random
+        // The answer only counts for the turn it was asked for: a restart, reset or resumed
+        // game while the provider was thinking must not place a stale (or second) tile.
+        let turnKey = (moves: game.moves.count, player: currentPlayer.id)
         var cell = await cpu.move(for: game, level: level)
-        // A restart while thinking must not apply a stale move to the new board.
-        guard !Task.isCancelled else { return }
-        if game.board[cell] != nil, let fallback = game.board.emptyCells.randomElement() {
+        guard !Task.isCancelled, game.moves.count == turnKey.moves, currentPlayer.id == turnKey.player,
+              !game.isOver else { return }
+        // An unplayable reply (occupied, or off the board from a misbehaving server) becomes a
+        // random empty tile, like the web's fallback; `Board[cell]` would trap out of range.
+        if !game.board.contains(cell) || game.board[cell] != nil,
+           let fallback = game.board.emptyCells.randomElement() {
             cell = fallback
         }
         isCPUThinking = false

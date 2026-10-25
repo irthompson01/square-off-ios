@@ -26,6 +26,23 @@ struct BoardAnimationTests {
         #expect(SpinSchedule.events(for: result, sequence: 1, continuousIndex: false).isEmpty)
     }
 
+    @Test func resultsWaitForTheLastSpin() {
+        // Nothing to spin: only the flip, so the web's 1.6 s floor applies.
+        #expect(SpinSchedule.completion(of: [:]) == SpinSchedule.flipDuration)
+        #expect(SpinSchedule.resultsDelay(for: [:]) == 1.6)
+        // A two-shape move: the last corner starts at 3 × 45 ms (+ the tapped tile's flip) and
+        // spins four quarter turns, 1.44 s, so the sheet waits for it.
+        let events = [
+            Cell(row: 0, col: 0): SpinEvent(id: 1, turns: 4, delay: 0.32),
+            Cell(row: 0, col: 1): SpinEvent(id: 1, turns: 4, delay: 0.045),
+            Cell(row: 1, col: 0): SpinEvent(id: 1, turns: 4, delay: 0.09),
+            Cell(row: 1, col: 1): SpinEvent(id: 1, turns: 4, delay: 0.135),
+        ]
+        #expect(abs(SpinSchedule.completion(of: events) - (0.32 + 1.44)) < 0.001)
+        #expect(abs(SpinSchedule.resultsDelay(for: events) - (0.32 + 1.44 + 0.3)) < 0.001)
+        #expect(SpinSchedule.resultsDelay(for: events, reduceMotion: true) == 1.6)
+    }
+
     @Test func squareCornersStaggerInReadingOrderAfterTheFlip() {
         let result = move(cell: Cell(row: 1, col: 1))   // completes the 2×2 at (0,0)
         #expect(result.newSquares.count == 1)

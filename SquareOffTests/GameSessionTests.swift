@@ -90,6 +90,26 @@ struct GameSessionTests {
         #expect(session.canTap)
     }
 
+    @Test func occupiedCPUReplyPlaysARandomEmptyCell() async throws {
+        // The human takes (0,0); the scripted CPU answers with the same tile.
+        let session = GameSession(config: cpuConfig(), cpu: ScriptedCPU([Cell(row: 0, col: 0)]), thinkDelay: 0...0)
+        await session.start()
+        session.tap(Cell(row: 0, col: 0))
+        try await waitForMoves(2, in: session)
+        #expect(session.game.moves.count == 2)
+        #expect(session.game.board[Cell(row: 0, col: 0)] == 1)
+        #expect(session.game.moves.last?.playerID == 2)
+    }
+
+    @Test func outOfRangeCPUReplyDoesNotTrap() async throws {
+        let session = GameSession(config: cpuConfig(), cpu: ScriptedCPU([Cell(row: 99, col: 0)]), thinkDelay: 0...0)
+        await session.start()
+        session.tap(Cell(row: 2, col: 2))
+        try await waitForMoves(2, in: session)
+        #expect(session.game.moves.count == 2)
+        #expect(session.game.board.contains(session.game.moves.last!.cell))
+    }
+
     @Test func restartWhileCPUIsThinkingDiscardsTheStaleMove() async throws {
         let session = GameSession(config: cpuConfig(), cpu: ScriptedCPU([Cell(row: 5, col: 5)]), thinkDelay: 150...150)
         await session.start()
