@@ -19,6 +19,8 @@ enum AuthError: LocalizedError, Equatable {
     case unreachable
     case appleNoEmail
     case cancelled
+    /// 401/403 `account_disabled`: an admin deactivated the account.
+    case accountDisabled
     case server(status: Int)
     /// A provider sign-in that came back with `?error=<code>` (web `oauth-errors.ts` wording).
     case oauth(String)
@@ -29,9 +31,10 @@ enum AuthError: LocalizedError, Equatable {
         case .invalidCredentials: "Wrong email/username or password."
         case .alreadyRegistered: "That username or email is already taken."
         case .tooManyAttempts: "Too many attempts. Try again in a minute."
-        case .unreachable: "Can't reach the server. Check Profile › Developer."
+        case .unreachable: "Can't reach the server. Check your connection and try again."
         case .appleNoEmail: "Apple didn't share an email for this account. Remove Square Off under Settings › Apple ID › Sign in with Apple and try again."
         case .cancelled: "Sign-in cancelled."
+        case .accountDisabled: "This account has been disabled. Contact support if you think this is a mistake."
         case .server(let status): "Sign-in failed (HTTP \(status))."
         }
     }
@@ -41,6 +44,7 @@ enum AuthError: LocalizedError, Equatable {
         if let api = error as? APIError {
             switch api {
             case .http(let status, let body):
+                if (status == 401 || status == 403), body.contains(SessionEndReason.disabled.rawValue) { return .accountDisabled }
                 if status == 401 { return .invalidCredentials }
                 if status == 429 { return .tooManyAttempts }
                 if status == 409, body.contains("apple_no_email") { return .appleNoEmail }
@@ -62,15 +66,32 @@ final class AccountStore {
     private(set) var account: Account = .guest(nil)
     private(set) var isRestoring = false
     private var backend: Backend
+    /// Told once per token when the server ends the session (revoked, disabled, expired).
+    var onSessionEnded: ((SessionEndReason) -> Void)?
 
     init(backend: Backend) {
         self.backend = backend
         account = .guest(backend.identity.guest)
+        listen(to: backend)
     }
 
     func attach(_ backend: Backend) {
         self.backend = backend
         account = .guest(backend.identity.guest)
+        listen(to: backend)
+    }
+
+    private func listen(to backend: Backend) {
+        backend.sessions.onEnded = { [weak self] reason in self?.sessionEnded(reason) }
+    }
+
+    /// A 401 with a session code from any request: drop the token, fall back to the device
+    /// guest and tell the app once. Later 401s for the same (now cleared) token are ignored.
+    func sessionEnded(_ reason: SessionEndReason) {
+        guard backend.tokenStore.accessToken() != nil else { return }
+        backend.tokenStore.clear()
+        account = .guest(backend.identity.guest)
+        onSessionEnded?(reason)
     }
 
     /// Token → `/check-auth` → `/profile`. An expired token is dropped without a round-trip;

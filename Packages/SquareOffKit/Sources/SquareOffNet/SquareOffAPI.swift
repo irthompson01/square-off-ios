@@ -62,6 +62,13 @@ public enum APIError: Error, Equatable {
         return nil
     }
 
+    /// Why the server ended the session, when a 401 says so (never for a failed `/login`,
+    /// whose 401 is "Invalid credentials").
+    public var sessionEndReason: SessionEndReason? {
+        guard status == 401, let detail else { return nil }
+        return SessionEndReason(rawValue: detail)
+    }
+
     /// FastAPI's `{"detail": "..."}` when the body carries one.
     public var detail: String? {
         guard case let .http(_, body) = self,
@@ -74,6 +81,16 @@ public enum APIError: Error, Equatable {
         }
         return nil
     }
+}
+
+/// The `detail` codes a 401 carries when a session is over (`server/src/auth/session.py`).
+/// The web treats all of them as "signed out"; so does the app (`AccountStore.sessionEnded`).
+public enum SessionEndReason: String, Sendable, Equatable, CaseIterable {
+    case expired = "Token has expired"
+    case revoked = "session_revoked"
+    case disabled = "account_disabled"
+    case userNotFound = "User not found"
+    case invalid = "Could not validate credentials"
 }
 
 /// Where the server lives. REST routes are under `/api`, the game socket at `/ws`, and the web
@@ -95,6 +112,14 @@ public struct APIEnvironment: Sendable, Equatable {
         baseURL: URL(string: "https://localhost:8002/api")!,
         webSocketURL: URL(string: "wss://localhost:8002/ws")!,
         webOrigin: URL(string: "https://localhost:5173")!
+    )
+
+    /// square-off.com: Caddy proxies `/api/*` and `/ws*` to the backend and serves the web
+    /// client at the origin (invite links, password-reset links).
+    public static let production = APIEnvironment(
+        baseURL: URL(string: "https://square-off.com/api")!,
+        webSocketURL: URL(string: "wss://square-off.com/ws")!,
+        webOrigin: URL(string: "https://square-off.com")!
     )
 
     /// Standard layout for any host: `https://host:port/api`, `wss://host:port/ws`.

@@ -56,7 +56,7 @@ enum AppTab: Hashable {
 
 @Observable
 final class AppModel {
-    /// The server stack in use (mock or local docker). Rebuilt by `switchBackend`.
+    /// The server stack in use (production, local docker or mock). Rebuilt by `switchBackend`.
     private(set) var backend: Backend
     let accounts: AccountStore
     let toasts = ToastCenter()
@@ -95,6 +95,14 @@ final class AppModel {
         self.backend = backend
         self.localGames = localGames
         accounts = AccountStore(backend: backend)
+        accounts.onSessionEnded = { [toasts] reason in
+            switch reason {
+            case .disabled:
+                toasts.danger("Account disabled", description: AuthError.accountDisabled.errorDescription)
+            default:
+                toasts.show("You've been signed out", description: "Your session ended. Log in again to continue.", style: .warning)
+            }
+        }
         if let snapshot = localGames.load(),
            let restored = GameSession(restoring: snapshot, cpu: backend.makeCPUProvider(config: snapshot.config, notices: SessionNoticeRelay()), store: localGames),
            !restored.isOver {
@@ -181,7 +189,7 @@ final class AppModel {
     /// Switches server stacks. A game in progress keeps the providers it was created with.
     func switchBackend(to kind: BackendKind) {
         guard kind != backend.configuration.kind else { return }
-        var configuration = kind == .live ? BackendConfiguration.localDocker : .mock
+        var configuration = BackendConfiguration.standard(for: kind)
         configuration.cpuMovesFromServer = backend.configuration.cpuMovesFromServer
         apply(configuration)
     }

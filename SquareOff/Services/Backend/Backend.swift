@@ -14,13 +14,27 @@ final class SessionNoticeRelay {
     }
 }
 
+/// Carries "the server ended this session" from the API clients (any thread) to the account
+/// store on the main actor. One per `Backend`, so a replaced backend's late 401s go nowhere.
+nonisolated final class SessionRelay: Sendable {
+    nonisolated(unsafe) var onEnded: (@MainActor (SessionEndReason) -> Void)?
+
+    init() {}
+
+    func post(_ reason: SessionEndReason) {
+        Task { @MainActor [self] in onEnded?(reason) }
+    }
+}
+
 /// One composed backend: REST client, matcher, socket factory, token store and identities for
 /// the configured kind. Rebuilt wholesale when the kind changes; a running game keeps the
 /// providers it was created with.
 @MainActor
 final class Backend {
+    #if DEBUG
     /// Debug hook (`-demoOnline`): faster bots for screenshots.
     nonisolated(unsafe) static var mockRoomConfiguration = MockRoomServer.Configuration()
+    #endif
 
     let configuration: BackendConfiguration
     let api: any SquareOffAPI
@@ -28,24 +42,32 @@ final class Backend {
     let tokenStore: any TokenStore
     let identity: IdentityStore
     let roomServer: MockRoomServer?
+    let sessions = SessionRelay()
     private let urlSession: URLSession
 
     init(configuration: BackendConfiguration) {
         self.configuration = configuration
         urlSession = Self.makeURLSession()
+        let sessions = sessions
+        let onSessionEnded: @Sendable (SessionEndReason) -> Void = { sessions.post($0) }
 
         switch configuration.kind {
         case .mock:
+            #if DEBUG
             let tokens = UserDefaultsTokenStore(key: "mockAccessToken")
             tokenStore = tokens
-            api = MockSquareOffAPI(tokenProvider: tokens)
+            api = MockSquareOffAPI(tokenProvider: tokens, onSessionEnded: onSessionEnded)
             let server = MockRoomServer(configuration: Self.mockRoomConfiguration)
             roomServer = server
             matcher = MockMatcherAPI(server: server)
-        case .live:
+            #else
+            fatalError("The mock backend is not part of release builds")
+            #endif
+        case .production, .local:
             let tokens = KeychainTokenStore(service: "com.novastrada.squareoff", account: "accessToken")
             tokenStore = tokens
-            api = LiveSquareOffAPI(environment: configuration.environment, session: urlSession, tokenProvider: tokens)
+            api = LiveSquareOffAPI(environment: configuration.environment, session: urlSession, tokenProvider: tokens,
+                                   onSessionEnded: onSessionEnded)
             matcher = LiveMatcherAPI(environment: configuration.environment, session: urlSession, tokenProvider: tokens)
             roomServer = nil
         }
@@ -74,7 +96,9 @@ final class Backend {
         return URLSession(configuration: sessionConfiguration)
     }
 
-    var isLive: Bool { configuration.kind == .live }
+    /// A real server (production or the docker stack), as opposed to the in-app mock.
+    var isLive: Bool { configuration.kind != .mock }
+    var isProduction: Bool { configuration.kind == .production }
 
     func makeSocket() -> any GameSocket {
         if let roomServer { return MockGameSocket(server: roomServer) }
@@ -84,7 +108,7 @@ final class Backend {
     /// A fresh socket plus the REST pieces the lobby and an online game use.
     func makeOnlineTransport() -> OnlineTransport {
         OnlineTransport(connection: OnlineConnection(socket: makeSocket()), matcher: matcher, api: api,
-                        inviteBase: configuration.environment.webOrigin, backendID: configuration.id)
+                        inviteBase: configuration.inviteOrigin, backendID: configuration.id)
     }
 
     /// Records Vs CPU and Pass & Play games (`/start`, `/turns`, `/end`) on both backends.
@@ -126,8 +150,9 @@ nonisolated enum CPUAvailability {
     static func footnote(kind: BackendKind, boardSize: Int) -> String {
         if boardSize != 8 { return "Level 3 (CNN) only plays on 8×8 boards." }
         switch kind {
-        case .mock: return "Level 3 (CNN) is simulated by the in-app server. Switch to the local server in Profile › Developer for the real model."
-        case .live: return "Level 3 (CNN) runs on the local server."
+        case .mock: return "Level 3 (CNN) is simulated by the in-app server. Switch to a real server in Profile › Developer for the real model."
+        case .local: return "Level 3 (CNN) runs on the local server."
+        case .production: return "Level 3 (CNN) runs on the Square Off server."
         }
     }
 }

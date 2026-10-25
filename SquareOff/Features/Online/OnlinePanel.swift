@@ -9,6 +9,14 @@ struct OnlinePanel: View {
     let onJoinRoom: () -> Void
     @State private var joinTouched = false
 
+    private var serverLabel: String {
+        switch app.backend.configuration.kind {
+        case .production: "Playing on square-off.com"
+        case .local: "Playing on the local server"
+        case .mock: "Playing against the in-app room server (bots will join you)"
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Online")
@@ -25,8 +33,7 @@ struct OnlinePanel: View {
             }
             .padding(14)
             .card()
-            Label(app.backend.isLive ? "Playing on the local server" : "Playing against the in-app room server (bots will join you)",
-                  systemImage: app.backend.isLive ? "server.rack" : "cpu")
+            Label(serverLabel, systemImage: app.backend.isLive ? "server.rack" : "cpu")
                 .font(.caption)
                 .foregroundStyle(Theme.muted)
         }

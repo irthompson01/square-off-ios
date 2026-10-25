@@ -127,10 +127,12 @@ struct SignInView: View {
                     .textContentType(mode == .signIn ? .password : .newPassword)
                     .foregroundStyle(Theme.foreground)
             }
+            #if DEBUG
             if app.backend.configuration.kind == .mock {
                 Text("Mock server: try \(MockSquareOffAPI.demoUsername) / \(MockSquareOffAPI.demoPassword), or create any account.")
                     .font(.caption).foregroundStyle(Theme.muted).frame(maxWidth: .infinity, alignment: .leading)
             }
+            #endif
         }
     }
 
@@ -213,6 +215,7 @@ struct SignInView: View {
             .frame(height: 44)
             .clipShape(Capsule())
         } else {
+            #if DEBUG
             socialButton("Continue with Apple", background: .white, foreground: .black) {
                 Image(systemName: "apple.logo")
             } action: {
@@ -221,6 +224,7 @@ struct SignInView: View {
                     app.toasts.success("Logged in", description: "Welcome back.")
                 }
             }
+            #endif
         }
     }
 

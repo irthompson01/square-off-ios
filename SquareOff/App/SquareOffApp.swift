@@ -41,7 +41,7 @@ struct SquareOffApp: App {
 
     /// Debug launch arguments for screenshots / quick iteration:
     /// `-demoGame cpu|cnn|local4|busy|over`, `-demoScreen rules|setup|color|signin` (`-rulesSection <id>` with
-    /// rules), `-demoOnline host|guest|spectator|quickmatch` and `-backend mock|live`.
+    /// rules), `-demoOnline host|guest|spectator|quickmatch` and `-backend production|local|mock`.
     private func openDemoGameIfRequested() {
         #if DEBUG
         let players = (1...4).map { SetupPlayer(id: $0, name: "Player \($0)", colorHex: Theme.playerColors[$0 - 1]) }
@@ -102,7 +102,7 @@ struct SquareOffApp: App {
                 app.activeGame?.tap(cell)
             }
         case "cnn":
-            // Level 3 against the server's model (needs `-backend live` and the docker stack).
+            // Level 3 against the server's model (needs `-backend local` and the docker stack, or production).
             app.start(GameConfig(mode: .cpu(.cnn), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Player 1", colorHex: Theme.playerColors[0])]))
             app.activeGame?.tap(Cell(row: 3, col: 3))
         default:

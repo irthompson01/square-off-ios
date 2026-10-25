@@ -532,7 +532,13 @@ final class RoomCoordinator {
             if api == .timeout { return "The server didn't answer in time." }
             if let detail = api.detail { return detail }
         }
-        if error is URLError || error is SocketError { return "Can't reach the server. Is docker up and the mkcert CA trusted?" }
+        if error is URLError || error is SocketError {
+            #if DEBUG
+            return "Can't reach the game server. Check your connection (local docker: is it up and the mkcert CA trusted?)."
+            #else
+            return "Can't reach the game server. Check your connection."
+            #endif
+        }
         return error.localizedDescription
     }
 }

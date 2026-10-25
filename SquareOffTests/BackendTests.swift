@@ -199,6 +199,32 @@ struct AccountStoreTests {
         #expect(!accounts.account.isSignedIn)
     }
 
+    @Test func sessionEndedClearsTheTokenOnceAndNotifies() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api, token: "stored")
+        let accounts = AccountStore(backend: backend)
+        var reasons: [SessionEndReason] = []
+        accounts.onSessionEnded = { reasons.append($0) }
+        backend.sessions.post(.revoked)
+        backend.sessions.post(.revoked)   // the same dead token again: ignored
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(reasons == [.revoked])
+        #expect(backend.tokenStore.accessToken() == nil)
+        #expect(!accounts.account.isSignedIn)
+    }
+
+    @Test func disabledAccountsAreToldApart() async throws {
+        let api = SpyAPI()
+        await api.setFailure("login", status: 403, detail: "account_disabled")
+        let accounts = AccountStore(backend: Backend.test(api: api))
+        await #expect(throws: AuthError.accountDisabled) {
+            try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        }
+        #expect(APIError.http(status: 401, body: #"{"detail":"session_revoked"}"#).sessionEndReason == .revoked)
+        #expect(APIError.http(status: 401, body: #"{"detail":"Invalid credentials"}"#).sessionEndReason == nil)
+        #expect(APIError.http(status: 403, body: #"{"detail":"account_disabled"}"#).sessionEndReason == nil)
+    }
+
     @Test func providerSignInSkipsTheBrowserForTheAppScheme() async throws {
         let api = SpyAPI()
         let backend = Backend.test(api: api)
@@ -228,10 +254,10 @@ struct AccountStoreTests {
 
 struct ConfigurationTests {
     @Test func cnnIsOnlySelectableOn8x8WithTwoPlayers() {
-        #expect(CPUAvailability.isCNNSelectable(kind: .live, boardSize: 8, playerCount: 2))
+        #expect(CPUAvailability.isCNNSelectable(kind: .production, boardSize: 8, playerCount: 2))
         #expect(CPUAvailability.isCNNSelectable(kind: .mock, boardSize: 8, playerCount: 2))
-        #expect(!CPUAvailability.isCNNSelectable(kind: .live, boardSize: 10, playerCount: 2))
-        #expect(!CPUAvailability.isCNNSelectable(kind: .live, boardSize: 8, playerCount: 3))
+        #expect(!CPUAvailability.isCNNSelectable(kind: .local, boardSize: 10, playerCount: 2))
+        #expect(!CPUAvailability.isCNNSelectable(kind: .local, boardSize: 8, playerCount: 3))
     }
 
     @Test func launchArgumentBeatsThePersistedBackend() {
@@ -241,10 +267,44 @@ struct ConfigurationTests {
         live.cpuMovesFromServer = true
         live.save(to: defaults)
         let loaded = BackendConfiguration.load(from: defaults)
-        #expect(loaded.kind == .live && loaded.cpuMovesFromServer)
+        #expect(loaded.kind == .local && loaded.cpuMovesFromServer)
         defaults.setVolatileDomain(["backend": "mock"], forName: UserDefaults.argumentDomain)
         #expect(BackendConfiguration.load(from: defaults).kind == .mock)
+        defaults.setVolatileDomain(["backend": "production"], forName: UserDefaults.argumentDomain)
+        #expect(BackendConfiguration.load(from: defaults).kind == .production)
         defaults.setVolatileDomain([:], forName: UserDefaults.argumentDomain)
+    }
+
+    @Test func productionEnvironment() {
+        let env = APIEnvironment.production
+        #expect(env.baseURL.host() == "square-off.com" && env.baseURL.path() == "/api")
+        #expect(env.webSocketURL.scheme == "wss" && env.webSocketURL.path() == "/ws")
+        #expect(env.webOrigin.absoluteString == "https://square-off.com")
+        #expect(BackendConfiguration.production.id == "production|square-off.com")
+    }
+
+    @Test func releaseBuildsOnlyLoadProduction() {
+        let defaults = UserDefaults(suiteName: "SquareOffTests.config.\(UUID().uuidString)")!
+        BackendConfiguration.mock.save(to: defaults)
+        #expect(BackendConfiguration.load(from: defaults, available: [.production]).kind == .production)
+        defaults.setVolatileDomain(["backend": "local"], forName: UserDefaults.argumentDomain)
+        #expect(BackendConfiguration.load(from: defaults, available: [.production]).kind == .production)
+        defaults.setVolatileDomain([:], forName: UserDefaults.argumentDomain)
+    }
+
+    @Test func liveAliasMapsToTheDockerStack() {
+        #expect(BackendKind(persisted: "live") == .local)
+        #expect(BackendKind(persisted: "production") == .production)
+        #expect(BackendKind(persisted: "nope") == nil)
+        let defaults = UserDefaults(suiteName: "SquareOffTests.config.\(UUID().uuidString)")!
+        defaults.set("live", forKey: BackendConfiguration.Keys.kind)
+        #expect(BackendConfiguration.load(from: defaults).kind == .local)
+    }
+
+    @Test func inviteLinksPointAtProductionExceptForLocalDocker() {
+        #expect(BackendConfiguration.production.inviteOrigin.host() == "square-off.com")
+        #expect(BackendConfiguration.mock.inviteOrigin.host() == "square-off.com")
+        #expect(BackendConfiguration.localDocker.inviteOrigin.host() == "localhost")
     }
 
     @Test func jwtExpiryParsing() {

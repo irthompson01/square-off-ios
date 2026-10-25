@@ -11,6 +11,8 @@ actor SpyAPI: SquareOffAPI {
     private(set) var turnRequests: [GameTurnRequest] = []
     private(set) var endRequests: [GameEndRequest] = []
     var failing: Set<String> = []
+    /// Per-method HTTP failures with a specific status and body (beats `failing`).
+    var failures: [String: APIError] = [:]
     var delays: [String: Duration] = [:]
     var authenticated = false
     var profileResponse = ProfileResponse(id: "user-1", username: "ian", email: "ian@example.com", firstName: "Ian", lastName: "T", color: "#0583D2", createdAt: "2026-10-19T00:00:00")
@@ -18,6 +20,7 @@ actor SpyAPI: SquareOffAPI {
     var oauthURL = URL(string: "squareoff://auth?token=spy-token")!
 
     func setFailing(_ names: Set<String>) { failing = names }
+    func setFailure(_ name: String, status: Int, detail: String) { failures[name] = .http(status: status, body: #"{"detail":"\#(detail)"}"#) }
     func setDelay(_ name: String, _ duration: Duration) { delays[name] = duration }
     func setAuthenticated(_ value: Bool) { authenticated = value }
     func setCPUMoveReply(_ reply: CPUMoveResponse) { cpuMoveReply = reply }
@@ -26,6 +29,7 @@ actor SpyAPI: SquareOffAPI {
     private func hit(_ name: String) async throws {
         calls.append(name)
         if let delay = delays[name] { try await Task.sleep(for: delay) }
+        if let failure = failures[name] { throw failure }
         if failing.contains(name) { throw APIError.http(status: 500, body: #"{"detail":"spy failure"}"#) }
     }
 
@@ -86,8 +90,8 @@ struct UnusedMatcher: MatcherAPI {
 extension Backend {
     /// A backend over a spy API with an in-memory token store (and its own UserDefaults suite).
     @MainActor
-    static func test(api: any SquareOffAPI, kind: BackendKind = .live, token: String? = nil, cpuMovesFromServer: Bool = false) -> Backend {
-        var configuration = kind == .live ? BackendConfiguration.localDocker : .mock
+    static func test(api: any SquareOffAPI, kind: BackendKind = .local, token: String? = nil, cpuMovesFromServer: Bool = false) -> Backend {
+        var configuration = BackendConfiguration.standard(for: kind)
         configuration.cpuMovesFromServer = cpuMovesFromServer
         let defaults = UserDefaults(suiteName: "SquareOffTests.\(UUID().uuidString)")!
         return Backend(configuration: configuration, api: api, matcher: UnusedMatcher(),

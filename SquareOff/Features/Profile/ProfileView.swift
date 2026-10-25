@@ -240,10 +240,10 @@ struct ProfileView: View {
                     get: { app.backend.configuration.kind },
                     set: { app.switchBackend(to: $0) }
                 )) {
-                    ForEach(BackendKind.allCases) { Text($0.title).tag($0) }
+                    ForEach(BackendKind.available) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 220)
+                .frame(maxWidth: 260)
             }
             SettingsToggle(title: "CPU moves from server", isOn: Binding(
                 get: { app.backend.configuration.cpuMovesFromServer },
@@ -253,7 +253,13 @@ struct ProfileView: View {
             row("Guest ID", app.backend.identity.guest.map { String($0.playerID.prefix(13)) + "…" } ?? "—")
             Button("Reset guest identity") { app.backend.identity.reset() }
                 .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
-            Text("Applies to new games. Launch argument: -backend mock|live. The docker stack needs the mkcert CA trusted in this simulator (scripts/trust-mkcert-simulator.sh).")
+            if app.backend.configuration.kind == .mock, app.account.isSignedIn {
+                Button("Simulate revoked session") {
+                    Task { await (app.backend.api as? MockSquareOffAPI)?.revokeSession(); await app.accounts.restore() }
+                }
+                .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
+            }
+            Text("Applies to new games. Launch argument: -backend production|local|mock. The docker stack needs the mkcert CA trusted in this simulator (scripts/trust-mkcert-simulator.sh).")
                 .font(.caption).foregroundStyle(Theme.muted)
         }
         .padding(20)

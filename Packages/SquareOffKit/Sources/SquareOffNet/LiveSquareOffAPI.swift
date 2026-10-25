@@ -6,8 +6,10 @@ import SquareOffCore
 public struct LiveSquareOffAPI: SquareOffAPI {
     private let client: RESTClient
 
-    public init(environment: APIEnvironment, session: URLSession = .shared, tokenProvider: (any TokenProvider)? = nil) {
-        client = RESTClient(baseURL: environment.baseURL, session: session, tokenProvider: tokenProvider)
+    public init(environment: APIEnvironment, session: URLSession = .shared, tokenProvider: (any TokenProvider)? = nil,
+                onSessionEnded: (@Sendable (SessionEndReason) -> Void)? = nil) {
+        client = RESTClient(baseURL: environment.baseURL, session: session, tokenProvider: tokenProvider,
+                            onSessionEnded: onSessionEnded)
     }
 
     // MARK: auth
@@ -21,7 +23,8 @@ public struct LiveSquareOffAPI: SquareOffAPI {
     }
 
     public func login(_ request: LoginRequest) async throws -> LoginResponse {
-        try await client.send("POST", "login", body: request)
+        // `client=ios` asks for the mobile token lifetime (JWT_MOBILE_TOKEN_EXPIRE_MINUTES).
+        try await client.send("POST", "login", query: [URLQueryItem(name: "client", value: OAuthClient.ios.rawValue)], body: request)
     }
 
     public func register(_ request: RegisterRequest) async throws -> RegisterResponse {

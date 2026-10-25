@@ -6,13 +6,18 @@ struct RESTClient: Sendable {
     let baseURL: URL
     let session: URLSession
     let tokenProvider: (any TokenProvider)?
+    /// Called before a 401 with one of the server's session codes is thrown, and only when a
+    /// token was attached: the account store signs the user out and says why.
+    let onSessionEnded: (@Sendable (SessionEndReason) -> Void)?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
-    init(baseURL: URL, session: URLSession, tokenProvider: (any TokenProvider)?) {
+    init(baseURL: URL, session: URLSession, tokenProvider: (any TokenProvider)?,
+         onSessionEnded: (@Sendable (SessionEndReason) -> Void)? = nil) {
         self.baseURL = baseURL
         self.session = session
         self.tokenProvider = tokenProvider
+        self.onSessionEnded = onSessionEnded
     }
 
     func send<Response: Decodable>(_ method: String, _ path: String, query: [URLQueryItem] = []) async throws -> Response {
@@ -48,7 +53,8 @@ struct RESTClient: Sendable {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
         }
-        if let token = tokenProvider?.accessToken() {
+        let token = tokenProvider?.accessToken()
+        if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         let (data, response): (Data, URLResponse)
@@ -59,7 +65,9 @@ struct RESTClient: Sendable {
         }
         guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else {
-            throw APIError.http(status: http.statusCode, body: String(decoding: data, as: UTF8.self))
+            let error = APIError.http(status: http.statusCode, body: String(decoding: data, as: UTF8.self))
+            if token != nil, let reason = error.sessionEndReason { onSessionEnded?(reason) }
+            throw error
         }
         return data
     }

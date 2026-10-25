@@ -86,15 +86,25 @@ public actor MockSquareOffAPI: SquareOffAPI {
     private var nextTurnID = 1
     private var nextParticipantID = 1
     private var sessionToken: String?
+    private var revokedTokens: Set<String> = []
     private var seeded = false
     private let shouldSeed: Bool
     private let latency: Duration
     private let tokenProvider: (any TokenProvider)?
+    private let onSessionEnded: (@Sendable (SessionEndReason) -> Void)?
 
-    public init(latency: Duration = .milliseconds(150), tokenProvider: (any TokenProvider)? = nil, seed: Bool = true) {
+    public init(latency: Duration = .milliseconds(150), tokenProvider: (any TokenProvider)? = nil, seed: Bool = true,
+                onSessionEnded: (@Sendable (SessionEndReason) -> Void)? = nil) {
         self.latency = latency
         self.tokenProvider = tokenProvider
         self.shouldSeed = seed
+        self.onSessionEnded = onSessionEnded
+    }
+
+    /// Simulates an admin "Force sign-out" (or a bumped `session_version`): the current token
+    /// answers 401 `session_revoked` from now on. Developer panel only.
+    public func revokeSession() {
+        if let token = tokenProvider?.accessToken() ?? sessionToken { revokedTokens.insert(token) }
     }
 
     // MARK: Auth
@@ -397,6 +407,10 @@ public actor MockSquareOffAPI: SquareOffAPI {
 
     private func currentUser() throws -> User {
         let token = tokenProvider?.accessToken() ?? sessionToken
+        if let token, revokedTokens.contains(token) {
+            onSessionEnded?(.revoked)
+            throw APIError.http(status: 401, body: #"{"detail":"session_revoked"}"#)
+        }
         guard let token, token.hasPrefix("mock:"),
               let user = users.first(where: { $0.username == String(token.dropFirst(5)) })
         else { throw APIError.http(status: 401, body: #"{"detail":"Not authenticated"}"#) }
