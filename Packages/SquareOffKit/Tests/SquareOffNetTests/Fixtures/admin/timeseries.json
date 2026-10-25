@@ -1,0 +1,56 @@
+{
+  "days": 2,
+  "tz": "America/New_York",
+  "from": "2026-10-24",
+  "to": "2026-10-25",
+  "series": [
+    {
+      "date": "2026-10-24",
+      "games_started": {
+        "local": 4,
+        "online": 2,
+        "cpu": 6
+      },
+      "games_completed": 9,
+      "new_users": 1,
+      "new_guest_sessions": 5
+    },
+    {
+      "date": "2026-10-25",
+      "games_started": {
+        "local": 3,
+        "online": 1,
+        "cpu": 8
+      },
+      "games_completed": 10,
+      "new_users": 0,
+      "new_guest_sessions": 7
+    }
+  ],
+  "totals": {
+    "games_started": 24,
+    "games_completed": 19,
+    "completion_rate": 79.2,
+    "median_duration_min": 6.5,
+    "median_duration_min_online": null,
+    "dau": 7,
+    "wau": 21,
+    "mau": 38,
+    "registered_users": 42,
+    "provider_mix": [
+      {
+        "provider": "password",
+        "count": 24
+      },
+      {
+        "provider": "google",
+        "count": 11
+      }
+    ],
+    "guest_vs_registered_participants": {
+      "user": 140,
+      "guest": 66,
+      "cpu": 90
+    }
+  }
+}

@@ -6,19 +6,21 @@
 #   make archive | export | testflight        Release archive, .ipa, upload to App Store Connect
 #   make bump [VERSION=x.y.z] [BUILD=n]       version/build in project.yml (build +1 by default)
 #   make release-check                        archive and verify plist, entitlements, icon, privacy manifest
+#   make phone-admin | build-admin | test-admin   the admin console app (never submitted)
 
 DEVELOPER_DIR ?= /Applications/Xcode.app/Contents/Developer
 export DEVELOPER_DIR
 
 PROJECT   := SquareOff.xcodeproj
-SCHEME    := SquareOff
-BUNDLE_ID := com.novastrada.squareoff
+SCHEME    ?= SquareOff
+APP_NAME  ?= SquareOff
+BUNDLE_ID ?= com.novastrada.squareoff
 # iPhone 14 "HODOR14" and the Apple Development team in Xcode.
 DEVICE    ?= 00008110-001A026A3E39401E
 TEAM      ?= 5M999SV4VM
 SIMULATOR ?= iPhone 17
 
-DEVICE_APP := build-device/Build/Products/Debug-iphoneos/SquareOff.app
+DEVICE_APP := build-device/Build/Products/Debug-iphoneos/$(APP_NAME).app
 
 ARCHIVE     := build-archive/SquareOff.xcarchive
 ARCHIVE_APP := $(ARCHIVE)/Products/Applications/SquareOff.app
@@ -31,7 +33,15 @@ ASC_KEY_ID    ?=
 ASC_ISSUER_ID ?=
 
 .PHONY: phone phone-build phone-install phone-launch devices generate build test \
-	archive export testflight bump release-check
+	archive export testflight bump release-check phone-admin build-admin test-admin
+
+# The admin console: same recipes, other scheme, bundle id and product name.
+phone-admin:
+	$(MAKE) phone SCHEME=SquareOffAdmin APP_NAME=SquareOffAdmin BUNDLE_ID=com.novastrada.squareoff.admin
+build-admin:
+	$(MAKE) build SCHEME=SquareOffAdmin
+test-admin:
+	$(MAKE) test SCHEME=SquareOffAdmin
 
 phone: phone-build phone-install phone-launch
 
@@ -46,8 +56,8 @@ phone-install:
 # Launching needs the phone unlocked; the app is installed either way.
 phone-launch:
 	@xcrun devicectl device process launch --device $(DEVICE) $(BUNDLE_ID) >/dev/null 2>&1 \
-		&& echo "Launched Square Off on $(DEVICE)." \
-		|| echo "Installed. Unlock the phone and open Square Off (it can't launch while the phone is locked)."
+		&& echo "Launched $(APP_NAME) on $(DEVICE)." \
+		|| echo "Installed. Unlock the phone and open $(APP_NAME) (it can't launch while the phone is locked)."
 
 devices:
 	xcrun devicectl list devices

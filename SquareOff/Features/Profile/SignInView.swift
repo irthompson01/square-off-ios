@@ -61,6 +61,7 @@ struct SignInView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Theme.overlay)
+        #if !ADMIN_CONSOLE
         .overlay(alignment: .topTrailing) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 44, height: 44)
@@ -69,6 +70,7 @@ struct SignInView: View {
             .accessibilityLabel("Close")
             .padding(8)
         }
+        #endif
         .onChange(of: mode) { _, _ in
             error = nil
             fieldErrors = [:]
@@ -215,6 +217,11 @@ struct SignInView: View {
 
     @ViewBuilder
     private var appleButton: some View {
+        #if ADMIN_CONSOLE
+        // The server verifies Apple tokens against the store app's bundle id; admins use a
+        // password, Google or GitHub instead.
+        EmptyView()
+        #else
         if app.backend.isLive {
             SignInWithAppleButton(.continue) { request in
                 let raw = AppleSignIn.randomNonce()
@@ -239,6 +246,7 @@ struct SignInView: View {
             }
             #endif
         }
+        #endif
     }
 
     private func handleApple(_ result: Result<ASAuthorization, Error>) {

@@ -98,13 +98,28 @@ public actor MockSquareOffAPI: SquareOffAPI {
     private let latency: Duration
     private let tokenProvider: (any TokenProvider)?
     private let onSessionEnded: (@Sendable (SessionEndReason) -> Void)?
+    /// `app_role` of the seeded demo account (`superadmin` in the admin app's demos).
+    private let demoRole: String
 
     public init(latency: Duration = .milliseconds(150), tokenProvider: (any TokenProvider)? = nil, seed: Bool = true,
-                onSessionEnded: (@Sendable (SessionEndReason) -> Void)? = nil) {
+                onSessionEnded: (@Sendable (SessionEndReason) -> Void)? = nil, demoRole: String = "standard") {
         self.latency = latency
         self.tokenProvider = tokenProvider
         self.shouldSeed = seed
         self.onSessionEnded = onSessionEnded
+        self.demoRole = demoRole
+    }
+
+    /// The signed-in mock user's role, for `MockAdminAPI`'s 403 check; nil when nobody is signed in.
+    public func currentRole() -> String? {
+        ensureSeeded()
+        return (try? currentUser())?.appRole
+    }
+
+    /// Who is signed in (for the admin mock's self-protection rules).
+    public func currentUserID() -> String? {
+        ensureSeeded()
+        return (try? currentUser())?.id
     }
 
     /// Simulates an admin "Force sign-out" (or a bumped `session_version`): the current token
@@ -571,7 +586,7 @@ public actor MockSquareOffAPI: SquareOffAPI {
         seeded = true
         let demo = User(id: Self.demoUserID, username: Self.demoUsername, email: Self.demoEmail,
                         password: Self.demoPassword, firstName: "Demo", lastName: "Player", color: "#0583D2",
-                        createdAt: "2026-09-01T12:00:00")
+                        createdAt: "2026-09-01T12:00:00", appRole: demoRole)
         users.append(demo)
         var rng = SplitMix64(seed: 0x5EED_5EED)
         let now = Date()

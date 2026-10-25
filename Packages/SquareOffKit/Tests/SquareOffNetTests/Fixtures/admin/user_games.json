@@ -1,0 +1,18 @@
+{
+  "total": 1,
+  "items": [
+    {
+      "game_id": 990,
+      "game_type": "local",
+      "start_time": "2026-10-24T18:00:00",
+      "end_time": null,
+      "board_size": 8,
+      "timer": 0,
+      "my_score": null,
+      "result": "unfinished",
+      "opponent_label": "CPU (max-min)",
+      "replay_available": false,
+      "replay_url": null
+    }
+  ]
+}

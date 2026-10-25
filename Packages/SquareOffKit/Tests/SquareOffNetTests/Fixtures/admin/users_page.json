@@ -1,0 +1,33 @@
+{
+  "total": 42,
+  "items": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "email": "ian@example.com",
+      "username": "ian",
+      "first_name": "Ian",
+      "last_name": "T",
+      "app_role": "superadmin",
+      "is_active": true,
+      "created_at": "2025-01-15T12:00:00",
+      "last_login_at": "2026-10-25T19:58:01.120000+00:00",
+      "games_played": 57,
+      "session_version": 0,
+      "oauth_provider": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "email": "pat@example.com",
+      "username": "pat",
+      "first_name": "",
+      "last_name": "",
+      "app_role": "standard",
+      "is_active": false,
+      "created_at": "2025-03-02T08:30:00",
+      "last_login_at": null,
+      "games_played": 0,
+      "session_version": 3,
+      "oauth_provider": "google"
+    }
+  ]
+}

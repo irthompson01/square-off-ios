@@ -34,6 +34,12 @@ final class Backend {
     #if DEBUG
     /// Debug hook (`-demoOnline`): faster bots for screenshots.
     nonisolated(unsafe) static var mockRoomConfiguration = MockRoomServer.Configuration()
+    /// Debug hook (`-demoRole`): the seeded mock account's role (`superadmin` in the admin app).
+    nonisolated(unsafe) static var mockDemoRole = "standard"
+    #endif
+    #if ADMIN_CONSOLE
+    /// `/api/admin/*` over the same session and token (the admin console only).
+    let adminAPI: any AdminAPI
     #endif
 
     let configuration: BackendConfiguration
@@ -56,10 +62,14 @@ final class Backend {
             #if DEBUG
             let tokens = UserDefaultsTokenStore(key: "mockAccessToken")
             tokenStore = tokens
-            api = MockSquareOffAPI(tokenProvider: tokens, onSessionEnded: onSessionEnded)
+            let mock = MockSquareOffAPI(tokenProvider: tokens, onSessionEnded: onSessionEnded, demoRole: Self.mockDemoRole)
+            api = mock
             let server = MockRoomServer(configuration: Self.mockRoomConfiguration)
             roomServer = server
             matcher = MockMatcherAPI(server: server)
+            #if ADMIN_CONSOLE
+            adminAPI = MockAdminAPI(accounts: mock)
+            #endif
             #else
             fatalError("The mock backend is not part of release builds")
             #endif
@@ -70,6 +80,10 @@ final class Backend {
                                    onSessionEnded: onSessionEnded)
             matcher = LiveMatcherAPI(environment: configuration.environment, session: urlSession, tokenProvider: tokens)
             roomServer = nil
+            #if ADMIN_CONSOLE
+            adminAPI = LiveAdminAPI(environment: configuration.environment, session: urlSession, tokenProvider: tokens,
+                                    onSessionEnded: onSessionEnded)
+            #endif
         }
         identity = IdentityStore(backendID: configuration.id, api: api)
     }
@@ -84,6 +98,9 @@ final class Backend {
         self.roomServer = roomServer
         urlSession = Self.makeURLSession()
         identity = IdentityStore(backendID: configuration.id, api: api, defaults: defaults)
+        #if ADMIN_CONSOLE
+        adminAPI = MockAdminAPI(accounts: nil, latency: .zero)
+        #endif
     }
 
     /// No cookies (auth is the bearer header), short timeouts so a dead server fails fast.

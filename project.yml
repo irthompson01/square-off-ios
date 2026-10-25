@@ -102,7 +102,84 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff.tests
         GENERATE_INFOPLIST_FILE: YES
 
+  # The admin console: the same app code plus SquareOffAdmin/, its own bundle id and icon,
+  # never submitted to the store. No Sign in with Apple (the server's audience is the store
+  # id) and no URL scheme (it must not compete with Square Off for squareoff://).
+  SquareOffAdmin:
+    type: application
+    platform: iOS
+    sources:
+      - path: SquareOff
+        excludes:
+          - "Info.plist"
+          - "SquareOff.entitlements"
+          - "SquareOffDebug.entitlements"
+      - path: SquareOffAdmin
+    dependencies:
+      - package: SquareOffKit
+        product: SquareOffCore
+      - package: SquareOffKit
+        product: SquareOffNet
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff.admin
+        PRODUCT_NAME: SquareOffAdmin
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ADMIN_CONSOLE"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconAdmin
+    info:
+      path: SquareOffAdmin/Info.plist
+      properties:
+        CFBundleDisplayName: Square Off Admin
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UIAppFonts:
+          - Grapple.ttf
+          - ChakraPetch-Bold.ttf
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIUserInterfaceStyle: Dark
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+
+  SquareOffAdminTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SquareOffAdminTests
+    dependencies:
+      - target: SquareOffAdmin
+      - package: SquareOffKit
+        product: SquareOffNet
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff.admin.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ADMIN_CONSOLE"
+
 schemes:
+  SquareOffAdmin:
+    build:
+      targets:
+        SquareOffAdmin: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SquareOffAdminTests
+
   SquareOff:
     build:
       targets:

@@ -1,0 +1,29 @@
+{
+  "days": 7,
+  "tz": "UTC",
+  "items": [
+    {
+      "id": 3,
+      "cpu_type": "cnn",
+      "display_name": "Level 3 \u00b7 CNN",
+      "games_total": 20,
+      "games_completed": 16,
+      "human_wins": 6,
+      "cpu_wins": 9,
+      "draws": 1,
+      "human_win_rate": 37.5,
+      "avg_human_think_s": 5.1,
+      "think_samples": 300,
+      "usage_by_day": [
+        {
+          "date": "2026-10-19",
+          "count": 3
+        },
+        {
+          "date": "2026-10-20",
+          "count": 0
+        }
+      ]
+    }
+  ]
+}

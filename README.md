@@ -27,6 +27,17 @@ Debug shortcuts (Product › Scheme › Edit Scheme… › Run › Arguments):
 | `-demoOnline host\|guest\|spectator\|quickmatch` | online flows against the mock room server with quick bots |
 | `-backend production\|local\|mock` | backend for this launch (Release builds only know `production`) |
 
+## Admin console (separate app)
+
+`SquareOffAdmin` is a second target that reuses the player app's code plus `SquareOffAdmin/`: the web console's seven sections (Overview, Live, Users, Games, CPUs, Audit log, Feedback) and search, over `/api/admin/*` (`Packages/SquareOffKit/Sources/SquareOffNet/Admin/`). It has its own bundle id (`com.novastrada.squareoff.admin`), icon and scheme, no URL scheme and no Sign in with Apple (admins use a password, Google or GitHub), and is never submitted to the store: it only ever carries the `ADMIN_CONSOLE` compile condition. Signing in with an account whose role isn't `superadmin` shows a gate instead of the console; any 403 drops back to it.
+
+```bash
+make build-admin | make test-admin | make phone-admin        # simulator build, its tests, install on the iPhone
+xcrun simctl launch booted com.novastrada.squareoff.admin -backend mock -demoSignedIn YES [-adminSection live|users|games|cpus] [-adminUser <id>] [-adminReplay <game id>]
+xcrun simctl launch booted com.novastrada.squareoff.admin -backend mock -demoSignedIn YES -demoRole standard   # the gate
+```
+The mock console (`MockAdminAPI`) carries 42 users, 120 games, 6 CPUs, feedback and an audit log; writes mutate it and append audit rows. Against production, promote your account through `SUPERADMIN_EMAILS` on the server first.
+
 ## Fonts, music, sounds
 
 `SquareOff/Resources/Fonts/` bundles Grapple (`GrappleBRK`, the wordmark and short titles, copied from the web client) and Chakra Petch Bold (`ChakraPetch-Bold`, SIL Open Font License, `OFL-ChakraPetch.txt`; headings, buttons and every number). `Resources/Sounds/` holds `button.mp3`, `spin.mp3` and the looping `harmonies.mp3` ("Music by Missy Cundiff", off by default, toggled under Profile › Preferences or the in-game menu). `Theme.display(_:)` / `Theme.game(_:)` are the only places the font names appear.

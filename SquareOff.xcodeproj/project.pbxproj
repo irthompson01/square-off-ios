@@ -9,63 +9,144 @@
 /* Begin PBXBuildFile section */
 		01A4FA6FDFA89CA88DCC5969 /* WaitingRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7309CCABF7CB945B5EB4F6A3 /* WaitingRoomView.swift */; };
 		03625D3E9BD1349F86D93905 /* OnlineGameSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B45F583465C822E5D3387DE /* OnlineGameSessionTests.swift */; };
+		046FF4F1B12A686A42103AC4 /* Grapple.ttf in Resources */ = {isa = PBXBuildFile; fileRef = BF00B0576C46BE465D8E6C21 /* Grapple.ttf */; };
+		06C238F11E3A238D1E607862 /* OnlineGameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8AD0610459C3E001FD1FB5B /* OnlineGameSession.swift */; };
 		06FBF9760296FECD619954DA /* SquareOffApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */; };
+		0733E3DC09BED1451DDCACCC /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */; };
+		07A38FA1DCA4097235777206 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51E577EF52E88743514F31BA /* FeedbackView.swift */; };
+		080AF01370846B92A775297C /* UsersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90DBFEEFD70CB5D75275302 /* UsersView.swift */; };
 		08477A5A7B1E58504CABC758 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B0E77FE8776AD7519B095E /* HomeView.swift */; };
+		0865369CFD8160E1628F2729 /* PlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB16F9F098D5EFC49DF83A2 /* PlayView.swift */; };
 		0C0F0A4A0853B97B9B690106 /* BackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */; };
+		123144C9B9F6B135BA745B31 /* CPUsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEA7B50199E4EED2762E0E43 /* CPUsView.swift */; };
+		127216263892AB6250071559 /* AdminRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDDFD567012454F1AF4F0334 /* AdminRootView.swift */; };
 		149C102E91949CE3D7F91E17 /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = 6C9256AFEBE1EC90FE2FE3B8 /* SquareOffNet */; };
+		15539233300792201040D5AA /* UserDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7846B809546C0C06CF0B2658 /* UserDetailView.swift */; };
+		17B3689AEA6530DDC33D6C2D /* ChakraPetch-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9318B92B1F1DE0DF1580B97B /* ChakraPetch-Bold.ttf */; };
+		1954F761A6E68646CBBD1667 /* GamePresenting.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8448742DCD971059730F73C /* GamePresenting.swift */; };
+		19E9A14E7438ADCB2237F5E9 /* Rulebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74745FC152F4FDAAF183028 /* Rulebook.swift */; };
+		1D7B62EF39C2678EEDD6174D /* FeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5FAEEE096D41C73A27265AE /* FeedbackTests.swift */; };
 		214E565C1149225AFB14751D /* RoomCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 336B4CC0CDDD237CB9E76B9B /* RoomCoordinator.swift */; };
+		2578735FE2A59CC10026C46F /* OFL-ChakraPetch.txt in Resources */ = {isa = PBXBuildFile; fileRef = EDF29A616E9B017A4FC14F7C /* OFL-ChakraPetch.txt */; };
+		269DC0577221543401762E0D /* SquareOffApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */; };
+		2922DF5048D5D81DFC26EFA8 /* AdminSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 745784FC70AFC8666D3BFED8 /* AdminSection.swift */; };
+		299F6FB85A80B643E8B7560C /* AuditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97459D66F9BD284731516DAE /* AuditView.swift */; };
 		2B5529676A246B0EB4E64CB7 /* PlaySetupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41B4D8C491B435D4826B67D /* PlaySetupModel.swift */; };
 		2CB2E036DB034FF16EE13709 /* harmonies.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8409128934C890FEAD654534 /* harmonies.mp3 */; };
 		2D790E8F51F8097C2C74BBE3 /* Grapple.ttf in Resources */ = {isa = PBXBuildFile; fileRef = BF00B0576C46BE465D8E6C21 /* Grapple.ttf */; };
 		2DBC0E09F13690F4F540C171 /* spin.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = D8FA79E9B968B77B90DDAE5D /* spin.mp3 */; };
+		2EDF0D9E07108FF46AB2EAAC /* Toasts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59FC182B6B1E34B45CD2B8F /* Toasts.swift */; };
+		2F6113AEDD9C9FE69F1F6794 /* RulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44298EA4BF8BCFC2F12E634A /* RulesView.swift */; };
 		312D360DF6E2C4E950F3334F /* GameSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */; };
 		357A0ED3149F5DD9BC1CEA61 /* GameChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3FAEFEC0D7C23852F8323A4 /* GameChrome.swift */; };
 		358B42A834C6F127FAE2B965 /* BackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */; };
+		35A4F8A35A5D30832B48CB96 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746CBDA13B01ED4C9C577236 /* StatsView.swift */; };
+		389A9D529349ED5667090852 /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0172B922493BECDC43DE9382 /* Backend.swift */; };
+		3ADF378008DBD042FCC64518 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = ECF7D6634D3C1094C1472C27 /* PrivacyInfo.xcprivacy */; };
 		3B7F64A5C168F961ED752E2B /* TokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2359DCD5F2870A09B8942D /* TokenStore.swift */; };
 		4192170F32275D85D76A887B /* PlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB16F9F098D5EFC49DF83A2 /* PlayView.swift */; };
+		42EA42919E7E139CE487DB50 /* RoomCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 336B4CC0CDDD237CB9E76B9B /* RoomCoordinator.swift */; };
 		434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B838FCE08AF16CD75A5164 /* BoardView.swift */; };
 		4465A51D5918EC4A957D17F6 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487284783B713FADBD398B72 /* GameSession.swift */; };
+		4513755D47BD85E75480CC60 /* GameServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868473B183874E9A64D3A161 /* GameServices.swift */; };
+		457F5EA9CDBFC4E5B9A947BD /* GameSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */; };
+		45BFAEF7D7005E3254AA54FC /* AdminQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8C8B881A87EECBA8F7063A9 /* AdminQuery.swift */; };
 		45CC1C07D3F56FA3DF6523A9 /* LocalGameStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1F9648DB98A479D1671E5 /* LocalGameStore.swift */; };
 		4657393DE71C4538518A515E /* OnlineGameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8AD0610459C3E001FD1FB5B /* OnlineGameSession.swift */; };
+		46E8FC154D1C31BF44057A8A /* Starfield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8196D783170D869DCCDC9C2B /* Starfield.swift */; };
+		4734CEFE977E59FA3890983C /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A75DEBAA85846A0A294853 /* AppModel.swift */; };
 		47C7EE3F90FA57B5FF0657C3 /* IdentityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D4F43CDBE1EB8046527309 /* IdentityStore.swift */; };
+		4B26BFFE0F55B5EA85E21F46 /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 083DE8391E4A947392A5E85B /* DeepLink.swift */; };
+		4F315EE2B2F3384DB2B5D0BD /* ServerGameRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67E08E56B748BC04DDBADB46 /* ServerGameRecorder.swift */; };
+		555869447BA5743CDCF3486C /* TokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2359DCD5F2870A09B8942D /* TokenStore.swift */; };
+		5617F7D92A8D0C23C54D615B /* harmonies.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8409128934C890FEAD654534 /* harmonies.mp3 */; };
 		59D7DFFA7568CB5B57029EEF /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0172B922493BECDC43DE9382 /* Backend.swift */; };
+		5DC09D4065C6B6C8DC4CAA38 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107387F876BA286D923E9C51 /* Theme.swift */; };
 		5E161678E4FC7970C86A4DE3 /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CA05ED7DF92F2FF425110A0 /* ReplayView.swift */; };
+		5F640F68FEC6E13FBE09786E /* AccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6168615F0BDEE92ED9F06B4A /* AccountStore.swift */; };
+		5FC6054A4064FD22C09DD99D /* OnlineConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3AA042A0F12221F58C469C /* OnlineConnection.swift */; };
 		67E8C4A0D9EB2C7CF301B28B /* BoardAnimationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6384AE9FE5874CB287621059 /* BoardAnimationTests.swift */; };
+		68878A34E8E8534A9942E3CB /* PasswordResetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C6BE61FD1CB48C4D3D4FDC /* PasswordResetViews.swift */; };
+		692D26BA43443DA3CB28D28E /* ReplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CA05ED7DF92F2FF425110A0 /* ReplayView.swift */; };
+		6ABBD768D526098A213BF165 /* OnlinePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000532D688DF9272AE4C4BB7 /* OnlinePanel.swift */; };
 		6DF105C01A2C681D967E17CB /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746CBDA13B01ED4C9C577236 /* StatsView.swift */; };
+		6E3B34C781268CBCEE5A6CDF /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B0E77FE8776AD7519B095E /* HomeView.swift */; };
+		6E68A5C2E08D194E8A043FA9 /* RulebookDemos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */; };
+		73A821B7F3BEE7617D31A799 /* AdminChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6A16E53E488EA0E6D370D7 /* AdminChrome.swift */; };
 		73BCAB838EC7809B291F3C45 /* GamePresenting.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8448742DCD971059730F73C /* GamePresenting.swift */; };
+		74B9406E43F0C52EF2BF1484 /* GamesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31804409BA7EAC7C5192EAFB /* GamesView.swift */; };
 		74E2C2FEC1B3D96A428BE196 /* Primitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3655BE4C5C3C5CB89A054032 /* Primitives.swift */; };
+		750F3C99C55DD398951AC6E9 /* PasswordResetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C6BE61FD1CB48C4D3D4FDC /* PasswordResetViews.swift */; };
 		751EE4FAAFF0B5824306C465 /* GameServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868473B183874E9A64D3A161 /* GameServices.swift */; };
+		7655FB655D2C7ADD9F1D2A9D /* IdentityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D4F43CDBE1EB8046527309 /* IdentityStore.swift */; };
+		773BD0FF15B6F30C243479FD /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51E577EF52E88743514F31BA /* FeedbackView.swift */; };
 		773C6133F378A3F308C43085 /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */; };
 		798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A75DEBAA85846A0A294853 /* AppModel.swift */; };
+		8991F62DB43E32A604D7C6B3 /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = E16D0AA38868CFEF6F700216 /* SquareOffNet */; };
 		8CFE5678C10F9BE71874F89F /* BoardAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8FE6543EDAC30B5E9B1A43 /* BoardAnimation.swift */; };
+		8EE9E9FBA51BADCBF874868C /* BackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */; };
 		8F8535FFD48EE203961F9A7F /* MusicPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D81277C819AB3FD520ACF5C /* MusicPlayer.swift */; };
+		9040BEC27C5D19ED2279985C /* LocalGameStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1F9648DB98A479D1671E5 /* LocalGameStore.swift */; };
+		923CA78EBF984CEE96F8E9F8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = ECF7D6634D3C1094C1472C27 /* PrivacyInfo.xcprivacy */; };
 		933569DBBF8E5D82F7BC0705 /* RulebookDemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 479A55F3B6526664D723838B /* RulebookDemoTests.swift */; };
 		9355CED32613CEC38B4BB099 /* ServerGameRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67E08E56B748BC04DDBADB46 /* ServerGameRecorder.swift */; };
+		9427C457D98AAD3CD6C16CE9 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 487284783B713FADBD398B72 /* GameSession.swift */; };
+		95093F5CEE5679F3F03CA18D /* BoardAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8FE6543EDAC30B5E9B1A43 /* BoardAnimation.swift */; };
+		97CEB309A7E3C891EC4B080E /* MusicPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D81277C819AB3FD520ACF5C /* MusicPlayer.swift */; };
+		97E0AF89C1E2DB828439B384 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6D7E66472DC336B993FFC2 /* GameView.swift */; };
+		9A32182A8C28E5C45FB327F4 /* button.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BE69ABA9011BBE77ED79CC73 /* button.mp3 */; };
+		9CD4E2B5FE5A5D7586A621C1 /* PlaySetupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41B4D8C491B435D4826B67D /* PlaySetupModel.swift */; };
 		9DEE3B1E1E6012B43942BF26 /* OnlinePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000532D688DF9272AE4C4BB7 /* OnlinePanel.swift */; };
+		A0A2319A13621E01B2001183 /* SquareOffCore in Frameworks */ = {isa = PBXBuildFile; productRef = B50C31891884AB8828F83FCF /* SquareOffCore */; };
+		A1F087E375A6F2EB474A8105 /* LiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F1025226560592D03F4552 /* LiveView.swift */; };
 		A2D9AC16F7D85E03EEB1964E /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = BF92E48A6E8511778471FEFD /* SquareOffNet */; };
 		A37046962888562B757AD05A /* RulesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44298EA4BF8BCFC2F12E634A /* RulesView.swift */; };
+		A3B2A685A976232A61CA3D48 /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = E77D7975B379415D1D1FC41F /* SquareOffNet */; };
+		A40EF4487ECE6B69B0FF6A1E /* spin.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = D8FA79E9B968B77B90DDAE5D /* spin.mp3 */; };
+		A46AE78634119E7387438E4C /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E01F7DF7373C2FD6F6AF159 /* OverviewView.swift */; };
+		A77589B5A4A80F99D896830B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */; };
+		ABF1C72DF228DE2B258CDC40 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C43F989EBBDCC5DC7BB2920 /* SignInView.swift */; };
 		AD5F4A157A8A60C13698A431 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107387F876BA286D923E9C51 /* Theme.swift */; };
 		AEEAE0A7811229F2F42863F8 /* AccountStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6168615F0BDEE92ED9F06B4A /* AccountStore.swift */; };
+		B026AD55CA30F688B01B7BFC /* WaitingRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7309CCABF7CB945B5EB4F6A3 /* WaitingRoomView.swift */; };
 		B056BFF38E887532F2978F72 /* DemoBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41CFF102A0CF12ACA419DF6C /* DemoBoardView.swift */; };
 		B2C02FB5088376D1738EC9B3 /* OnlineConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3AA042A0F12221F58C469C /* OnlineConnection.swift */; };
+		B3504611AF0975C957801D14 /* AppleReauthorizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7BB7858AEA7FBAB1EFC9FE4 /* AppleReauthorizer.swift */; };
 		B551473D8B2F0442F71CE721 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6D7E66472DC336B993FFC2 /* GameView.swift */; };
+		B9E53006B92861B108BB6BB4 /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 083DE8391E4A947392A5E85B /* DeepLink.swift */; };
 		BDD09628C48B63530709A25E /* Starfield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8196D783170D869DCCDC9C2B /* Starfield.swift */; };
+		BF5E0BCE5701341F6478854F /* AppleReauthorizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7BB7858AEA7FBAB1EFC9FE4 /* AppleReauthorizer.swift */; };
+		C1BDDEBABF237A25BBE0EF01 /* ColorPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F84E11CEF6C47CC19EB43136 /* ColorPicker.swift */; };
+		C267D71A1CFDA34E0AA63DD3 /* AdminAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B22B74C1839C43FB7C42629D /* AdminAssets.xcassets */; };
+		C5B3299E9A1BC1DD9420474F /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B838FCE08AF16CD75A5164 /* BoardView.swift */; };
 		CA1F6B6F039FCDEE470FD82B /* ColorPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F84E11CEF6C47CC19EB43136 /* ColorPicker.swift */; };
 		CDAF2C499B43CD7D8603E6F2 /* OFL-ChakraPetch.txt in Resources */ = {isa = PBXBuildFile; fileRef = EDF29A616E9B017A4FC14F7C /* OFL-ChakraPetch.txt */; };
+		D19738B699E5E896375569B8 /* GameChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3FAEFEC0D7C23852F8323A4 /* GameChrome.swift */; };
 		D350F1A468FDF2A1D82DB68C /* Toasts.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59FC182B6B1E34B45CD2B8F /* Toasts.swift */; };
 		D8E46AB1863F2F73FCC4E1F1 /* RulebookDemos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */; };
 		DC017CB1F8AC54893F335743 /* DesignRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2C802CAC9CD4A80C2CDBA0C /* DesignRefreshTests.swift */; };
+		E00C38CFC16CB0DDF7519C93 /* AdminFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084756FFC10F8678210DCF49 /* AdminFormatting.swift */; };
+		E157B743301B1DA8F919E256 /* AdminAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E39EA8213E75EB1593CF128 /* AdminAppModel.swift */; };
+		E16E75E5942BEE0E4195D401 /* Primitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3655BE4C5C3C5CB89A054032 /* Primitives.swift */; };
+		E42D45F583A7AFE8743816B7 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */; };
 		E46923406EB7B3149D003ECA /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */; };
 		E57C400C84D4C63066BA20A8 /* ServerCPUMoveProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD2B519948240DFD7932646D /* ServerCPUMoveProvider.swift */; };
 		E92CB0B4AE91A22056061C3A /* ChakraPetch-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9318B92B1F1DE0DF1580B97B /* ChakraPetch-Bold.ttf */; };
+		EAF2631A6358496019CAE0F9 /* DemoBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41CFF102A0CF12ACA419DF6C /* DemoBoardView.swift */; };
 		EAF3C39ACD0328E5315BCC3A /* button.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = BE69ABA9011BBE77ED79CC73 /* button.mp3 */; };
+		EE9DEDA331C2946B8E996409 /* ServerCPUMoveProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD2B519948240DFD7932646D /* ServerCPUMoveProvider.swift */; };
+		EF6E1ABF7B9B4AB0F0559C30 /* DeepLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A93F5E6E6D86E9D3FE8F7D4 /* DeepLinkTests.swift */; };
 		EFC748E02CF368678FDA9BF1 /* SpyAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C87803714D621485DA8BFA65 /* SpyAPI.swift */; };
 		F0A67B8B58B6ED41BD4080F6 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143BAB6EB077E55B63A8DEE6 /* Identity.swift */; };
 		F393246D2F1F4AB8EFF0BC4B /* Rulebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74745FC152F4FDAAF183028 /* Rulebook.swift */; };
+		F6D81A86AD02BC905D901CFD /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143BAB6EB077E55B63A8DEE6 /* Identity.swift */; };
+		F706FF3AAF1B666C2989F2F3 /* AdminSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C0F40E0A8687A2BC405596 /* AdminSearchView.swift */; };
 		FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB2294F1158530A790037386 /* GameSessionTests.swift */; };
 		FB7441103A11AF797B95CE4B /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C43F989EBBDCC5DC7BB2920 /* SignInView.swift */; };
+		FDC792EF47D089147DB17957 /* AdminLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9B7DC18FA0F4D0EF46BCD0D /* AdminLogicTests.swift */; };
 		FDFAA2C9B9D9EE232AB4E605 /* SquareOffCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7E6CA20F495728696B29D026 /* SquareOffCore */; };
 		FE1B2ECA03213661B6DACC0B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */; };
+		FECE1C0360708D1CEE3184C3 /* FeedbackInboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86339C2B5E327DC1E698D35E /* FeedbackInboxView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,18 +157,31 @@
 			remoteGlobalIDString = 81C2AB5CAF65B5B5EEA0A618;
 			remoteInfo = SquareOff;
 		};
+		DED57473C5B40DBD395B0190 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 56D5BC29F0CA1A94E9A6A2FE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A8A1AB641129B9949C0FC005;
+			remoteInfo = SquareOffAdmin;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		000532D688DF9272AE4C4BB7 /* OnlinePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlinePanel.swift; sourceTree = "<group>"; };
 		0172B922493BECDC43DE9382 /* Backend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backend.swift; sourceTree = "<group>"; };
+		083DE8391E4A947392A5E85B /* DeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLink.swift; sourceTree = "<group>"; };
+		084756FFC10F8678210DCF49 /* AdminFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminFormatting.swift; sourceTree = "<group>"; };
+		0A93F5E6E6D86E9D3FE8F7D4 /* DeepLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkTests.swift; sourceTree = "<group>"; };
 		0B45F583465C822E5D3387DE /* OnlineGameSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineGameSessionTests.swift; sourceTree = "<group>"; };
 		0C43F989EBBDCC5DC7BB2920 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		0D11E5513A6941F2BCBBA232 /* SquareOffKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SquareOffKit; path = Packages/SquareOffKit; sourceTree = SOURCE_ROOT; };
+		0D815AE09F1F3AB7B50A0D52 /* SquareOffDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SquareOffDebug.entitlements; sourceTree = "<group>"; };
 		107387F876BA286D923E9C51 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		143BAB6EB077E55B63A8DEE6 /* Identity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identity.swift; sourceTree = "<group>"; };
 		1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2D425CAA288550260774CEA5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		2E6A16E53E488EA0E6D370D7 /* AdminChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminChrome.swift; sourceTree = "<group>"; };
+		31804409BA7EAC7C5192EAFB /* GamesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamesView.swift; sourceTree = "<group>"; };
 		336B4CC0CDDD237CB9E76B9B /* RoomCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCoordinator.swift; sourceTree = "<group>"; };
 		3655BE4C5C3C5CB89A054032 /* Primitives.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Primitives.swift; sourceTree = "<group>"; };
 		41CFF102A0CF12ACA419DF6C /* DemoBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoBoardView.swift; sourceTree = "<group>"; };
@@ -95,51 +189,73 @@
 		479A55F3B6526664D723838B /* RulebookDemoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulebookDemoTests.swift; sourceTree = "<group>"; };
 		487284783B713FADBD398B72 /* GameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSession.swift; sourceTree = "<group>"; };
 		48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendTests.swift; sourceTree = "<group>"; };
+		51E577EF52E88743514F31BA /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
 		56F28A7C137131805CC520B7 /* SquareOff.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SquareOff.entitlements; sourceTree = "<group>"; };
+		57456C611D3FE447933B9E37 /* SquareOffAdmin.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SquareOffAdmin.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C3AA042A0F12221F58C469C /* OnlineConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineConnection.swift; sourceTree = "<group>"; };
+		5E39EA8213E75EB1593CF128 /* AdminAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminAppModel.swift; sourceTree = "<group>"; };
 		6168615F0BDEE92ED9F06B4A /* AccountStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountStore.swift; sourceTree = "<group>"; };
 		6384AE9FE5874CB287621059 /* BoardAnimationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardAnimationTests.swift; sourceTree = "<group>"; };
+		66C6BE61FD1CB48C4D3D4FDC /* PasswordResetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordResetViews.swift; sourceTree = "<group>"; };
 		67E08E56B748BC04DDBADB46 /* ServerGameRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerGameRecorder.swift; sourceTree = "<group>"; };
 		6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquareOffApp.swift; sourceTree = "<group>"; };
 		72D4F43CDBE1EB8046527309 /* IdentityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentityStore.swift; sourceTree = "<group>"; };
 		7309CCABF7CB945B5EB4F6A3 /* WaitingRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaitingRoomView.swift; sourceTree = "<group>"; };
+		745784FC70AFC8666D3BFED8 /* AdminSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminSection.swift; sourceTree = "<group>"; };
 		746CBDA13B01ED4C9C577236 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		7846B809546C0C06CF0B2658 /* UserDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDetailView.swift; sourceTree = "<group>"; };
 		7D69665B80EEAF3F44967ADD /* RulebookDemos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RulebookDemos.swift; sourceTree = "<group>"; };
 		8196D783170D869DCCDC9C2B /* Starfield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Starfield.swift; sourceTree = "<group>"; };
 		8409128934C890FEAD654534 /* harmonies.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = harmonies.mp3; sourceTree = "<group>"; };
+		86339C2B5E327DC1E698D35E /* FeedbackInboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackInboxView.swift; sourceTree = "<group>"; };
 		868473B183874E9A64D3A161 /* GameServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameServices.swift; sourceTree = "<group>"; };
 		86A75DEBAA85846A0A294853 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		86B0E77FE8776AD7519B095E /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		8D707DF5DF0D3AC29A6E544E /* SquareOffTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SquareOffTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D81277C819AB3FD520ACF5C /* MusicPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayer.swift; sourceTree = "<group>"; };
+		8E01F7DF7373C2FD6F6AF159 /* OverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewView.swift; sourceTree = "<group>"; };
 		90B838FCE08AF16CD75A5164 /* BoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardView.swift; sourceTree = "<group>"; };
 		917EBEA674D7D753E4323871 /* SquareOff.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SquareOff.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9318B92B1F1DE0DF1580B97B /* ChakraPetch-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ChakraPetch-Bold.ttf"; sourceTree = "<group>"; };
+		97459D66F9BD284731516DAE /* AuditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditView.swift; sourceTree = "<group>"; };
 		9CA05ED7DF92F2FF425110A0 /* ReplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayView.swift; sourceTree = "<group>"; };
 		A5E1F9648DB98A479D1671E5 /* LocalGameStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalGameStore.swift; sourceTree = "<group>"; };
 		A74745FC152F4FDAAF183028 /* Rulebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rulebook.swift; sourceTree = "<group>"; };
+		A8C0F40E0A8687A2BC405596 /* AdminSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminSearchView.swift; sourceTree = "<group>"; };
+		AADA99B7437A70BAE824D887 /* SquareOffAdminTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SquareOffAdminTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B22B74C1839C43FB7C42629D /* AdminAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = AdminAssets.xcassets; sourceTree = "<group>"; };
 		BD2B519948240DFD7932646D /* ServerCPUMoveProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerCPUMoveProvider.swift; sourceTree = "<group>"; };
 		BD8FE6543EDAC30B5E9B1A43 /* BoardAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardAnimation.swift; sourceTree = "<group>"; };
 		BE69ABA9011BBE77ED79CC73 /* button.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = button.mp3; sourceTree = "<group>"; };
+		BEC0686E85FE0439808597F5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		BF00B0576C46BE465D8E6C21 /* Grapple.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Grapple.ttf; sourceTree = "<group>"; };
 		BF6D7E66472DC336B993FFC2 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		C7BB7858AEA7FBAB1EFC9FE4 /* AppleReauthorizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleReauthorizer.swift; sourceTree = "<group>"; };
 		C87803714D621485DA8BFA65 /* SpyAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpyAPI.swift; sourceTree = "<group>"; };
+		C8C8B881A87EECBA8F7063A9 /* AdminQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminQuery.swift; sourceTree = "<group>"; };
 		CB2359DCD5F2870A09B8942D /* TokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenStore.swift; sourceTree = "<group>"; };
+		CDDFD567012454F1AF4F0334 /* AdminRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminRootView.swift; sourceTree = "<group>"; };
 		D59FC182B6B1E34B45CD2B8F /* Toasts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toasts.swift; sourceTree = "<group>"; };
+		D5FAEEE096D41C73A27265AE /* FeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackTests.swift; sourceTree = "<group>"; };
 		D8FA79E9B968B77B90DDAE5D /* spin.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = spin.mp3; sourceTree = "<group>"; };
 		DB2294F1158530A790037386 /* GameSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSessionTests.swift; sourceTree = "<group>"; };
 		DCB16F9F098D5EFC49DF83A2 /* PlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayView.swift; sourceTree = "<group>"; };
 		E2C802CAC9CD4A80C2CDBA0C /* DesignRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignRefreshTests.swift; sourceTree = "<group>"; };
+		E2F1025226560592D03F4552 /* LiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveView.swift; sourceTree = "<group>"; };
 		E41B4D8C491B435D4826B67D /* PlaySetupModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaySetupModel.swift; sourceTree = "<group>"; };
 		E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPlayer.swift; sourceTree = "<group>"; };
 		E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendConfiguration.swift; sourceTree = "<group>"; };
 		E8AD0610459C3E001FD1FB5B /* OnlineGameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineGameSession.swift; sourceTree = "<group>"; };
+		E9B7DC18FA0F4D0EF46BCD0D /* AdminLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminLogicTests.swift; sourceTree = "<group>"; };
 		EAD76A4573793CE5A2F8DC55 /* GameSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSheets.swift; sourceTree = "<group>"; };
+		ECF7D6634D3C1094C1472C27 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EDF29A616E9B017A4FC14F7C /* OFL-ChakraPetch.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-ChakraPetch.txt"; sourceTree = "<group>"; };
+		EEA7B50199E4EED2762E0E43 /* CPUsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CPUsView.swift; sourceTree = "<group>"; };
 		F3FAEFEC0D7C23852F8323A4 /* GameChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameChrome.swift; sourceTree = "<group>"; };
 		F8448742DCD971059730F73C /* GamePresenting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamePresenting.swift; sourceTree = "<group>"; };
 		F84E11CEF6C47CC19EB43136 /* ColorPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorPicker.swift; sourceTree = "<group>"; };
+		F90DBFEEFD70CB5D75275302 /* UsersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsersView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,12 +267,29 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		88BB3B59B4A354C6EE3DAFD2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8991F62DB43E32A604D7C6B3 /* SquareOffNet in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E79F4A8AF9A738D9AAC4DF09 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				FDFAA2C9B9D9EE232AB4E605 /* SquareOffCore in Frameworks */,
 				A2D9AC16F7D85E03EEB1964E /* SquareOffNet in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F318F3BA59E9139C9F0BD135 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A0A2319A13621E01B2001183 /* SquareOffCore in Frameworks */,
+				A3B2A685A976232A61CA3D48 /* SquareOffNet in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -183,12 +316,29 @@
 			children = (
 				2D425CAA288550260774CEA5 /* Info.plist */,
 				56F28A7C137131805CC520B7 /* SquareOff.entitlements */,
+				0D815AE09F1F3AB7B50A0D52 /* SquareOffDebug.entitlements */,
 				F3D2255F2CD3C691C5C49627 /* App */,
 				815F600B6D10ECFDA7B30539 /* Features */,
 				23748B5FD7327D1DDC28B5FE /* Resources */,
 				3B716BA078CC150106AB21B7 /* Services */,
 			);
 			path = SquareOff;
+			sourceTree = "<group>";
+		};
+		09D3C2A00ABC9E53A432A0C6 /* Screens */ = {
+			isa = PBXGroup;
+			children = (
+				A8C0F40E0A8687A2BC405596 /* AdminSearchView.swift */,
+				97459D66F9BD284731516DAE /* AuditView.swift */,
+				EEA7B50199E4EED2762E0E43 /* CPUsView.swift */,
+				86339C2B5E327DC1E698D35E /* FeedbackInboxView.swift */,
+				31804409BA7EAC7C5192EAFB /* GamesView.swift */,
+				E2F1025226560592D03F4552 /* LiveView.swift */,
+				8E01F7DF7373C2FD6F6AF159 /* OverviewView.swift */,
+				7846B809546C0C06CF0B2658 /* UserDetailView.swift */,
+				F90DBFEEFD70CB5D75275302 /* UsersView.swift */,
+			);
+			path = Screens;
 			sourceTree = "<group>";
 		};
 		15CE32481B8C25C92ADD6AD0 /* Play */ = {
@@ -206,6 +356,7 @@
 			isa = PBXGroup;
 			children = (
 				91BF807A6CBBDAF9C0E21B8B /* Assets.xcassets */,
+				ECF7D6634D3C1094C1472C27 /* PrivacyInfo.xcprivacy */,
 				8AB6AB9187FB1418DEC97A81 /* Fonts */,
 				97FE30652F3AF59A90A663FE /* Sounds */,
 			);
@@ -258,9 +409,34 @@
 			isa = PBXGroup;
 			children = (
 				917EBEA674D7D753E4323871 /* SquareOff.app */,
+				57456C611D3FE447933B9E37 /* SquareOffAdmin.app */,
+				AADA99B7437A70BAE824D887 /* SquareOffAdminTests.xctest */,
 				8D707DF5DF0D3AC29A6E544E /* SquareOffTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6CC50C3EB0D3EA81D600D2DB /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B22B74C1839C43FB7C42629D /* AdminAssets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		7D9C8EDA649F1BBE0834B831 /* SquareOffAdmin */ = {
+			isa = PBXGroup;
+			children = (
+				5E39EA8213E75EB1593CF128 /* AdminAppModel.swift */,
+				2E6A16E53E488EA0E6D370D7 /* AdminChrome.swift */,
+				CDDFD567012454F1AF4F0334 /* AdminRootView.swift */,
+				745784FC70AFC8666D3BFED8 /* AdminSection.swift */,
+				BEC0686E85FE0439808597F5 /* Info.plist */,
+				DDBFB2901557DB0A3102CFB9 /* Data */,
+				6CC50C3EB0D3EA81D600D2DB /* Resources */,
+				09D3C2A00ABC9E53A432A0C6 /* Screens */,
+			);
+			path = SquareOffAdmin;
 			sourceTree = "<group>";
 		};
 		815F600B6D10ECFDA7B30539 /* Features */ = {
@@ -289,6 +465,7 @@
 			isa = PBXGroup;
 			children = (
 				6168615F0BDEE92ED9F06B4A /* AccountStore.swift */,
+				C7BB7858AEA7FBAB1EFC9FE4 /* AppleReauthorizer.swift */,
 				0172B922493BECDC43DE9382 /* Backend.swift */,
 				E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */,
 				143BAB6EB077E55B63A8DEE6 /* Identity.swift */,
@@ -315,13 +492,23 @@
 			children = (
 				48B5D9C2D89D5E26F7CB2424 /* BackendTests.swift */,
 				6384AE9FE5874CB287621059 /* BoardAnimationTests.swift */,
+				0A93F5E6E6D86E9D3FE8F7D4 /* DeepLinkTests.swift */,
 				E2C802CAC9CD4A80C2CDBA0C /* DesignRefreshTests.swift */,
+				D5FAEEE096D41C73A27265AE /* FeedbackTests.swift */,
 				DB2294F1158530A790037386 /* GameSessionTests.swift */,
 				0B45F583465C822E5D3387DE /* OnlineGameSessionTests.swift */,
 				479A55F3B6526664D723838B /* RulebookDemoTests.swift */,
 				DBB79AB4EE7C953B876A10A4 /* Support */,
 			);
 			path = SquareOffTests;
+			sourceTree = "<group>";
+		};
+		C4F70870593F3A16A043650A /* SquareOffAdminTests */ = {
+			isa = PBXGroup;
+			children = (
+				E9B7DC18FA0F4D0EF46BCD0D /* AdminLogicTests.swift */,
+			);
+			path = SquareOffAdminTests;
 			sourceTree = "<group>";
 		};
 		DBB79AB4EE7C953B876A10A4 /* Support */ = {
@@ -332,11 +519,22 @@
 			path = Support;
 			sourceTree = "<group>";
 		};
+		DDBFB2901557DB0A3102CFB9 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				084756FFC10F8678210DCF49 /* AdminFormatting.swift */,
+				C8C8B881A87EECBA8F7063A9 /* AdminQuery.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
 		E495300F8D4505F948AAA4D4 = {
 			isa = PBXGroup;
 			children = (
 				474EE59C8999B85E03172D2F /* Packages */,
 				08823EE40A5765A80F66E785 /* SquareOff */,
+				7D9C8EDA649F1BBE0834B831 /* SquareOffAdmin */,
+				C4F70870593F3A16A043650A /* SquareOffAdminTests */,
 				A40DC8CC54E9F96DE9B1D40D /* SquareOffTests */,
 				5BF436F17A4BC6D2187FFA58 /* Products */,
 			);
@@ -346,6 +544,7 @@
 			isa = PBXGroup;
 			children = (
 				86A75DEBAA85846A0A294853 /* AppModel.swift */,
+				083DE8391E4A947392A5E85B /* DeepLink.swift */,
 				3655BE4C5C3C5CB89A054032 /* Primitives.swift */,
 				6CCDB1BE43D8339542A2E9DD /* SquareOffApp.swift */,
 				8196D783170D869DCCDC9C2B /* Starfield.swift */,
@@ -358,6 +557,8 @@
 		F960DDDC2D5BA196C87DD2A3 /* Profile */ = {
 			isa = PBXGroup;
 			children = (
+				51E577EF52E88743514F31BA /* FeedbackView.swift */,
+				66C6BE61FD1CB48C4D3D4FDC /* PasswordResetViews.swift */,
 				1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */,
 				9CA05ED7DF92F2FF425110A0 /* ReplayView.swift */,
 				0C43F989EBBDCC5DC7BB2920 /* SignInView.swift */,
@@ -369,6 +570,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		4A0C7864728A0AE6F506D96F /* SquareOffAdminTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E7EEBBBFEF77B3946D4FE7A1 /* Build configuration list for PBXNativeTarget "SquareOffAdminTests" */;
+			buildPhases = (
+				2AF16E7FA81E3D478DA06AE3 /* Sources */,
+				88BB3B59B4A354C6EE3DAFD2 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				45CEF720B485CEC06DAC1CDE /* PBXTargetDependency */,
+			);
+			name = SquareOffAdminTests;
+			packageProductDependencies = (
+				E16D0AA38868CFEF6F700216 /* SquareOffNet */,
+			);
+			productName = SquareOffAdminTests;
+			productReference = AADA99B7437A70BAE824D887 /* SquareOffAdminTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		81C2AB5CAF65B5B5EEA0A618 /* SquareOff */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C6EA08F8345C15D3F4DCA300 /* Build configuration list for PBXNativeTarget "SquareOff" */;
@@ -388,6 +609,27 @@
 			);
 			productName = SquareOff;
 			productReference = 917EBEA674D7D753E4323871 /* SquareOff.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A8A1AB641129B9949C0FC005 /* SquareOffAdmin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 68458DDC8333903E538B8E14 /* Build configuration list for PBXNativeTarget "SquareOffAdmin" */;
+			buildPhases = (
+				7099585B871464F8FA886B1F /* Sources */,
+				A919E69C36BB9E203BDCA176 /* Resources */,
+				F318F3BA59E9139C9F0BD135 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SquareOffAdmin;
+			packageProductDependencies = (
+				B50C31891884AB8828F83FCF /* SquareOffCore */,
+				E77D7975B379415D1D1FC41F /* SquareOffNet */,
+			);
+			productName = SquareOffAdmin;
+			productReference = 57456C611D3FE447933B9E37 /* SquareOffAdmin.app */;
 			productType = "com.apple.product-type.application";
 		};
 		AA221F097B570F90A756D535 /* SquareOffTests */ = {
@@ -419,8 +661,19 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					4A0C7864728A0AE6F506D96F = {
+						DevelopmentTeam = 5M999SV4VM;
+					};
 					81C2AB5CAF65B5B5EEA0A618 = {
+						DevelopmentTeam = 5M999SV4VM;
 						ProvisioningStyle = Automatic;
+					};
+					A8A1AB641129B9949C0FC005 = {
+						DevelopmentTeam = 5M999SV4VM;
+						ProvisioningStyle = Automatic;
+					};
+					AA221F097B570F90A756D535 = {
+						DevelopmentTeam = 5M999SV4VM;
 					};
 				};
 			};
@@ -443,11 +696,29 @@
 			targets = (
 				81C2AB5CAF65B5B5EEA0A618 /* SquareOff */,
 				AA221F097B570F90A756D535 /* SquareOffTests */,
+				A8A1AB641129B9949C0FC005 /* SquareOffAdmin */,
+				4A0C7864728A0AE6F506D96F /* SquareOffAdminTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A919E69C36BB9E203BDCA176 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C267D71A1CFDA34E0AA63DD3 /* AdminAssets.xcassets in Resources */,
+				A77589B5A4A80F99D896830B /* Assets.xcassets in Resources */,
+				17B3689AEA6530DDC33D6C2D /* ChakraPetch-Bold.ttf in Resources */,
+				046FF4F1B12A686A42103AC4 /* Grapple.ttf in Resources */,
+				2578735FE2A59CC10026C46F /* OFL-ChakraPetch.txt in Resources */,
+				923CA78EBF984CEE96F8E9F8 /* PrivacyInfo.xcprivacy in Resources */,
+				9A32182A8C28E5C45FB327F4 /* button.mp3 in Resources */,
+				5617F7D92A8D0C23C54D615B /* harmonies.mp3 in Resources */,
+				A40EF4487ECE6B69B0FF6A1E /* spin.mp3 in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C61235A4A40C70F44337A122 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -456,6 +727,7 @@
 				E92CB0B4AE91A22056061C3A /* ChakraPetch-Bold.ttf in Resources */,
 				2D790E8F51F8097C2C74BBE3 /* Grapple.ttf in Resources */,
 				CDAF2C499B43CD7D8603E6F2 /* OFL-ChakraPetch.txt in Resources */,
+				3ADF378008DBD042FCC64518 /* PrivacyInfo.xcprivacy in Resources */,
 				EAF3C39ACD0328E5315BCC3A /* button.mp3 in Resources */,
 				2CB2E036DB034FF16EE13709 /* harmonies.mp3 in Resources */,
 				2DBC0E09F13690F4F540C171 /* spin.mp3 in Resources */,
@@ -465,18 +737,97 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2AF16E7FA81E3D478DA06AE3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDC792EF47D089147DB17957 /* AdminLogicTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7099585B871464F8FA886B1F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F640F68FEC6E13FBE09786E /* AccountStore.swift in Sources */,
+				E157B743301B1DA8F919E256 /* AdminAppModel.swift in Sources */,
+				73A821B7F3BEE7617D31A799 /* AdminChrome.swift in Sources */,
+				E00C38CFC16CB0DDF7519C93 /* AdminFormatting.swift in Sources */,
+				45BFAEF7D7005E3254AA54FC /* AdminQuery.swift in Sources */,
+				127216263892AB6250071559 /* AdminRootView.swift in Sources */,
+				F706FF3AAF1B666C2989F2F3 /* AdminSearchView.swift in Sources */,
+				2922DF5048D5D81DFC26EFA8 /* AdminSection.swift in Sources */,
+				4734CEFE977E59FA3890983C /* AppModel.swift in Sources */,
+				B3504611AF0975C957801D14 /* AppleReauthorizer.swift in Sources */,
+				299F6FB85A80B643E8B7560C /* AuditView.swift in Sources */,
+				389A9D529349ED5667090852 /* Backend.swift in Sources */,
+				8EE9E9FBA51BADCBF874868C /* BackendConfiguration.swift in Sources */,
+				95093F5CEE5679F3F03CA18D /* BoardAnimation.swift in Sources */,
+				C5B3299E9A1BC1DD9420474F /* BoardView.swift in Sources */,
+				123144C9B9F6B135BA745B31 /* CPUsView.swift in Sources */,
+				C1BDDEBABF237A25BBE0EF01 /* ColorPicker.swift in Sources */,
+				B9E53006B92861B108BB6BB4 /* DeepLink.swift in Sources */,
+				EAF2631A6358496019CAE0F9 /* DemoBoardView.swift in Sources */,
+				FECE1C0360708D1CEE3184C3 /* FeedbackInboxView.swift in Sources */,
+				07A38FA1DCA4097235777206 /* FeedbackView.swift in Sources */,
+				D19738B699E5E896375569B8 /* GameChrome.swift in Sources */,
+				1954F761A6E68646CBBD1667 /* GamePresenting.swift in Sources */,
+				4513755D47BD85E75480CC60 /* GameServices.swift in Sources */,
+				9427C457D98AAD3CD6C16CE9 /* GameSession.swift in Sources */,
+				457F5EA9CDBFC4E5B9A947BD /* GameSheets.swift in Sources */,
+				97E0AF89C1E2DB828439B384 /* GameView.swift in Sources */,
+				74B9406E43F0C52EF2BF1484 /* GamesView.swift in Sources */,
+				6E3B34C781268CBCEE5A6CDF /* HomeView.swift in Sources */,
+				F6D81A86AD02BC905D901CFD /* Identity.swift in Sources */,
+				7655FB655D2C7ADD9F1D2A9D /* IdentityStore.swift in Sources */,
+				A1F087E375A6F2EB474A8105 /* LiveView.swift in Sources */,
+				9040BEC27C5D19ED2279985C /* LocalGameStore.swift in Sources */,
+				97CEB309A7E3C891EC4B080E /* MusicPlayer.swift in Sources */,
+				5FC6054A4064FD22C09DD99D /* OnlineConnection.swift in Sources */,
+				06C238F11E3A238D1E607862 /* OnlineGameSession.swift in Sources */,
+				6ABBD768D526098A213BF165 /* OnlinePanel.swift in Sources */,
+				A46AE78634119E7387438E4C /* OverviewView.swift in Sources */,
+				750F3C99C55DD398951AC6E9 /* PasswordResetViews.swift in Sources */,
+				9CD4E2B5FE5A5D7586A621C1 /* PlaySetupModel.swift in Sources */,
+				0865369CFD8160E1628F2729 /* PlayView.swift in Sources */,
+				E16E75E5942BEE0E4195D401 /* Primitives.swift in Sources */,
+				E42D45F583A7AFE8743816B7 /* ProfileView.swift in Sources */,
+				692D26BA43443DA3CB28D28E /* ReplayView.swift in Sources */,
+				42EA42919E7E139CE487DB50 /* RoomCoordinator.swift in Sources */,
+				19E9A14E7438ADCB2237F5E9 /* Rulebook.swift in Sources */,
+				6E68A5C2E08D194E8A043FA9 /* RulebookDemos.swift in Sources */,
+				2F6113AEDD9C9FE69F1F6794 /* RulesView.swift in Sources */,
+				EE9DEDA331C2946B8E996409 /* ServerCPUMoveProvider.swift in Sources */,
+				4F315EE2B2F3384DB2B5D0BD /* ServerGameRecorder.swift in Sources */,
+				ABF1C72DF228DE2B258CDC40 /* SignInView.swift in Sources */,
+				0733E3DC09BED1451DDCACCC /* SoundPlayer.swift in Sources */,
+				269DC0577221543401762E0D /* SquareOffApp.swift in Sources */,
+				46E8FC154D1C31BF44057A8A /* Starfield.swift in Sources */,
+				35A4F8A35A5D30832B48CB96 /* StatsView.swift in Sources */,
+				5DC09D4065C6B6C8DC4CAA38 /* Theme.swift in Sources */,
+				2EDF0D9E07108FF46AB2EAAC /* Toasts.swift in Sources */,
+				555869447BA5743CDCF3486C /* TokenStore.swift in Sources */,
+				15539233300792201040D5AA /* UserDetailView.swift in Sources */,
+				080AF01370846B92A775297C /* UsersView.swift in Sources */,
+				B026AD55CA30F688B01B7BFC /* WaitingRoomView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		75EE9946B4B49E4ABAF9730D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				AEEAE0A7811229F2F42863F8 /* AccountStore.swift in Sources */,
 				798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */,
+				BF5E0BCE5701341F6478854F /* AppleReauthorizer.swift in Sources */,
 				59D7DFFA7568CB5B57029EEF /* Backend.swift in Sources */,
 				0C0F0A4A0853B97B9B690106 /* BackendConfiguration.swift in Sources */,
 				8CFE5678C10F9BE71874F89F /* BoardAnimation.swift in Sources */,
 				434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */,
 				CA1F6B6F039FCDEE470FD82B /* ColorPicker.swift in Sources */,
+				4B26BFFE0F55B5EA85E21F46 /* DeepLink.swift in Sources */,
 				B056BFF38E887532F2978F72 /* DemoBoardView.swift in Sources */,
+				773BD0FF15B6F30C243479FD /* FeedbackView.swift in Sources */,
 				357A0ED3149F5DD9BC1CEA61 /* GameChrome.swift in Sources */,
 				73BCAB838EC7809B291F3C45 /* GamePresenting.swift in Sources */,
 				751EE4FAAFF0B5824306C465 /* GameServices.swift in Sources */,
@@ -491,6 +842,7 @@
 				B2C02FB5088376D1738EC9B3 /* OnlineConnection.swift in Sources */,
 				4657393DE71C4538518A515E /* OnlineGameSession.swift in Sources */,
 				9DEE3B1E1E6012B43942BF26 /* OnlinePanel.swift in Sources */,
+				68878A34E8E8534A9942E3CB /* PasswordResetViews.swift in Sources */,
 				2B5529676A246B0EB4E64CB7 /* PlaySetupModel.swift in Sources */,
 				4192170F32275D85D76A887B /* PlayView.swift in Sources */,
 				74E2C2FEC1B3D96A428BE196 /* Primitives.swift in Sources */,
@@ -520,7 +872,9 @@
 			files = (
 				358B42A834C6F127FAE2B965 /* BackendTests.swift in Sources */,
 				67E8C4A0D9EB2C7CF301B28B /* BoardAnimationTests.swift in Sources */,
+				EF6E1ABF7B9B4AB0F0559C30 /* DeepLinkTests.swift in Sources */,
 				DC017CB1F8AC54893F335743 /* DesignRefreshTests.swift in Sources */,
+				1D7B62EF39C2678EEDD6174D /* FeedbackTests.swift in Sources */,
 				FA098A7961F9E375DF40707A /* GameSessionTests.swift in Sources */,
 				03625D3E9BD1349F86D93905 /* OnlineGameSessionTests.swift in Sources */,
 				933569DBBF8E5D82F7BC0705 /* RulebookDemoTests.swift in Sources */,
@@ -536,9 +890,54 @@
 			target = 81C2AB5CAF65B5B5EEA0A618 /* SquareOff */;
 			targetProxy = 96DD4B83BD60017DE84C99B4 /* PBXContainerItemProxy */;
 		};
+		45CEF720B485CEC06DAC1CDE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A8A1AB641129B9949C0FC005 /* SquareOffAdmin */;
+			targetProxy = DED57473C5B40DBD395B0190 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0E65AD7A56E07600A56CCAE4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff.admin.tests;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ADMIN_CONSOLE";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SquareOffAdmin.app/SquareOffAdmin";
+			};
+			name = Release;
+		};
+		1AB59DA514BA1405B957ADA1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdmin;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = SquareOffAdmin/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff.admin;
+				PRODUCT_NAME = SquareOffAdmin;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ADMIN_CONSOLE";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		1D16A63FA19EEA11C0364574 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -574,6 +973,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 5M999SV4VM;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -622,6 +1022,24 @@
 			};
 			name = Debug;
 		};
+		303FAC7505EAD902D196DAAD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff.admin.tests;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ADMIN_CONSOLE";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SquareOffAdmin.app/SquareOffAdmin";
+			};
+			name = Debug;
+		};
 		673CF5B988B8047DF375E8C7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -636,7 +1054,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -695,6 +1113,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 5M999SV4VM;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -733,9 +1152,31 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff;
 				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FCE12561C52260AD1B0B6EE5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIconAdmin;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = SquareOffAdmin/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.novastrada.squareoff.admin;
+				PRODUCT_NAME = SquareOffAdmin;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) ADMIN_CONSOLE";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -748,6 +1189,15 @@
 			buildConfigurations = (
 				1F885FA89F6EAE2BA6868738 /* Debug */,
 				8BB32E93DC4C051120FE80A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		68458DDC8333903E538B8E14 /* Build configuration list for PBXNativeTarget "SquareOffAdmin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCE12561C52260AD1B0B6EE5 /* Debug */,
+				1AB59DA514BA1405B957ADA1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -770,6 +1220,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		E7EEBBBFEF77B3946D4FE7A1 /* Build configuration list for PBXNativeTarget "SquareOffAdminTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				303FAC7505EAD902D196DAAD /* Debug */,
+				0E65AD7A56E07600A56CCAE4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -788,7 +1247,19 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = SquareOffCore;
 		};
+		B50C31891884AB8828F83FCF /* SquareOffCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SquareOffCore;
+		};
 		BF92E48A6E8511778471FEFD /* SquareOffNet */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SquareOffNet;
+		};
+		E16D0AA38868CFEF6F700216 /* SquareOffNet */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SquareOffNet;
+		};
+		E77D7975B379415D1D1FC41F /* SquareOffNet */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SquareOffNet;
 		};

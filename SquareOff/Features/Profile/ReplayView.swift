@@ -6,6 +6,8 @@ import SwiftUI
 /// engine (the server only stores coordinates), with the same tile spins and shape panes as play.
 struct ReplayView: View {
     let gameID: Int
+    /// Where the payload comes from; the player API unless the admin console injects its own.
+    var load: ((Int) async throws -> GameReplayPayload)? = nil
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
@@ -108,7 +110,7 @@ struct ReplayView: View {
 
     private func load() async {
         do {
-            let payload = try await app.backend.api.replay(gameID: gameID)
+            let payload = try await (load ?? { try await app.backend.api.replay(gameID: $0) })(gameID)
             let slots = payload.participants.map(\.boardSlotId).sorted()
             guard (2...4).contains(slots.count), Set(slots).count == slots.count, slots.allSatisfy({ (1...4).contains($0) }) else {
                 loadError = "This game's seats can't be replayed."

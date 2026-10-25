@@ -12,6 +12,10 @@ struct SquareOffApp: App {
         if UserDefaults.standard.bool(forKey: "demoSignedIn") {
             UserDefaults.standard.set("mock:\(MockSquareOffAPI.demoUsername)", forKey: "mockAccessToken")
         }
+        #if ADMIN_CONSOLE
+        // The console's demos sign in as a superadmin unless `-demoRole standard` asks for the gate.
+        Backend.mockDemoRole = UserDefaults.standard.string(forKey: "demoRole") ?? "superadmin"
+        #endif
         // `-demoOnline host|guest|spectator|quickmatch` forces the mock backend with quick bots.
         if UserDefaults.standard.string(forKey: "demoOnline") != nil {
             var rooms = MockRoomServer.Configuration()
@@ -27,12 +31,21 @@ struct SquareOffApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            root
                 .environment(app)
                 .preferredColorScheme(.dark)
                 .tint(Theme.link)
                 .onAppear(perform: openDemoGameIfRequested)
         }
+    }
+
+    @ViewBuilder
+    private var root: some View {
+        #if ADMIN_CONSOLE
+        AdminRootView()
+        #else
+        RootView()
+        #endif
     }
 
     #if DEBUG
