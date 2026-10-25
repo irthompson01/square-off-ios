@@ -9,6 +9,7 @@ struct GameMenuSheet<Session: GamePresenting>: View {
     let onReset: () -> Void
     let onLeave: () -> Void
     let onRules: () -> Void
+    var onFeedback: (() -> Void)? = nil
 
     @AppStorage("soundEnabled") private var soundEnabled = true
     @AppStorage(MusicPlayer.defaultsKey) private var musicEnabled = false
@@ -71,6 +72,10 @@ struct GameMenuSheet<Session: GamePresenting>: View {
                     VStack(spacing: 8) {
                         Button { onRules() } label: { Label("How to play", systemImage: "book") }
                             .buttonStyle(TertiaryButtonStyle())
+                        if let onFeedback {
+                            Button { onFeedback() } label: { Label("Send feedback", systemImage: "bubble.left.and.text.bubble.right") }
+                                .buttonStyle(TertiaryButtonStyle())
+                        }
                         if session.capabilities.canReset {
                             Button {
                                 dismiss()

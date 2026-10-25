@@ -30,6 +30,7 @@ struct SignInView: View {
     @State private var error: AuthError?
     @State private var fieldErrors: [String: String] = [:]
     @State private var appleNonce = ""
+    @State private var showsForgotPassword = false
 
     static let emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -71,6 +72,10 @@ struct SignInView: View {
         .onChange(of: mode) { _, _ in
             error = nil
             fieldErrors = [:]
+        }
+        .sheet(isPresented: $showsForgotPassword) {
+            ForgotPasswordView(prefill: identifier.contains("@") ? identifier.trimmingCharacters(in: .whitespaces) : "")
+                .presentationBackground(Theme.overlay)
         }
     }
 
@@ -126,6 +131,14 @@ struct SignInView: View {
                 SecureField("••••••••", text: $password)
                     .textContentType(mode == .signIn ? .password : .newPassword)
                     .foregroundStyle(Theme.foreground)
+            }
+            if mode == .signIn {
+                Button("Forgot password?") { showsForgotPassword = true }
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.link)
+                    .underline()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.top, -6)
             }
             #if DEBUG
             if app.backend.configuration.kind == .mock {

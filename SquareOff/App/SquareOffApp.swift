@@ -40,8 +40,8 @@ struct SquareOffApp: App {
     #endif
 
     /// Debug launch arguments for screenshots / quick iteration:
-    /// `-demoGame cpu|cnn|local4|busy|over`, `-demoScreen rules|setup|color|signin` (`-rulesSection <id>` with
-    /// rules), `-demoOnline host|guest|spectator|quickmatch` and `-backend production|local|mock`.
+    /// `-demoGame cpu|cnn|local4|busy|over`, `-demoScreen rules|setup|stats|profile|color|signin|forgot|feedback`
+    /// (`-rulesSection <id>` with rules), `-demoResetToken <token>`, `-demoOnline host|guest|spectator|quickmatch` and `-backend production|local|mock`.
     private func openDemoGameIfRequested() {
         #if DEBUG
         let players = (1...4).map { SetupPlayer(id: $0, name: "Player \($0)", colorHex: Theme.playerColors[$0 - 1]) }
@@ -58,7 +58,17 @@ struct SquareOffApp: App {
         case "signin":
             app.selectedTab = .profile
             app.pendingSignIn = true
+        case "forgot":
+            app.selectedTab = .profile
+            app.pendingForgotPassword = true
+        case "feedback":
+            app.selectedTab = .profile
+            app.pendingFeedback = true
         default: break
+        }
+        // `-demoResetToken <token>`: the reset sheet as a universal link would open it.
+        if let token = UserDefaults.standard.string(forKey: "demoResetToken") {
+            app.pendingPasswordReset = ResetToken(token: token)
         }
         if let online = UserDefaults.standard.string(forKey: "demoOnline") {
             app.pendingPlayRoute = .play
@@ -162,12 +172,14 @@ struct RootView: View {
             app.activeOnlineGame?.sceneDidBecomeActive()
             app.online.sceneDidBecomeActive()
         }
-        .onOpenURL { url in
-            if let code = InviteLink.roomCode(from: url) {
-                app.pendingJoinCode = code
-                app.selectedTab = .play
-                app.pendingPlayRoute = .play
-            }
+        .onOpenURL { url in app.open(url) }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            if let url = activity.webpageURL { app.open(url) }
+        }
+        .sheet(item: $app.pendingPasswordReset) { reset in
+            ResetPasswordView(token: reset.token)
+                .environment(app)
+                .presentationBackground(Theme.overlay)
         }
         .fullScreenCover(isPresented: $app.isGamePresented, onDismiss: app.gameDismissed) {
             Group {
@@ -180,18 +192,5 @@ struct RootView: View {
             .environment(app)
             .overlay(alignment: .bottom) { ToastOverlay(center: app.toasts) }
         }
-    }
-}
-
-/// `squareoff://join/<code>` and the web's `https://<host>/guest/<code>`.
-enum InviteLink {
-    static func roomCode(from url: URL) -> Int? {
-        let parts = url.pathComponents.filter { $0 != "/" }
-        if url.scheme == OAuthCallback.scheme {
-            guard url.host() == "join", let last = parts.last else { return nil }
-            return Int(last)
-        }
-        guard let index = parts.firstIndex(of: "guest"), parts.indices.contains(index + 1) else { return nil }
-        return Int(parts[index + 1])
     }
 }

@@ -62,6 +62,95 @@ public struct RegisterRequest: Codable, Sendable, Equatable {
     }
 }
 
+/// `POST /password/forgot`. The server always answers 200 with the same message.
+public struct PasswordForgotRequest: Codable, Sendable, Equatable {
+    public let email: String
+
+    public init(email: String) { self.email = email }
+}
+
+/// `POST /password/reset`; `new_password` must be at least 8 characters.
+public struct PasswordResetRequest: Codable, Sendable, Equatable {
+    public let token: String
+    public let newPassword: String
+
+    public init(token: String, newPassword: String) {
+        self.token = token
+        self.newPassword = newPassword
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case token
+        case newPassword = "new_password"
+    }
+}
+
+/// `POST /account/delete`. A fresh Sign in with Apple authorization code lets the server revoke
+/// the Apple session too; omitted for other sign-in methods.
+public struct AccountDeleteRequest: Codable, Sendable, Equatable {
+    public let appleAuthorizationCode: String?
+
+    public init(appleAuthorizationCode: String? = nil) { self.appleAuthorizationCode = appleAuthorizationCode }
+
+    enum CodingKeys: String, CodingKey {
+        case appleAuthorizationCode = "apple_authorization_code"
+    }
+}
+
+/// `POST /feedback` (web `feedbackAPI.ts`): subject 1–200, message 1–20000, optional name
+/// (≤ 200) and contact email. Empty optionals are sent as `null`, like the web.
+public struct FeedbackRequest: Codable, Sendable, Equatable {
+    public static let subjectLimit = 200
+    public static let messageLimit = 20_000
+    public static let nameLimit = 200
+
+    public let subject: String
+    public let message: String
+    public let contactEmail: String?
+    public let displayName: String?
+
+    public init(subject: String, message: String, contactEmail: String? = nil, displayName: String? = nil) {
+        self.subject = subject
+        self.message = message
+        self.contactEmail = contactEmail
+        self.displayName = displayName
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case subject, message
+        case contactEmail = "contact_email"
+        case displayName = "display_name"
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(subject, forKey: .subject)
+        try c.encode(message, forKey: .message)
+        try c.encode(contactEmail, forKey: .contactEmail)
+        try c.encode(displayName, forKey: .displayName)
+    }
+}
+
+/// `{"message", "id", "emailed"}` from `POST /feedback` (`id` is null when only the email went out).
+public struct FeedbackResponse: Codable, Sendable, Equatable {
+    public let message: String
+    public let id: Int?
+    public let emailed: Bool?
+
+    public init(message: String, id: Int? = nil, emailed: Bool? = nil) {
+        self.message = message
+        self.id = id
+        self.emailed = emailed
+    }
+}
+
+/// `{"message": …}` and whatever else a simple write answers with.
+public struct MessageResponse: Codable, Sendable, Equatable {
+    public let message: String
+
+    public init(message: String) { self.message = message }
+}
+
 // MARK: Games
 
 /// One seat in `POST /start` (`players[]`), same keys as the web's setup page builds.

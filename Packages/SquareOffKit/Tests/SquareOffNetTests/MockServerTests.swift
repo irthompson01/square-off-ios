@@ -29,6 +29,44 @@ struct MockServerTests {
         #expect(replay.turns.first?.boardSlotId == 1)
     }
 
+    @Test func deletingTheAccountEndsTheSessionAndFreesTheEmail() async throws {
+        let api = api()
+        _ = try await api.register(RegisterRequest(username: "gone", email: "gone@example.com", password: "secret123"))
+        _ = try await api.login(LoginRequest(emailOrUsername: "gone", password: "secret123"))
+        #expect(try await api.deleteAccount(AccountDeleteRequest()).message == "Account deleted")
+        await #expect(throws: APIError.self) { _ = try await api.profile() }
+        await #expect(throws: APIError.self) {
+            _ = try await api.login(LoginRequest(emailOrUsername: "gone", password: "secret123"))
+        }
+        _ = try await api.register(RegisterRequest(username: "gone2", email: "gone@example.com", password: "secret123"))
+    }
+
+    @Test func passwordResetFlow() async throws {
+        let api = api()
+        _ = try await api.requestPasswordReset(email: "nobody@example.com")   // same answer, no token
+        await #expect(throws: APIError.self) {
+            _ = try await api.resetPassword(token: MockSquareOffAPI.demoResetToken, newPassword: "longenough1")
+        }
+        _ = try await api.requestPasswordReset(email: "demo@squareoff.app")
+        await #expect(throws: APIError.self) {
+            _ = try await api.resetPassword(token: MockSquareOffAPI.demoResetToken, newPassword: "short")
+        }
+        _ = try await api.resetPassword(token: MockSquareOffAPI.demoResetToken, newPassword: "longenough1")
+        _ = try await api.login(LoginRequest(emailOrUsername: MockSquareOffAPI.demoUsername, password: "longenough1"))
+        // The link is single use.
+        await #expect(throws: APIError.self) {
+            _ = try await api.resetPassword(token: MockSquareOffAPI.demoResetToken, newPassword: "longenough2")
+        }
+    }
+
+    @Test func feedbackIsValidatedAndKept() async throws {
+        let api = api()
+        await #expect(throws: APIError.self) { _ = try await api.sendFeedback(FeedbackRequest(subject: "", message: "x")) }
+        let sent = try await api.sendFeedback(FeedbackRequest(subject: "Board", message: "Tiles overlap", contactEmail: nil, displayName: "Pat"))
+        #expect(sent.id == 1 && sent.emailed == true)
+        #expect(await api.feedbackInbox.count == 1)
+    }
+
     @Test func wrongPasswordIs401AndGuestsAreNotAuthenticated() async throws {
         let api = api()
         #expect(try await api.checkAuth() == false)

@@ -21,6 +21,15 @@ struct RESTFixtureTests {
         #expect(response.accessToken != nil)
     }
 
+    @Test func accountDeletionPasswordResetAndFeedback() throws {
+        #expect(try decode(MessageResponse.self, "account_delete_response").message == "Account deleted")
+        #expect(try decode(MessageResponse.self, "password_forgot_response").message.hasPrefix("If an account exists"))
+        let feedback = try decode(FeedbackResponse.self, "feedback_response")
+        #expect(feedback.id == 12 && feedback.emailed == true)
+        let error = APIError.http(status: 400, body: String(decoding: try fixture("password_reset_error"), as: UTF8.self))
+        #expect(error.detail == "reset_token_invalid")
+    }
+
     @Test func checkAuthAndProfile() throws {
         let auth = try decode(CheckAuthResponse.self, "check_auth")
         #expect(auth.authenticated)

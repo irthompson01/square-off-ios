@@ -21,6 +21,10 @@ enum AuthError: LocalizedError, Equatable {
     case cancelled
     /// 401/403 `account_disabled`: an admin deactivated the account.
     case accountDisabled
+    /// `POST /password/reset` refused the token (`reset_token_invalid` / `reset_token_expired`).
+    case resetLinkInvalid
+    /// 422 from a password endpoint, with the server's reason.
+    case weakPassword(String)
     case server(status: Int)
     /// A provider sign-in that came back with `?error=<code>` (web `oauth-errors.ts` wording).
     case oauth(String)
@@ -35,6 +39,8 @@ enum AuthError: LocalizedError, Equatable {
         case .appleNoEmail: "Apple didn't share an email for this account. Remove Square Off under Settings › Apple ID › Sign in with Apple and try again."
         case .cancelled: "Sign-in cancelled."
         case .accountDisabled: "This account has been disabled. Contact support if you think this is a mistake."
+        case .resetLinkInvalid: "This reset link is invalid or has expired. Request a new one."
+        case .weakPassword(let reason): reason
         case .server(let status): "Sign-in failed (HTTP \(status))."
         }
     }
@@ -45,6 +51,10 @@ enum AuthError: LocalizedError, Equatable {
             switch api {
             case .http(let status, let body):
                 if (status == 401 || status == 403), body.contains(SessionEndReason.disabled.rawValue) { return .accountDisabled }
+                if status == 400, body.contains("reset_token_") { return .resetLinkInvalid }
+                if status == 422, body.contains("new_password") || body.contains("characters") {
+                    return .weakPassword(api.detail ?? "Choose a longer password.")
+                }
                 if status == 401 { return .invalidCredentials }
                 if status == 429 { return .tooManyAttempts }
                 if status == 409, body.contains("apple_no_email") { return .appleNoEmail }
@@ -146,6 +156,43 @@ final class AccountStore {
                 identityToken: credential.identityToken, nonce: credential.rawNonce,
                 authorizationCode: credential.authorizationCode, fullName: credential.fullName))
             try await adopt(token: login.accessToken)
+            defaults.set(true, forKey: Self.signedInWithAppleKey)
+        } catch {
+            throw AuthError.wrap(error)
+        }
+    }
+
+    /// Whether this device's session came from Sign in with Apple (deletion then re-authorises
+    /// so the server can revoke the Apple session).
+    static let signedInWithAppleKey = "signedInWithApple"
+    private var defaults: UserDefaults { .standard }
+    var signedInWithApple: Bool { defaults.bool(forKey: Self.signedInWithAppleKey) }
+
+    /// `POST /account/delete`, then the same local clean-up as signing out. `appleAuthorizationCode`
+    /// is the fresh code from `AppleReauthorizer`, when the account is an Apple one and the
+    /// prompt succeeded; the server deletes either way.
+    func deleteAccount(appleAuthorizationCode: String? = nil) async throws {
+        do {
+            _ = try await backend.api.deleteAccount(AccountDeleteRequest(appleAuthorizationCode: appleAuthorizationCode))
+        } catch {
+            throw AuthError.wrap(error)
+        }
+        backend.tokenStore.clear()
+        defaults.removeObject(forKey: Self.signedInWithAppleKey)
+        account = .guest(backend.identity.guest)
+    }
+
+    func requestPasswordReset(email: String) async throws {
+        do {
+            _ = try await backend.api.requestPasswordReset(email: email)
+        } catch {
+            throw AuthError.wrap(error)
+        }
+    }
+
+    func resetPassword(token: String, newPassword: String) async throws {
+        do {
+            _ = try await backend.api.resetPassword(token: token, newPassword: newPassword)
         } catch {
             throw AuthError.wrap(error)
         }
@@ -181,6 +228,7 @@ final class AccountStore {
     func signOut() async {
         try? await backend.api.logout()
         backend.tokenStore.clear()
+        defaults.removeObject(forKey: Self.signedInWithAppleKey)
         account = .guest(backend.identity.guest)
     }
 

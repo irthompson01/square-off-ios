@@ -69,6 +69,12 @@ final class AppModel {
     var pendingColorPicker = false
     /// `squareoff://join/<code>` or an invite link: the Online hub joins it when it appears.
     var pendingJoinCode: Int?
+    /// A password-reset link was opened: `RootView` presents `ResetPasswordView` for it.
+    var pendingPasswordReset: ResetToken?
+    /// "Request a new link" from an expired reset: Profile opens the forgot-password sheet.
+    var pendingForgotPassword = false
+    /// `-demoScreen feedback`: Profile opens the feedback sheet.
+    var pendingFeedback = false
     /// `-demoOnline`: the Online hub pushes the waiting room as soon as it appears.
     var pendingOnlineRoom = false
     /// The local game on screen (presented full screen). Kept after it ends so Home can offer "Continue".
@@ -109,6 +115,20 @@ final class AppModel {
             activeGame = restored
         } else {
             localGames.clear()
+        }
+    }
+
+    /// Routes a URL the app was opened with (custom scheme or universal link).
+    func open(_ url: URL) {
+        switch DeepLink.parse(url) {
+        case .join(let code):
+            pendingJoinCode = code
+            selectedTab = .play
+            pendingPlayRoute = .play
+        case .passwordReset(let token):
+            pendingPasswordReset = ResetToken(token: token)
+        case .authCallback, nil:
+            break
         }
     }
 

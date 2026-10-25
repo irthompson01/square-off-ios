@@ -25,6 +25,15 @@ public protocol SquareOffAPI: Sendable {
     /// `GET /{provider}/login?client=ios` → the URL to open in a web auth session.
     func oauthLoginURL(_ provider: OAuthProvider, client: OAuthClient) async throws -> OAuthLoginResponse
     func appleNativeLogin(_ request: AppleNativeLoginRequest) async throws -> LoginResponse
+    /// `POST /account/delete`: tombstones the signed-in account and revokes every session.
+    func deleteAccount(_ request: AccountDeleteRequest) async throws -> MessageResponse
+    /// `POST /password/forgot`: always succeeds, whether or not the address has an account.
+    func requestPasswordReset(email: String) async throws -> MessageResponse
+    /// `POST /password/reset`: 400 `reset_token_invalid` / `reset_token_expired`, 422 when short.
+    func resetPassword(token: String, newPassword: String) async throws -> MessageResponse
+
+    // MARK: feedbackAPI
+    func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse
 
     // MARK: gameAPI
     func startGame(_ request: StartGameRequest) async throws -> StartGameResponse

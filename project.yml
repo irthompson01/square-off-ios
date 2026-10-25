@@ -35,6 +35,11 @@ targets:
       path: SquareOff/SquareOff.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
+        # Universal links (invite links, password-reset links) and password AutoFill; the
+        # matching AASA is served by Caddy at square-off.com/.well-known/apple-app-site-association.
+        com.apple.developer.associated-domains:
+          - applinks:square-off.com
+          - webcredentials:square-off.com
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff
@@ -43,6 +48,10 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+      configs:
+        # Hand-maintained twin with `applinks:square-off.com?mode=developer` (see the file).
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: SquareOff/SquareOffDebug.entitlements
     info:
       path: SquareOff/Info.plist
       properties:

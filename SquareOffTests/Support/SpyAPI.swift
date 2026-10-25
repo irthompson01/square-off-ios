@@ -10,6 +10,9 @@ actor SpyAPI: SquareOffAPI {
     private(set) var startRequests: [StartGameRequest] = []
     private(set) var turnRequests: [GameTurnRequest] = []
     private(set) var endRequests: [GameEndRequest] = []
+    private(set) var feedbackRequests: [FeedbackRequest] = []
+    private(set) var deleteRequests: [AccountDeleteRequest] = []
+    private(set) var resetRequests: [(token: String, password: String)] = []
     var failing: Set<String> = []
     /// Per-method HTTP failures with a specific status and body (beats `failing`).
     var failures: [String: APIError] = [:]
@@ -51,6 +54,10 @@ actor SpyAPI: SquareOffAPI {
     func updateProfile(_ request: ProfileUpdateRequest) async throws { try await hit("updateProfile") }
     func oauthLoginURL(_ provider: OAuthProvider, client: OAuthClient) async throws -> OAuthLoginResponse { try await hit("oauthLoginURL"); return OAuthLoginResponse(url: oauthURL, state: "s") }
     func appleNativeLogin(_ request: AppleNativeLoginRequest) async throws -> LoginResponse { try await hit("appleNativeLogin"); return LoginResponse(message: "ok", accessToken: "apple-token") }
+    func deleteAccount(_ request: AccountDeleteRequest) async throws -> MessageResponse { try await hit("deleteAccount"); deleteRequests.append(request); return MessageResponse(message: "Account deleted") }
+    func requestPasswordReset(email: String) async throws -> MessageResponse { try await hit("requestPasswordReset"); return MessageResponse(message: "sent") }
+    func resetPassword(token: String, newPassword: String) async throws -> MessageResponse { try await hit("resetPassword"); resetRequests.append((token, newPassword)); return MessageResponse(message: "Password updated") }
+    func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse { try await hit("sendFeedback"); feedbackRequests.append(request); return FeedbackResponse(message: "ok", id: feedbackRequests.count, emailed: true) }
     func startGame(_ request: StartGameRequest) async throws -> StartGameResponse {
         try await hit("startGame")
         startRequests.append(request)

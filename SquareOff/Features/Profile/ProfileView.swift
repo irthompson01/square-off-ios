@@ -16,6 +16,12 @@ struct ProfileView: View {
     @State private var colorHex = Theme.playerColors[0]
     @State private var isSaving = false
     @State private var saveError: String?
+    @State private var showsFeedback = false
+    @State private var showsForgotPassword = false
+    @State private var confirmDelete = false
+    @State private var confirmDeleteFinal = false
+    @State private var isDeleting = false
+    @State private var deleteError: String?
 
     var body: some View {
         ScrollView {
@@ -39,6 +45,10 @@ struct ProfileView: View {
                     guestPanel
                 }
                 settingsPanel
+                supportPanel
+                if app.account.isSignedIn {
+                    accountActionsPanel
+                }
                 #if DEBUG
                 developerPanel
                 #endif
@@ -51,11 +61,38 @@ struct ProfileView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $signIn) { mode in SignInView(initialMode: mode) }
+        .sheet(isPresented: $showsFeedback) { FeedbackView() }
+        .sheet(isPresented: $showsForgotPassword) { ForgotPasswordView().presentationBackground(Theme.overlay) }
+        .alert("Delete your account?", isPresented: $confirmDelete) {
+            Button("Continue", role: .destructive) { confirmDeleteFinal = true }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes your account, profile, game stats and replays. Games you played with other people keep an anonymous record. This cannot be undone.")
+        }
+        .alert("Delete permanently?", isPresented: $confirmDeleteFinal) {
+            Button("Delete account", role: .destructive) { deleteAccount() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You'll be signed out on this device and your account can't be recovered.")
+        }
         .onAppear {
             if app.pendingSignIn {
                 app.pendingSignIn = false
                 signIn = .signIn
             }
+            if app.pendingForgotPassword {
+                app.pendingForgotPassword = false
+                showsForgotPassword = true
+            }
+            if app.pendingFeedback {
+                app.pendingFeedback = false
+                showsFeedback = true
+            }
+        }
+        .onChange(of: app.pendingForgotPassword) { _, pending in
+            guard pending else { return }
+            app.pendingForgotPassword = false
+            showsForgotPassword = true
         }
         .onChange(of: app.account) { _, _ in
             isEditing = false
@@ -210,6 +247,62 @@ struct ProfileView: View {
         }
         .padding(20)
         .card()
+    }
+
+    /// Web navbar "Send feedback", available to guests too.
+    private var supportPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("Support")
+            Button { showsFeedback = true } label: {
+                HStack {
+                    Label("Send feedback", systemImage: "bubble.left.and.text.bubble.right")
+                    Spacer()
+                    Image(systemName: "chevron.right").foregroundStyle(Theme.muted)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.foreground)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
+        .card()
+    }
+
+    /// Account deletion (App Store 5.1.1(v)): two confirmations, then `POST /account/delete`.
+    private var accountActionsPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("Account")
+            Text("Deleting removes your profile, stats and replays from Square Off.")
+                .font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
+            if let deleteError {
+                AlertBox(.danger, title: "Couldn't delete the account", message: deleteError)
+            }
+            Button { confirmDelete = true } label: {
+                PendingLabel(title: "Delete account", pendingTitle: "Deleting…", symbol: "trash", isPending: isDeleting)
+            }
+            .buttonStyle(DangerButtonStyle(soft: true))
+            .disabled(isDeleting)
+        }
+        .padding(20)
+        .card()
+    }
+
+    private func deleteAccount() {
+        deleteError = nil
+        isDeleting = true
+        Task {
+            defer { isDeleting = false }
+            var appleCode: String?
+            if app.accounts.signedInWithApple, app.backend.isLive {
+                appleCode = await AppleReauthorizer().authorizationCode()
+            }
+            do {
+                try await app.accounts.deleteAccount(appleAuthorizationCode: appleCode)
+                app.toasts.success("Account deleted", description: "Your account and its data were removed.")
+            } catch {
+                deleteError = (error as? AuthError)?.errorDescription ?? error.localizedDescription
+            }
+        }
     }
 
     private var settingsPanel: some View {

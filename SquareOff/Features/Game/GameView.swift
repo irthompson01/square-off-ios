@@ -10,6 +10,7 @@ struct GameView<Session: GamePresenting>: View {
     @State private var confirmLeave = false
     @State private var confirmReset = false
     @State private var isRulesPresented = false
+    @State private var isFeedbackPresented = false
     /// Set when "leave" is tapped inside a sheet: the cover is dismissed only after the sheet
     /// has gone, because dismissing both in one transaction drops the outer one.
     @State private var pendingExit: AppModel.GameExit?
@@ -54,7 +55,8 @@ struct GameView<Session: GamePresenting>: View {
             if over { confirmReset = false }
         }
         .sheet(isPresented: $isMenuPresented, onDismiss: finishExitIfPending) {
-            GameMenuSheet(session: session, onReset: { confirmReset = true }, onLeave: { confirmLeave = true }, onRules: { isRulesPresented = true })
+            GameMenuSheet(session: session, onReset: { confirmReset = true }, onLeave: { confirmLeave = true },
+                          onRules: { isRulesPresented = true }, onFeedback: { isFeedbackPresented = true })
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
@@ -67,6 +69,10 @@ struct GameView<Session: GamePresenting>: View {
         .sheet(isPresented: $isRulesPresented) {
             NavigationStack { RulesView() }
                 .presentationBackground(Theme.background)
+        }
+        .sheet(isPresented: $isFeedbackPresented) {
+            FeedbackView(context: session.title)
+                .presentationBackground(Theme.overlay)
         }
         .alert(session.capabilities.isOnline ? "Leave this room?" : "Leave this game?", isPresented: $confirmLeave) {
             Button(session.capabilities.isOnline ? "Leave room" : "Leave game", role: .destructive) { exit(.setup) }

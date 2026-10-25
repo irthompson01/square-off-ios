@@ -225,6 +225,45 @@ struct AccountStoreTests {
         #expect(APIError.http(status: 403, body: #"{"detail":"account_disabled"}"#).sessionEndReason == nil)
     }
 
+    @Test func deleteAccountSignsOutLocally() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api, token: "stored")
+        let accounts = AccountStore(backend: backend)
+        try await accounts.deleteAccount(appleAuthorizationCode: "apple-code")
+        #expect(await api.calls == ["deleteAccount"])
+        #expect(await api.deleteRequests == [AccountDeleteRequest(appleAuthorizationCode: "apple-code")])
+        #expect(backend.tokenStore.accessToken() == nil)
+        #expect(!accounts.account.isSignedIn)
+    }
+
+    @Test func deleteAccountFailureKeepsTheSession() async throws {
+        let api = SpyAPI()
+        await api.setFailing(["deleteAccount"])
+        let backend = Backend.test(api: api, token: "stored")
+        let accounts = AccountStore(backend: backend)
+        await #expect(throws: AuthError.server(status: 500)) {
+            try await accounts.deleteAccount()
+        }
+        #expect(backend.tokenStore.accessToken() == "stored")
+    }
+
+    @Test func passwordResetErrorsMapToCopy() async throws {
+        let api = SpyAPI()
+        let accounts = AccountStore(backend: Backend.test(api: api))
+        await api.setFailure("requestPasswordReset", status: 429, detail: "Rate limit exceeded")
+        await #expect(throws: AuthError.tooManyAttempts) {
+            try await accounts.requestPasswordReset(email: "a@b.c")
+        }
+        await api.setFailure("resetPassword", status: 400, detail: "reset_token_expired")
+        await #expect(throws: AuthError.resetLinkInvalid) {
+            try await accounts.resetPassword(token: "t", newPassword: "longenough1")
+        }
+        await api.setFailure("resetPassword", status: 422, detail: "String should have at least 8 characters")
+        await #expect(throws: AuthError.weakPassword("String should have at least 8 characters")) {
+            try await accounts.resetPassword(token: "t", newPassword: "short")
+        }
+    }
+
     @Test func providerSignInSkipsTheBrowserForTheAppScheme() async throws {
         let api = SpyAPI()
         let backend = Backend.test(api: api)

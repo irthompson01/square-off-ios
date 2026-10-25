@@ -21,6 +21,8 @@ public actor MockSquareOffAPI: SquareOffAPI {
     ]
 
     public static func token(for username: String) -> String { "mock:\(username)" }
+    /// The one reset token the mock ever issues (`squareoff://reset-password?token=…` in demos).
+    public static let demoResetToken = "mock-reset-token-0123456789"
 
     struct User: Sendable {
         let id: String
@@ -87,6 +89,10 @@ public actor MockSquareOffAPI: SquareOffAPI {
     private var nextParticipantID = 1
     private var sessionToken: String?
     private var revokedTokens: Set<String> = []
+    /// Emails that asked for a reset link; the link's token is always `demoResetToken`.
+    private var pendingResets: Set<String> = []
+    /// Feedback the app sent (the admin inbox would show it).
+    public private(set) var feedbackInbox: [FeedbackRequest] = []
     private var seeded = false
     private let shouldSeed: Bool
     private let latency: Duration
@@ -203,6 +209,59 @@ public actor MockSquareOffAPI: SquareOffAPI {
         let token = Self.token(for: Self.demoUsername)
         sessionToken = token
         return LoginResponse(message: "Login successful", accessToken: token)
+    }
+
+    public func deleteAccount(_ request: AccountDeleteRequest) async throws -> MessageResponse {
+        try await pause()
+        let user = try currentUser()
+        // Tombstone like the server: the row stays (game history), the login goes away.
+        if let index = users.firstIndex(where: { $0.id == user.id }) {
+            users[index].email = "deleted+\(user.id)@deleted.invalid"
+            users[index].username = "deleted_\(user.id.suffix(8))"
+            users[index].password = UUID().uuidString
+            users[index].firstName = ""
+            users[index].lastName = ""
+        }
+        if let token = tokenProvider?.accessToken() ?? sessionToken { revokedTokens.insert(token) }
+        sessionToken = nil
+        return MessageResponse(message: "Account deleted")
+    }
+
+    public func requestPasswordReset(email: String) async throws -> MessageResponse {
+        try await pause()
+        ensureSeeded()
+        let key = email.trimmingCharacters(in: .whitespaces).lowercased()
+        if users.contains(where: { $0.email.lowercased() == key }) { pendingResets.insert(key) }
+        return MessageResponse(message: "If an account exists for that email, a reset link has been sent.")
+    }
+
+    public func resetPassword(token: String, newPassword: String) async throws -> MessageResponse {
+        try await pause()
+        ensureSeeded()
+        guard newPassword.count >= 8 else {
+            throw APIError.http(status: 422, body: #"{"detail":[{"msg":"String should have at least 8 characters"}]}"#)
+        }
+        guard token == Self.demoResetToken, let email = pendingResets.first else {
+            throw APIError.http(status: 400, body: #"{"detail":"reset_token_invalid"}"#)
+        }
+        pendingResets.remove(email)
+        if let index = users.firstIndex(where: { $0.email.lowercased() == email }) {
+            users[index].password = newPassword
+            revokedTokens.insert(Self.token(for: users[index].username))
+        }
+        return MessageResponse(message: "Password updated")
+    }
+
+    public func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse {
+        try await pause()
+        let subject = request.subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        let message = request.message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (1...FeedbackRequest.subjectLimit).contains(subject.count), (1...FeedbackRequest.messageLimit).contains(message.count),
+              (request.displayName ?? "").count <= FeedbackRequest.nameLimit,
+              request.contactEmail.map({ $0.contains("@") }) ?? true
+        else { throw APIError.http(status: 422, body: #"{"detail":[{"msg":"Invalid feedback"}]}"#) }
+        feedbackInbox.append(request)
+        return FeedbackResponse(message: "Feedback sent successfully", id: feedbackInbox.count, emailed: true)
     }
 
     // MARK: Games

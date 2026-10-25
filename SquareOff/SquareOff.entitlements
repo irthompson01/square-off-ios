@@ -6,5 +6,10 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:square-off.com</string>
+		<string>webcredentials:square-off.com</string>
+	</array>
 </dict>
 </plist>

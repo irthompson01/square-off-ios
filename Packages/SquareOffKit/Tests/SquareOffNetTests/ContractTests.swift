@@ -64,6 +64,16 @@ struct EncodingTests {
         #expect(Set(seat.keys) == ["id", "name", "color", "playerId", "isCPU", "cpuType"])
     }
 
+    @Test func feedbackPasswordAndDeletionKeys() throws {
+        let feedback = try jsonObject(FeedbackRequest(subject: "Hi", message: "There"))
+        #expect(Set(feedback.keys) == ["subject", "message", "contact_email", "display_name"])
+        #expect(feedback["contact_email"] is NSNull)   // explicit null, like the web
+        #expect(Set(try jsonObject(PasswordResetRequest(token: "t", newPassword: "p")).keys) == ["token", "new_password"])
+        #expect(Set(try jsonObject(PasswordForgotRequest(email: "a@b.c")).keys) == ["email"])
+        #expect(try jsonObject(AccountDeleteRequest()).isEmpty)
+        #expect(try jsonObject(AccountDeleteRequest(appleAuthorizationCode: "c"))["apple_authorization_code"] as? String == "c")
+    }
+
     @Test func gameTurnKeys() throws {
         var game = cpuGame()
         let move = try game.place(at: Cell(row: 1, col: 4))

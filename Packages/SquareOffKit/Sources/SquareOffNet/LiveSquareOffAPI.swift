@@ -64,6 +64,24 @@ public struct LiveSquareOffAPI: SquareOffAPI {
         try await client.send("POST", "apple/native", body: request)
     }
 
+    public func deleteAccount(_ request: AccountDeleteRequest) async throws -> MessageResponse {
+        try await client.send("POST", "account/delete", query: [URLQueryItem(name: "client", value: OAuthClient.ios.rawValue)], body: request)
+    }
+
+    public func requestPasswordReset(email: String) async throws -> MessageResponse {
+        try await client.send("POST", "password/forgot", body: PasswordForgotRequest(email: email))
+    }
+
+    public func resetPassword(token: String, newPassword: String) async throws -> MessageResponse {
+        try await client.send("POST", "password/reset", body: PasswordResetRequest(token: token, newPassword: newPassword))
+    }
+
+    // MARK: feedback
+
+    public func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse {
+        try await client.send("POST", "feedback", body: request)
+    }
+
     // MARK: games
 
     public func startGame(_ request: StartGameRequest) async throws -> StartGameResponse {
