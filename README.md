@@ -66,7 +66,7 @@ make bump BUILD=2            # or VERSION=1.0.1; edits project.yml and regenerat
 make release-check           # Release archive + plist versions, entitlements, icon alpha, privacy manifest
 make testflight ASC_KEY_ID=<key id> ASC_ISSUER_ID=<issuer id>   # archive, export (ExportOptions.plist), upload
 ```
-`make archive` / `make export` are the individual steps (`build-archive/`). The upload needs an App Store Connect API key (Users and Access › Integrations › App Store Connect API, role App Manager) saved as `~/.appstoreconnect/private_keys/AuthKey_<key id>.p8`.
+`make archive` / `make export` are the individual steps (`build-archive/`). The upload needs an App Store Connect API key (Users and Access › Integrations › App Store Connect API, role App Manager) saved as `~/.appstoreconnect/private_keys/AuthKey_<key id>.p8`. `make screenshots` captures the 6.9" iPhone and 13" iPad sets into `build-screenshots/`. The listing text, review notes, App Privacy and age-rating answers, content-rights checklist and the submission checklist are in `docs/app-store/`.
 
 What the store build carries, for App Review:
 - Sign in with Apple next to Google and GitHub (guideline 4.8); guest play needs no account.
