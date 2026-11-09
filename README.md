@@ -36,10 +36,10 @@ Debug shortcuts (Product › Scheme › Edit Scheme… › Run › Arguments):
 
 ```bash
 make build-admin | make test-admin | make phone-admin        # simulator build, its tests, install on the iPhone
-xcrun simctl launch booted com.novastrada.squareoff.admin -backend mock -demoSignedIn YES [-adminSection live|users|games|cpus] [-adminUser <id>] [-adminReplay <game id>]
+xcrun simctl launch booted com.novastrada.squareoff.admin -backend mock -demoSignedIn YES [-adminSection live|users|games|cpus] [-adminUser <id>] [-adminReplay <game id>] [-adminUsersSuspects YES]
 xcrun simctl launch booted com.novastrada.squareoff.admin -backend mock -demoSignedIn YES -demoRole standard   # the gate
 ```
-The mock console (`MockAdminAPI`) carries 42 users, 120 games, 6 CPUs, feedback and an audit log; writes mutate it and append audit rows. Against production, promote your account through `SUPERADMIN_EMAILS` on the server first.
+The mock console (`MockAdminAPI`) carries 42 users (every 11th a suspected sign-up bot, every 5th password account unverified), 120 games, the eight setup levels plus the retired CNN, feedback and an audit log; writes mutate it and append audit rows, and bulk deactivation (the Users tab's Select mode or "Deactivate all suspected bots" under the Bots filter) skips you, superadmins and inactive accounts like the server. The Overview's health strip has five tiles (Database, Neural model, Engine, Mail, App); the Engine tile reads "Unknown" against a server without the probe. Against production, promote your account through `SUPERADMIN_EMAILS` on the server first.
 
 ## Fonts, music, sounds
 
