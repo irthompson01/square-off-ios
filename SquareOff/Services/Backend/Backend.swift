@@ -156,15 +156,22 @@ final class Backend {
     var isLive: Bool { configuration.kind != .mock }
     var isProduction: Bool { configuration.kind == .production }
 
+    /// The handshake carries the session token (read when connecting, so a renewed guest token
+    /// or a fresh sign-in is picked up on reconnect); the mock socket gets the id it stands for.
     func makeSocket() -> any GameSocket {
-        if let roomServer { return MockGameSocket(server: roomServer) }
-        return LiveGameSocket(url: configuration.environment.webSocketURL, session: urlSession)
+        if let roomServer {
+            return MockGameSocket(server: roomServer, playerID: MockSquareOffAPI.playerID(forToken: tokens.accessToken()))
+        }
+        return LiveGameSocket(url: configuration.environment.webSocketURL, session: urlSession, tokenProvider: tokens)
     }
 
-    /// A fresh socket plus the REST pieces the lobby and an online game use.
+    /// A fresh socket plus the REST pieces the lobby and an online game use. A refused handshake
+    /// (`session_required`, a dead guest token) mints a new guest session and connects again.
     func makeOnlineTransport() -> OnlineTransport {
-        OnlineTransport(connection: OnlineConnection(socket: makeSocket()), matcher: matcher, api: api,
-                        inviteBase: configuration.inviteOrigin, backendID: configuration.id)
+        let identity = identity
+        let connection = OnlineConnection(socket: makeSocket(), recovery: { await identity.recoverSession() })
+        return OnlineTransport(connection: connection, matcher: matcher, api: api,
+                               inviteBase: configuration.inviteOrigin, backendID: configuration.id)
     }
 
     /// Records Vs CPU and Pass & Play games (`/start`, `/turns`, `/end`) on both backends.

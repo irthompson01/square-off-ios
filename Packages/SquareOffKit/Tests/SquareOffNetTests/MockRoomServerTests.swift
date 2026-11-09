@@ -3,25 +3,43 @@ import Testing
 import SquareOffCore
 @testable import SquareOffNet
 
-/// Pulls events off a socket's stream one at a time, with a timeout so a missing message fails
-/// instead of hanging the suite.
-final class EventReader {
-    private var iterator: AsyncStream<SocketEvent>.AsyncIterator
+/// Drains a socket's stream into a buffer so tests can wait for a message with a real deadline
+/// (a missing message fails instead of hanging the suite, and "nothing arrives" is testable).
+actor EventReader {
+    private var buffer: [SocketEvent] = []
+    private var drain: Task<Void, Never>?
 
     init(_ socket: any GameSocket) async {
-        iterator = await socket.events.makeAsyncIterator()
+        let events = await socket.events
+        drain = Task { [weak self] in
+            for await event in events { await self?.push(event) }
+        }
     }
 
-    func next() async -> SocketEvent? {
-        await iterator.next()
+    private func push(_ event: SocketEvent) { buffer.append(event) }
+
+    /// The next event, or nil when none arrives within `within`.
+    func next(within: Duration = .seconds(2)) async -> SocketEvent? {
+        let deadline = ContinuousClock.now + within
+        while buffer.isEmpty, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return buffer.isEmpty ? nil : buffer.removeFirst()
     }
 
-    /// The next server message whose type name matches, skipping everything else.
+    /// The next server message whose type name matches, skipping everything before it.
     func message(_ typeName: String, within: Duration = .seconds(2)) async throws -> ServerMessage {
         let deadline = ContinuousClock.now + within
         while ContinuousClock.now < deadline {
-            guard let event = await next() else { break }
-            if case let .message(message) = event, message.typeName == typeName { return message }
+            if let index = buffer.firstIndex(where: { event in
+                if case let .message(message) = event { return message.typeName == typeName }
+                return false
+            }) {
+                let event = buffer[index]
+                buffer.removeFirst(index + 1)
+                if case let .message(message) = event { return message }
+            }
+            try? await Task.sleep(for: .milliseconds(10))
         }
         throw TimeoutError(typeName)
     }
@@ -93,7 +111,7 @@ struct MockRoomServerTests {
         try await room.guest.send(.gameUpdate(cell: Cell(row: 0, col: 0)))
         #expect(try await room.guestEvents.message("MOVE_REJECTED") == .moveRejected(reason: "occupied"))
 
-        try await room.guest.send(.turnComplete)   // timer expiry plays a random legal cell for the guest
+        try await room.host.send(.turnComplete)   // the host's clock: a random legal cell for the guest on turn
         guard case let .gameUpdate(update) = try await room.hostEvents.message("GAME_UPDATE") else { Issue.record("no update"); return }
         #expect(update.gameState.currentPlayerIndex == 0)
         #expect(update.gameState.boardState[try #require(update.gameState.rowIndex)][try #require(update.gameState.colIndex)]?.id == 2)
@@ -225,5 +243,118 @@ struct LiveSocketTests {
         #expect(try await guestEvents.message("MOVE_REJECTED", within: .seconds(5)) == .moveRejected(reason: "not_your_turn"))
         await guest.close()
         await host.close()
+    }
+}
+
+/// Seats belong to sessions (the id the socket connected with), and only the host's socket
+/// drives the room clock: the 2026-11 server rules, mirrored by the mock.
+@Suite("Mock room server sessions")
+struct MockRoomServerSessionTests {
+    private func room(_ server: MockRoomServer) async throws -> (host: MockGameSocket, hostEvents: EventReader, code: Int) {
+        let host = MockGameSocket(server: server, playerID: "session-host")
+        let hostEvents = await EventReader(host)
+        try await host.connect()
+        try await host.send(.createRoom(player: PlayerPayload.seat(id: 1, name: "Host", colorHex: "#0583D2", playerID: "whatever-the-client-says"),
+                                        boardSize: 4, timer: 0, gameID: nil, roomCode: nil))
+        guard case let .roomCreated(created) = try await hostEvents.message("ROOM_CREATED") else { throw EventReader.TimeoutError("ROOM_CREATED") }
+        return (host, hostEvents, created.roomCode)
+    }
+
+    private func joined(_ server: MockRoomServer, code: Int, session: String, slot: Int = 2) async throws -> (MockGameSocket, EventReader) {
+        let guest = MockGameSocket(server: server, playerID: session)
+        let events = await EventReader(guest)
+        try await guest.connect()
+        try await guest.send(.joinRoom(roomCode: code, player: PlayerPayload.seat(id: slot, name: "G", colorHex: "#FF3131", playerID: nil)))
+        return (guest, events)
+    }
+
+    @Test func theServerStampsSeatsWithTheSessionId() async throws {
+        let server = MockRoomServer(configuration: .instant)
+        let (_, hostEvents, code) = try await room(server)
+        let (_, guestEvents) = try await joined(server, code: code, session: "session-guest")
+        guard case let .gameState(state) = try await guestEvents.message("GAME_STATE") else { Issue.record("no state"); return }
+        #expect(state.seats.map(\.playerId) == ["session-host", "session-guest"])
+        _ = try await hostEvents.message("PLAYER_JOINED")
+    }
+
+    @Test func aSessionGetsOneSeatAndAFilledSlotStaysTaken() async throws {
+        let server = MockRoomServer(configuration: .instant)
+        let (_, _, code) = try await room(server)
+        let (_, guestEvents) = try await joined(server, code: code, session: "session-guest")
+        _ = try await guestEvents.message("GAME_STATE")
+
+        let (_, secondTabEvents) = try await joined(server, code: code, session: "session-guest", slot: 3)
+        guard case let .joinError(reason, _) = try await secondTabEvents.message("JOIN_ERROR") else { Issue.record("no error"); return }
+        #expect(reason == "already_seated")
+
+        let (_, lateEvents) = try await joined(server, code: code, session: "session-late", slot: 2)
+        guard case let .joinError(late, _) = try await lateEvents.message("JOIN_ERROR") else { Issue.record("no error"); return }
+        #expect(late == "seat_taken")
+    }
+
+    @Test func rejoiningSomebodyElsesSeatIsRefused() async throws {
+        let server = MockRoomServer(configuration: .instant)
+        let (host, _, code) = try await room(server)
+        let (guest, guestEvents) = try await joined(server, code: code, session: "session-guest")
+        _ = try await guestEvents.message("GAME_STATE")
+        try await host.send(.gameStart)   // a started match keeps a dropped seat (grace is zero here)
+        _ = try await guestEvents.message("GAME_START")
+        await guest.simulateDrop()
+
+        let intruder = MockGameSocket(server: server, playerID: "session-other")
+        let intruderEvents = await EventReader(intruder)
+        try await intruder.connect()
+        try await intruder.send(.rejoinRoom(roomCode: code, playerID: 2, role: .guest))
+        guard case let .rejoinFailed(reason) = try await intruderEvents.message("REJOIN_FAILED") else { Issue.record("no refusal"); return }
+        #expect(reason == "not_your_seat")
+
+        let owner = MockGameSocket(server: server, playerID: "session-guest")
+        let ownerEvents = await EventReader(owner)
+        try await owner.connect()
+        try await owner.send(.rejoinRoom(roomCode: code, playerID: 2, role: .guest))
+        _ = try await ownerEvents.message("GAME_STATE")
+    }
+
+    @Test func onlyTheHostCompletesTurnsAndStartsGames() async throws {
+        let server = MockRoomServer(configuration: .instant)
+        let (host, hostEvents, code) = try await room(server)
+        let (guest, guestEvents) = try await joined(server, code: code, session: "session-guest")
+        _ = try await guestEvents.message("GAME_STATE")
+        try await guest.send(.gameStart)
+        await #expect(throws: EventReader.TimeoutError.self) { _ = try await hostEvents.message("GAME_START", within: .milliseconds(200)) }
+        try await host.send(.gameStart)
+        _ = try await hostEvents.message("GAME_START")
+        _ = try await guestEvents.message("GAME_START")
+
+        try await guest.send(.turnComplete)   // ignored: not the host
+        await #expect(throws: EventReader.TimeoutError.self) { _ = try await hostEvents.message("GAME_UPDATE", within: .milliseconds(200)) }
+        try await host.send(.turnComplete)    // the host's clock skips whoever is on turn (itself here)
+        guard case let .gameUpdate(update) = try await guestEvents.message("GAME_UPDATE") else { Issue.record("no update"); return }
+        #expect(update.gameState.currentPlayerIndex == 1)
+    }
+
+    @Test func botHostedRoomsKeepTheirOwnClock() async throws {
+        var configuration = MockRoomServer.Configuration.instant
+        configuration.botHostStartDelay = .zero
+        let server = MockRoomServer(configuration: configuration)
+        await server.seedBotRoom(code: 55555, boardSize: 4, timer: 1, hostLevel: .random)
+        let (guest, guestEvents) = try await joined(server, code: 55555, session: "session-guest")
+        _ = try await guestEvents.message("GAME_START", within: .seconds(2))
+        // The bot (seat 1) moves at once; then the human's second is up and the server skips it.
+        _ = try await guestEvents.message("GAME_UPDATE", within: .seconds(2))
+        guard case let .gameUpdate(skipped) = try await guestEvents.message("GAME_UPDATE", within: .seconds(4)) else { Issue.record("no skip"); return }
+        #expect(skipped.gameState.moveCell != nil)
+        await guest.close()
+    }
+
+    @Test func aRefusedHandshakeIsThrownOnce() async throws {
+        let server = MockRoomServer(configuration: .instant)
+        let socket = MockGameSocket(server: server, playerID: "s")
+        await socket.refuseNextConnect()
+        await #expect(throws: SocketError.handshakeRefused(code: 1008, reason: "session_required")) { try await socket.connect() }
+        try await socket.connect()
+        #expect(SocketError.handshakeRefused(code: 1008, reason: "session_required").isRecoverableRefusal)
+        #expect(SocketError.handshakeRefused(code: 1013, reason: "database_unavailable").isRecoverableRefusal)
+        #expect(!SocketError.handshakeRefused(code: 1008, reason: "origin_not_allowed").isRecoverableRefusal)
     }
 }

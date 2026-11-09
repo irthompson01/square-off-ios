@@ -41,6 +41,9 @@ public actor MockRoomServer {
     struct Connection {
         let id: ConnectionID
         let continuation: AsyncStream<ServerMessage>.Continuation
+        /// The session behind the socket (the live server reads it off the handshake token);
+        /// nil connections keep whatever `playerId` the client puts in its seat.
+        let playerID: String?
         var roomCode: Int?
         var seat: Int?
         var role: Role?
@@ -63,6 +66,8 @@ public actor MockRoomServer {
         var bots: [Int: CPUStrategy] = [:]
         var botHost: Bool = false
         var botTask: Task<Void, Never>?
+        /// Bot-hosted rooms have no human host to send TURN_COMPLETE, so the server keeps the clock.
+        var turnClockTask: Task<Void, Never>?
         var lastTurnComplete: ContinuousClock.Instant?
         var listed = false
         var hostLabel = "Player 1"
@@ -86,11 +91,11 @@ public actor MockRoomServer {
 
     // MARK: Transport side
 
-    public func connect() -> (ConnectionID, AsyncStream<ServerMessage>) {
+    public func connect(playerID: String? = nil) -> (ConnectionID, AsyncStream<ServerMessage>) {
         let id = nextConnectionID
         nextConnectionID += 1
         let (stream, continuation) = AsyncStream<ServerMessage>.makeStream()
-        connections[id] = Connection(id: id, continuation: continuation)
+        connections[id] = Connection(id: id, continuation: continuation, playerID: playerID)
         return (id, stream)
     }
 
@@ -147,14 +152,17 @@ public actor MockRoomServer {
             joinAsSpectator(from: id, code: code)
         case let .rejoinRoom(code, playerID, role):
             rejoin(from: id, code: code, playerID: playerID, role: role)
+        // Like the server since 2026-11: only the host's socket may start, reset or complete a turn.
         case .gameStart:
-            if let code = connections[id]?.roomCode { startGame(code) }
+            if let code = connections[id]?.roomCode, connections[id]?.role == .host { startGame(code) }
         case let .gameUpdate(cell):
             gameUpdate(from: id, cell: cell)
         case .turnComplete:
-            turnComplete(from: id)
+            if connections[id]?.role == .host { turnComplete(from: id) }
         case let .gameReset(boardSize, timer, gameID):
-            if let code = connections[id]?.roomCode { reset(code, boardSize: boardSize, timer: timer, gameID: gameID) }
+            if let code = connections[id]?.roomCode, connections[id]?.role == .host {
+                reset(code, boardSize: boardSize, timer: timer, gameID: gameID)
+            }
         }
     }
 
@@ -253,6 +261,8 @@ public actor MockRoomServer {
 
     private func createRoom(from id: ConnectionID, player: PlayerPayload, boardSize: Int, timer: Int, gameID: Int?, preferred: Int?) {
         let code = preferred.flatMap { rooms[$0] == nil ? $0 : nil } ?? newRoomCode()
+        var player = player
+        if let sessionID = connections[id]?.playerID { player.playerId = sessionID }   // the seat is the session's
         var room = Room(code: code, host: id, seats: [player], timer: timer, boardSize: boardSize)
         room.gameID = gameID
         room.hostLabel = player.displayName
@@ -267,7 +277,7 @@ public actor MockRoomServer {
 
     private func requestSlot(from id: ConnectionID, code: Int) {
         guard let room = rooms[code], room.hostPresent || room.host == nil && !room.seats.isEmpty else {
-            send(id, .joinError(message: "Room not found"))
+            send(id, .joinError(reason: nil, message: "Room not found"))
             return
         }
         if room.matchInProgress || room.seats.count >= 4 {
@@ -288,8 +298,22 @@ public actor MockRoomServer {
 
     private func join(from id: ConnectionID, code: Int, player: PlayerPayload) {
         guard var room = rooms[code] else {
-            send(id, .joinError(message: "Room full or not found"))
+            send(id, .joinError(reason: nil, message: "Room full or not found"))
             return
+        }
+        var player = player
+        if let sessionID = connections[id]?.playerID {
+            player.playerId = sessionID
+            // One seat per session; a slot somebody else filled first stays theirs.
+            if room.seats.contains(where: { $0.id != player.id && $0.playerId == sessionID }) {
+                send(id, .joinError(reason: "already_seated", message: "You already have a seat in this room"))
+                return
+            }
+            if let taken = room.seats.first(where: { $0.id == player.id }), let owner = taken.playerId, owner != sessionID,
+               !owner.isEmpty, (taken.isCPU ?? false) == false {
+                send(id, .joinError(reason: "seat_taken", message: "That seat was just taken"))
+                return
+            }
         }
         if let index = room.seats.firstIndex(where: { $0.id == player.id }) {
             // Idempotent re-send (promoted spectator): refresh the seat, don't duplicate it.
@@ -306,7 +330,7 @@ public actor MockRoomServer {
             return
         }
         guard room.seats.count < 4 else {
-            send(id, .joinError(message: "Room full or not found"))
+            send(id, .joinError(reason: nil, message: "Room full or not found"))
             return
         }
         var seat = player
@@ -324,7 +348,7 @@ public actor MockRoomServer {
 
     private func joinAsSpectator(from id: ConnectionID, code: Int) {
         guard var room = rooms[code] else {
-            send(id, .joinError(message: "Room not found"))
+            send(id, .joinError(reason: nil, message: "Room not found"))
             return
         }
         room.spectators.append(id)
@@ -343,8 +367,12 @@ public actor MockRoomServer {
             joinAsSpectator(from: id, code: code)
             return
         }
-        guard room.seats.contains(where: { $0.id == playerID }) else {
+        guard let seat = room.seats.first(where: { $0.id == playerID }) else {
             send(id, .rejoinFailed(reason: "player_not_found"))
+            return
+        }
+        if let sessionID = connections[id]?.playerID, let owner = seat.playerId, !owner.isEmpty, owner != sessionID {
+            send(id, .rejoinFailed(reason: "not_your_seat"))
             return
         }
         if role == .host {
@@ -381,6 +409,7 @@ public actor MockRoomServer {
         rooms[code] = room
         broadcast(code, .gameStart(spectatorCount: room.spectatorCount))
         scheduleBotTurn(code)
+        scheduleTurnClock(code)
     }
 
     private func gameUpdate(from id: ConnectionID, cell: Cell) {
@@ -420,6 +449,33 @@ public actor MockRoomServer {
         rooms[code] = room
         broadcast(code, .gameUpdate(snapshot(room, move: move)))
         scheduleBotTurn(code)
+        scheduleTurnClock(code)
+    }
+
+    /// Bot-hosted rooms: a human mover who lets the timer run out is skipped `timer + 1` s later
+    /// (the live server relies on the host's socket for this; here the server is the host).
+    private func scheduleTurnClock(_ code: Int) {
+        guard var room = rooms[code] else { return }
+        room.turnClockTask?.cancel()
+        room.turnClockTask = nil
+        guard room.botHost, room.timer > 0, room.matchInProgress, let game = room.game, !game.isOver,
+              room.bots[game.currentPlayer.id] == nil else {
+            rooms[code] = room
+            return
+        }
+        let mover = game.currentPlayer.id
+        room.turnClockTask = Task { [timer = room.timer] in
+            try? await Task.sleep(for: .seconds(timer + 1))
+            guard !Task.isCancelled else { return }
+            self.skipTurn(code, expecting: mover)
+        }
+        rooms[code] = room
+    }
+
+    private func skipTurn(_ code: Int, expecting mover: Int) {
+        guard let room = rooms[code], room.matchInProgress, let game = room.game, !game.isOver,
+              game.currentPlayer.id == mover, let cell = game.board.emptyCells.randomElement(using: &rng) else { return }
+        play(code, cell: cell)
     }
 
     private func reset(_ code: Int, boardSize: Int, timer: Int, gameID: Int?) {

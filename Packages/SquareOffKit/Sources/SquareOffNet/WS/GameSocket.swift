@@ -9,6 +9,19 @@ public enum SocketEvent: Sendable {
 public enum SocketError: Error, Equatable {
     case notConnected
     case closed
+    /// The server refused the handshake: close code 1008 with `session_required`,
+    /// `session_revoked`, `Token has expired` or `origin_not_allowed`, 1013 when its database
+    /// is down. URLSession sometimes reports a refused upgrade as a bare bad response, which
+    /// arrives here with no code and no reason.
+    case handshakeRefused(code: Int?, reason: String?)
+
+    /// A refusal a fresh guest token (or a moment's patience) can fix.
+    public var isRecoverableRefusal: Bool {
+        guard case let .handshakeRefused(code, reason) = self else { return false }
+        if code == 1013 { return true }
+        guard let reason else { return true }
+        return reason != "origin_not_allowed"
+    }
 }
 
 /// A dumb transport to the game room server. Both the live `/ws` socket and the in-app
