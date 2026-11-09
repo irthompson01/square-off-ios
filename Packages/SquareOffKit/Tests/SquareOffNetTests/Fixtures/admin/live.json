@@ -1,0 +1,92 @@
+{
+  "generated_at": "2026-10-25T20:11:03+00:00",
+  "websocket": {
+    "connections": 9,
+    "in_rooms": 7
+  },
+  "rooms": [
+    {
+      "room_code": 4821,
+      "phase": "playing",
+      "board_size": 8,
+      "timer": 20,
+      "game_id": 1180,
+      "match_in_progress": true,
+      "host_connected": true,
+      "host_away_seconds": null,
+      "players": [
+        {
+          "slot": 1,
+          "name": "pat",
+          "isCPU": false,
+          "player_id": "00000000-0000-4000-8000-000000000002",
+          "score": 14,
+          "connected": true,
+          "away_seconds": null
+        },
+        {
+          "slot": 2,
+          "name": "CPU",
+          "isCPU": true,
+          "player_id": null,
+          "score": 9,
+          "connected": true,
+          "away_seconds": null
+        }
+      ],
+      "guest_connections": 1,
+      "spectator_count": 2,
+      "turn_index": 0,
+      "moves_played": 23,
+      "game_over": false
+    },
+    {
+      "room_code": 7730,
+      "phase": "brand_new_phase",
+      "board_size": 6,
+      "timer": 0,
+      "game_id": null,
+      "match_in_progress": false,
+      "host_connected": false,
+      "host_away_seconds": 32,
+      "players": [],
+      "guest_connections": 0,
+      "spectator_count": 0,
+      "turn_index": null,
+      "moves_played": 0,
+      "game_over": false
+    }
+  ],
+  "open_rooms": [
+    {
+      "room_code": 1502,
+      "board_size": 10,
+      "timer": 30,
+      "slots_filled": 1,
+      "slots_max": 4,
+      "listed": true,
+      "host_label": "lee",
+      "host_key": "hk",
+      "game_id": null,
+      "created_at": 1792958000,
+      "age_s": 95.0,
+      "heartbeat_age_s": 4.2
+    }
+  ],
+  "match_queue": {
+    "tickets": 1,
+    "oldest_wait_s": 42.0,
+    "pairs_pending": 0,
+    "items": [
+      {
+        "ticket_id": "t-6f3a",
+        "board_size": 8,
+        "timer": 20,
+        "wait_s": 42.0,
+        "assigned_room_code": null,
+        "should_create_room": false,
+        "acknowledged": true
+      }
+    ]
+  }
+}

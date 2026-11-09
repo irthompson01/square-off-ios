@@ -1,0 +1,16 @@
+[
+  {
+    "player_id": "afdca0c3-565b-46ac-9f17-88a23bdc723b",
+    "username": "contract_ios",
+    "email": "contract_ios@squareoff.app",
+    "cpu_type": "max-min",
+    "total_games_played": 1,
+    "games_won": 1,
+    "games_lost": 0,
+    "win_percentage": 100.0,
+    "avg_game_duration": 0,
+    "highest_score": 21,
+    "avg_final_score": 21,
+    "local_games_played": 1
+  }
+]

@@ -1,0 +1,228 @@
+{
+  "type": "GAME_UPDATE",
+  "gameState": {
+    "boardState": [
+      [
+        {
+          "id": 1,
+          "name": "Host",
+          "fillStyle": "#0583D2",
+          "isCPU": false,
+          "currentScore": 0,
+          "currentMultiplier": 1
+        },
+        {
+          "id": 1,
+          "name": "Host",
+          "fillStyle": "#0583D2",
+          "isCPU": false,
+          "currentScore": 0,
+          "currentMultiplier": 1
+        },
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        {
+          "id": 1,
+          "name": "Host",
+          "fillStyle": "#0583D2",
+          "isCPU": false,
+          "currentScore": 0,
+          "currentMultiplier": 1
+        },
+        {
+          "id": 1,
+          "name": "Host",
+          "fillStyle": "#0583D2",
+          "isCPU": false,
+          "currentScore": 0,
+          "currentMultiplier": 1
+        },
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        {
+          "id": 2,
+          "name": "Guest",
+          "fillStyle": "#FF3131",
+          "isCPU": false,
+          "currentScore": 0,
+          "currentMultiplier": 1
+        },
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "id": 2,
+          "name": "Guest",
+          "fillStyle": "#FF3131",
+          "isCPU": false,
+          "currentScore": 0,
+          "currentMultiplier": 1
+        }
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        {
+          "id": 2,
+          "name": "Guest",
+          "fillStyle": "#FF3131",
+          "isCPU": false,
+          "currentScore": 0,
+          "currentMultiplier": 1
+        },
+        {
+          "id": 2,
+          "name": "Guest",
+          "fillStyle": "#FF3131",
+          "isCPU": false,
+          "currentScore": 0,
+          "currentMultiplier": 1
+        }
+      ]
+    ],
+    "players": [
+      {
+        "id": 1,
+        "name": "Host",
+        "fillStyle": "#0583D2",
+        "isCPU": false,
+        "currentScore": 4,
+        "currentMultiplier": 1,
+        "scoreHistory": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4,
+          4
+        ],
+        "multiplierIncrease": 0,
+        "scoreIncrease": 4,
+        "newSquareCount": 0,
+        "newDiamondCount": 0
+      },
+      {
+        "id": 2,
+        "name": "Guest",
+        "fillStyle": "#FF3131",
+        "isCPU": false,
+        "currentScore": 0,
+        "currentMultiplier": 1,
+        "scoreHistory": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "multiplierIncrease": 0,
+        "scoreIncrease": 0,
+        "newSquareCount": 0,
+        "newDiamondCount": 0
+      }
+    ],
+    "currentPlayerIndex": 0,
+    "gameOver": false,
+    "squares": [
+      {
+        "occupantId": 1,
+        "row": 0,
+        "col": 0,
+        "num": 1,
+        "size": 2,
+        "points": 4
+      }
+    ],
+    "diamonds": [],
+    "rowIndex": 2,
+    "colIndex": 1,
+    "scoreIncrease": 0,
+    "multiplierIncrease": 0,
+    "newShapes": {
+      "squares": [],
+      "diamonds": [],
+      "count": 0
+    }
+  },
+  "players": [
+    {
+      "id": 1,
+      "name": "Host",
+      "fillStyle": "#0583D2",
+      "isCPU": false,
+      "currentScore": 4,
+      "currentMultiplier": 1,
+      "scoreHistory": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        4,
+        4
+      ],
+      "multiplierIncrease": 0,
+      "scoreIncrease": 4,
+      "newSquareCount": 0,
+      "newDiamondCount": 0
+    },
+    {
+      "id": 2,
+      "name": "Guest",
+      "fillStyle": "#FF3131",
+      "isCPU": false,
+      "currentScore": 0,
+      "currentMultiplier": 1,
+      "scoreHistory": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "multiplierIncrease": 0,
+      "scoreIncrease": 0,
+      "newSquareCount": 0,
+      "newDiamondCount": 0
+    }
+  ],
+  "timer": 20,
+  "boardSize": 6,
+  "spectatorCount": 0
+}

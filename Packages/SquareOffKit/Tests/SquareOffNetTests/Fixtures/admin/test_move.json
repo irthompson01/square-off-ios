@@ -1,0 +1,7 @@
+{
+  "cpu_type": "cnn",
+  "row": 3,
+  "col": 4,
+  "latency_ms": 38.2,
+  "message": "ok"
+}

@@ -49,6 +49,18 @@ public struct MoveResult: Hashable, Sendable {
     public let scoreAfter: Int
     public let multiplierAfter: Int
 
+    public init(cell: Cell, playerID: Int, newSquares: [BoardShape], newDiamonds: [BoardShape],
+                scoreIncrease: Int, multiplierIncrease: Int, scoreAfter: Int, multiplierAfter: Int) {
+        self.cell = cell
+        self.playerID = playerID
+        self.newSquares = newSquares
+        self.newDiamonds = newDiamonds
+        self.scoreIncrease = scoreIncrease
+        self.multiplierIncrease = multiplierIncrease
+        self.scoreAfter = scoreAfter
+        self.multiplierAfter = multiplierAfter
+    }
+
     public var newShapes: [BoardShape] { newSquares + newDiamonds }
     public var newShapeCount: Int { newShapes.count }
 
@@ -98,12 +110,15 @@ public struct Game: Hashable, Sendable {
         self.init(board: Board(size: boardSize), players: players, currentPlayerIndex: 0, timerSeconds: timerSeconds)
     }
 
-    /// Restores a game from an existing position (saved games, replays, CPU test fixtures).
-    /// Python's `Game.from_state` equivalent. Seats must be numbered 1…n in order so that
-    /// "next player" is `players[(index + 1) % n]`, exactly like the server's `players[id % n]`.
+    /// Restores a game from an existing position (saved games, replays, online snapshots, CPU
+    /// test fixtures). Python's `Game.from_state` equivalent. Turn order is the array order
+    /// ("next player" is `players[(index + 1) % n]`, like the server's `next_turn`), so seats
+    /// need distinct ids in 1…4 but not necessarily `[1, 2, 3]`: an online room whose second
+    /// guest left and was replaced can legitimately be `[1, 3, 2]`.
     public init(board: Board, players: [PlayerState], currentPlayerIndex: Int = 0, timerSeconds: Int = 0) {
         precondition((2...4).contains(players.count), "Square Off supports 2–4 players")
-        precondition(players.map(\.id) == Array(1...players.count), "Seats must be numbered 1…n in order")
+        precondition(Set(players.map(\.id)).count == players.count, "Seat ids must be distinct")
+        precondition(players.allSatisfy { (1...4).contains($0.id) }, "Seat ids must be in 1…4")
         precondition(players.indices.contains(currentPlayerIndex), "currentPlayerIndex out of range")
         self.board = board
         self.players = players
@@ -131,6 +146,15 @@ public struct Game: Hashable, Sendable {
         return s[0].score == s[1].score
             && s[0].shapeCount == s[1].shapeCount
             && s[0].diamonds.count == s[1].diamonds.count
+    }
+
+    /// Places a tile for a specific seat regardless of whose turn it is, then advances the turn
+    /// from that seat as usual. Used by scripted demos whose moves name the player explicitly.
+    @discardableResult
+    public mutating func place(at cell: Cell, by playerID: Int) throws -> MoveResult {
+        guard let index = players.firstIndex(where: { $0.id == playerID }) else { throw MoveError.outOfBounds }
+        currentPlayerIndex = index
+        return try place(at: cell)
     }
 
     @discardableResult

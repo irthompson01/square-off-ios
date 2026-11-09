@@ -64,6 +64,16 @@ struct EncodingTests {
         #expect(Set(seat.keys) == ["id", "name", "color", "playerId", "isCPU", "cpuType"])
     }
 
+    @Test func feedbackPasswordAndDeletionKeys() throws {
+        let feedback = try jsonObject(FeedbackRequest(subject: "Hi", message: "There"))
+        #expect(Set(feedback.keys) == ["subject", "message", "contact_email", "display_name"])
+        #expect(feedback["contact_email"] is NSNull)   // explicit null, like the web
+        #expect(Set(try jsonObject(PasswordResetRequest(token: "t", newPassword: "p")).keys) == ["token", "new_password"])
+        #expect(Set(try jsonObject(PasswordForgotRequest(email: "a@b.c")).keys) == ["email"])
+        #expect(try jsonObject(AccountDeleteRequest()).isEmpty)
+        #expect(try jsonObject(AccountDeleteRequest(appleAuthorizationCode: "c"))["apple_authorization_code"] as? String == "c")
+    }
+
     @Test func gameTurnKeys() throws {
         var game = cpuGame()
         let move = try game.place(at: Cell(row: 1, col: 4))
@@ -141,16 +151,25 @@ struct LiveContractTests {
         #expect(try await api.checkAuth() == false)
     }
 
-    @Test func cnnLevelIsBrokenOnServer() async throws {
-        let game = Game(boardSize: 8, players: [
+    @Test func cnnMovePlaysLegallyOn8x8() async throws {
+        var game = Game(boardSize: 8, players: [
             PlayerState(id: 1, name: "Player 1", colorHex: "#0583D2"),
             PlayerState(id: 2, name: "CPU (cnn)", colorHex: "#FF3131", isCPU: true, cpuLevel: .cnn),
         ])
-        var rotated = game
-        try rotated.place(at: Cell(row: 0, col: 0))
-        // Known server bug: CNN_MODEL load is commented out in routes/model.py → 500.
-        await withKnownIssue("CNN model not loaded on the server") {
-            _ = try await api.cpuMove(CPUMoveRequest(gameID: 1, game: rotated))
+        try game.place(at: Cell(row: 0, col: 0))
+        let reply = try await api.cpuMove(CPUMoveRequest(gameID: 1, game: game))
+        #expect(game.board[reply.cell] == nil)
+    }
+
+    /// The Keras model is hard-coded to 8×8; the app only offers Level 3 on 8×8 boards.
+    @Test func cnnRejectsOtherBoardSizes() async throws {
+        var game = Game(boardSize: 6, players: [
+            PlayerState(id: 1, name: "Player 1", colorHex: "#0583D2"),
+            PlayerState(id: 2, name: "CPU (cnn)", colorHex: "#FF3131", isCPU: true, cpuLevel: .cnn),
+        ])
+        try game.place(at: Cell(row: 0, col: 0))
+        await #expect(throws: APIError.self) {
+            _ = try await api.cpuMove(CPUMoveRequest(gameID: 1, game: game))
         }
     }
 }
