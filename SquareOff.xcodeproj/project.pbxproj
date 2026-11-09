@@ -61,6 +61,7 @@
 		4B26BFFE0F55B5EA85E21F46 /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 083DE8391E4A947392A5E85B /* DeepLink.swift */; };
 		4BF8CE3CE307F43D2208CC79 /* VerifyEmailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3848981BDA83BE003EA2AF1 /* VerifyEmailViews.swift */; };
 		4F315EE2B2F3384DB2B5D0BD /* ServerGameRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67E08E56B748BC04DDBADB46 /* ServerGameRecorder.swift */; };
+		523724CAC5F1487CB4286A7E /* UsersBulk.swift in Sources */ = {isa = PBXBuildFile; fileRef = F98AC63E5479406A5CA49ED7 /* UsersBulk.swift */; };
 		555869447BA5743CDCF3486C /* TokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2359DCD5F2870A09B8942D /* TokenStore.swift */; };
 		5617F7D92A8D0C23C54D615B /* harmonies.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8409128934C890FEAD654534 /* harmonies.mp3 */; };
 		59D7DFFA7568CB5B57029EEF /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0172B922493BECDC43DE9382 /* Backend.swift */; };
@@ -85,6 +86,7 @@
 		773BD0FF15B6F30C243479FD /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51E577EF52E88743514F31BA /* FeedbackView.swift */; };
 		773C6133F378A3F308C43085 /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */; };
 		798D2FA497DC0946CDCABF6A /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A75DEBAA85846A0A294853 /* AppModel.swift */; };
+		812320F9B263A81867BB8A52 /* AdminHealthTiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B66F5D1825FFD21F591F5B6 /* AdminHealthTiles.swift */; };
 		8991F62DB43E32A604D7C6B3 /* SquareOffNet in Frameworks */ = {isa = PBXBuildFile; productRef = E16D0AA38868CFEF6F700216 /* SquareOffNet */; };
 		8CFE5678C10F9BE71874F89F /* BoardAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD8FE6543EDAC30B5E9B1A43 /* BoardAnimation.swift */; };
 		8EE9E9FBA51BADCBF874868C /* BackendConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7ABD2DA0EAE53CCDF8C6CA0 /* BackendConfiguration.swift */; };
@@ -185,6 +187,7 @@
 		107387F876BA286D923E9C51 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		143BAB6EB077E55B63A8DEE6 /* Identity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identity.swift; sourceTree = "<group>"; };
 		1A780E56C8B7D1DCC6D56AA7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		1B66F5D1825FFD21F591F5B6 /* AdminHealthTiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminHealthTiles.swift; sourceTree = "<group>"; };
 		2D425CAA288550260774CEA5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		2E6A16E53E488EA0E6D370D7 /* AdminChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminChrome.swift; sourceTree = "<group>"; };
 		31804409BA7EAC7C5192EAFB /* GamesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamesView.swift; sourceTree = "<group>"; };
@@ -265,6 +268,7 @@
 		F8448742DCD971059730F73C /* GamePresenting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GamePresenting.swift; sourceTree = "<group>"; };
 		F84E11CEF6C47CC19EB43136 /* ColorPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorPicker.swift; sourceTree = "<group>"; };
 		F90DBFEEFD70CB5D75275302 /* UsersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsersView.swift; sourceTree = "<group>"; };
+		F98AC63E5479406A5CA49ED7 /* UsersBulk.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsersBulk.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -533,7 +537,9 @@
 			isa = PBXGroup;
 			children = (
 				084756FFC10F8678210DCF49 /* AdminFormatting.swift */,
+				1B66F5D1825FFD21F591F5B6 /* AdminHealthTiles.swift */,
 				C8C8B881A87EECBA8F7063A9 /* AdminQuery.swift */,
+				F98AC63E5479406A5CA49ED7 /* UsersBulk.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -765,6 +771,7 @@
 				E157B743301B1DA8F919E256 /* AdminAppModel.swift in Sources */,
 				73A821B7F3BEE7617D31A799 /* AdminChrome.swift in Sources */,
 				E00C38CFC16CB0DDF7519C93 /* AdminFormatting.swift in Sources */,
+				812320F9B263A81867BB8A52 /* AdminHealthTiles.swift in Sources */,
 				45BFAEF7D7005E3254AA54FC /* AdminQuery.swift in Sources */,
 				127216263892AB6250071559 /* AdminRootView.swift in Sources */,
 				F706FF3AAF1B666C2989F2F3 /* AdminSearchView.swift in Sources */,
@@ -822,6 +829,7 @@
 				555869447BA5743CDCF3486C /* TokenStore.swift in Sources */,
 				E1B721F3FCF9AD1A3441F70C /* TurnstileView.swift in Sources */,
 				15539233300792201040D5AA /* UserDetailView.swift in Sources */,
+				523724CAC5F1487CB4286A7E /* UsersBulk.swift in Sources */,
 				080AF01370846B92A775297C /* UsersView.swift in Sources */,
 				4BF8CE3CE307F43D2208CC79 /* VerifyEmailViews.swift in Sources */,
 				B026AD55CA30F688B01B7BFC /* WaitingRoomView.swift in Sources */,
