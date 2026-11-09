@@ -56,9 +56,11 @@ public actor MockAdminAPI: AdminAPI {
             db: .init(ok: true, latencyMs: refresh ? 3.4 : 2.1, pool: .init(min: 1, max: 10, inUse: 1, idle: 2), error: nil),
             model: .init(ok: true, latencyMs: 41, cached: !refresh, checkedAt: Self.iso(now.addingTimeInterval(-90)),
                          move: .init(row: 3, col: 4), error: nil),
-            mail: .init(configured: true, server: "smtp.example.com"),
-            app: .init(version: "1.4.0", buildSha: "17f5c51", env: "mock", startedAt: Self.iso(now.addingTimeInterval(-6 * 3600)),
-                       uptimeS: 6 * 3600, python: "3.12.6", fastapi: "0.115.0", rateLimitStorage: "memory")
+            mail: .init(configured: true, server: "smtp.resend.com"),
+            app: .init(version: "1.6.0", buildSha: "535fc7b", env: "mock", startedAt: Self.iso(now.addingTimeInterval(-6 * 3600)),
+                       uptimeS: 6 * 3600, python: "3.12.6", fastapi: "0.115.0", rateLimitStorage: "memory"),
+            engine: .init(ok: true, latencyMs: refresh ? 29 : 31, cached: !refresh, checkedAt: Self.iso(now.addingTimeInterval(-60)),
+                          version: "0.1.0", move: .init(row: 3, col: 4), error: nil)
         )
     }
 
@@ -141,6 +143,8 @@ public actor MockAdminAPI: AdminAPI {
             rows = rows.filter { ($0.oauthProvider ?? "password") == provider.rawValue }
         }
         if let hasPlayed = query.hasPlayed { rows = rows.filter { ($0.gamesPlayed > 0) == hasPlayed } }
+        if let verified = query.verified { rows = rows.filter { $0.isEmailVerified == verified } }
+        if let suspect = query.suspect { rows = rows.filter { $0.isSuspect == suspect } }
         rows.sort { a, b in
             let ascending: Bool
             switch query.sort {
@@ -203,15 +207,14 @@ public actor MockAdminAPI: AdminAPI {
         let old = users[index]
         var bumped = false
         if patch.isActive == false, old.isActive { bumped = true }
-        users[index] = AdminUserDetail(
-            id: old.id, email: old.email, username: patch.username ?? old.username, firstName: patch.firstName ?? old.firstName,
-            lastName: patch.lastName ?? old.lastName, color: patch.color ?? old.color, appRole: patch.appRole ?? old.appRole,
-            isActive: patch.isActive ?? old.isActive, createdAt: old.createdAt, registered: old.registered, isCpu: old.isCpu,
-            lastLoginAt: old.lastLoginAt, sessionVersion: old.sessionVersion + (bumped ? 1 : 0), updatedAt: Self.naive(now),
-            oauthProvider: old.oauthProvider, profilePictureUrl: old.profilePictureUrl)
+        let verifiedAt: String?? = patch.emailVerified.map { $0 ? (old.emailVerifiedAt ?? Self.iso(now)) : nil }
+        users[index] = old.updating(username: patch.username, firstName: patch.firstName, lastName: patch.lastName, color: patch.color,
+                                    appRole: patch.appRole, isActive: patch.isActive, sessionVersion: old.sessionVersion + (bumped ? 1 : 0),
+                                    updatedAt: Self.naive(now), emailVerifiedAt: verifiedAt)
         var detail: [String: JSONValue] = [:]
         if let role = patch.appRole { detail["app_role"] = .string(role.rawValue) }
         if let active = patch.isActive { detail["is_active"] = .bool(active) }
+        if let verified = patch.emailVerified { detail["email_verified"] = .bool(verified) }
         if bumped { detail["session_version_bumped"] = .bool(true) }
         for (key, value) in [("first_name", patch.firstName), ("last_name", patch.lastName), ("username", patch.username), ("color", patch.color)] {
             if let value { detail[key] = .string(value) }
@@ -236,13 +239,50 @@ public actor MockAdminAPI: AdminAPI {
         if id == adminID { throw APIError.http(status: 400, body: #"{"detail":"Cannot sign out your own account"}"#) }
         let old = users[index]
         let version = old.sessionVersion + 1
-        users[index] = AdminUserDetail(
-            id: old.id, email: old.email, username: old.username, firstName: old.firstName, lastName: old.lastName, color: old.color,
-            appRole: old.appRole, isActive: old.isActive, createdAt: old.createdAt, registered: old.registered, isCpu: old.isCpu,
-            lastLoginAt: old.lastLoginAt, sessionVersion: version, updatedAt: old.updatedAt, oauthProvider: old.oauthProvider,
-            profilePictureUrl: old.profilePictureUrl)
+        users[index] = old.updating(sessionVersion: version)
         audit(adminID: adminID, targetID: id, action: .forceLogout, detail: .object(["session_version": .number(Double(version))]))
         return AdminForceLogoutResult(message: "Sessions revoked", sessionVersion: version)
+    }
+
+    /// The server's rules: 1–500 ids or the suspect filter (never both), the caller, superadmins
+    /// and already-inactive accounts are skipped, every deactivation gets an audit row sharing
+    /// one `batch_id`, and the session version bumps so the accounts are signed out everywhere.
+    public func bulkDeactivate(_ request: BulkDeactivateRequest) async throws -> AdminBulkDeactivateResult {
+        let adminID = try await requireAdmin()
+        if let reason = request.reason, reason.count > 200 {
+            throw APIError.http(status: 422, body: #"{"detail":[{"msg":"String should have at most 200 characters"}]}"#)
+        }
+        let requested: [String]
+        let source: String
+        switch request.source {
+        case .ids(let ids):
+            let unique = Array(NSOrderedSet(array: ids)) as? [String] ?? ids
+            guard (1...500).contains(unique.count) else {
+                throw APIError.http(status: 422, body: #"{"detail":[{"msg":"Provide 1 to 500 user_ids or filter=suspect"}]}"#)
+            }
+            requested = unique
+            source = "ids"
+        case .suspects:
+            requested = users.filter { $0.isActive && isSuspect($0) }
+                .sorted { ($0.createdAt ?? "") > ($1.createdAt ?? "") }
+                .prefix(500).map(\.id)
+            source = "suspect"
+        }
+        let batchID = String(format: "%012llx", UInt64(nextAuditID) &* 0x9E37_79B9 &+ 0x7F4A_7C15)
+        var deactivated = 0
+        for id in requested {
+            guard id != adminID, let index = users.firstIndex(where: { $0.id == id }), users[index].isActive,
+                  users[index].appRole != .superadmin, !users[index].isCpu else { continue }
+            let version = users[index].sessionVersion + 1
+            users[index] = users[index].updating(isActive: false, sessionVersion: version, updatedAt: Self.naive(now))
+            audit(adminID: adminID, targetID: id, action: .bulkDeactivate, detail: .object([
+                "batch_id": .string(batchID), "source": .string(source),
+                "reason": request.reason.map(JSONValue.string) ?? .null, "session_version": .number(Double(version)),
+            ]))
+            deactivated += 1
+        }
+        return AdminBulkDeactivateResult(deactivated: deactivated, skipped: requested.count - deactivated,
+                                         batchId: deactivated > 0 ? batchID : nil)
     }
 
     // MARK: Games
@@ -361,14 +401,31 @@ public actor MockAdminAPI: AdminAPI {
         return AdminCPUStatsResponse(days: days, tz: tz ?? "UTC", items: items)
     }
 
-    public func testMove(cpuType: String, boardSize: Int?) async throws -> AdminTestMove {
+    /// The engine tiers the server runs in Rust / ONNX.
+    static let engineTiers: Set<String> = ["grandmaster", "impossible"]
+
+    public func testMove(cpuType: String, boardSize: Int?, deadlineMs: Int?) async throws -> AdminTestMove {
         _ = try await requireAdmin()
-        guard cpus.contains(where: { $0.cpuType == cpuType }) else { throw Self.notFound("CPU not found") }
+        guard cpus.contains(where: { $0.cpuType == cpuType }) else {
+            throw APIError.http(status: 400, body: #"{"detail":"Unknown CPU type: \#(cpuType)"}"#)
+        }
         let size = boardSize ?? 8
+        guard (4...20).contains(size), deadlineMs.map({ (50...10_000).contains($0) }) ?? true else {
+            throw APIError.http(status: 422, body: #"{"detail":[{"msg":"board_size 4-20, deadline_ms 50-10000"}]}"#)
+        }
+        let engine = Self.engineTiers.contains(cpuType)
+        if engine, !(6...12).contains(size) {
+            throw APIError.http(status: 400, body: #"{"detail":"\#(cpuType) plays 6x6 to 12x12 boards (got \#(size)x\#(size))"}"#)
+        }
         let game = Game(boardSize: size, players: [PlayerState(id: 1, name: "A", colorHex: "#4C8BF5"), PlayerState(id: 2, name: "B", colorHex: "#DD5144")])
-        let strategy = CPULevel(rawValue: cpuType).flatMap(CPUStrategy.init(level:)) ?? .random
+        let level = CPULevel(rawValue: cpuType)
+        let strategy = level.flatMap { CPUStrategy(level: $0.offlineFallback) } ?? .random
         let cell = strategy.chooseMove(in: game)
-        return AdminTestMove(cpuType: cpuType, row: cell.row, col: cell.col, latencyMs: cpuType == "cnn" ? 38 : 2, message: "ok")
+        let latency: Double = engine ? min(Double(deadlineMs ?? 1500), 180) : (cpuType == "cnn" ? 38 : 2)
+        return AdminTestMove(cpuType: cpuType, row: cell.row, col: cell.col, latencyMs: latency,
+                             message: "Move computed on an empty \(size)x\(size) board",
+                             engine: engine ? .init(mode: cpuType == "impossible" ? "nn-puct" : "ab", fallback: false, depth: 6, nodes: 12_000,
+                                                    deadlineMs: deadlineMs ?? 1500) : nil)
     }
 
     public func createCPU(_ body: AdminCPUCreate) async throws -> MessageResponse {
@@ -415,18 +472,25 @@ public actor MockAdminAPI: AdminAPI {
         seeded = true
         var rng = SplitMix64(seed: 0xA0D1_4242)
         let providers: [String?] = [nil, "google", nil, "apple", nil, "github", nil, nil]
+        // Like the web fixtures: every 11th account is a sign-up bot (random-case username, no
+        // games, never verified), every 5th password account never opened its link.
+        let botNames = ["qXbLmRtWcPaZ", "tRwQpLsKdMfA", "zNcVbXmKqLwE"]
         users = (1...Self.userCount).map { n in
-            let name = Self.names[(n - 1) % Self.names.count] + (n > Self.names.count ? String(n) : "")
+            let bot = n % 11 == 0
+            let name = bot ? botNames[(n / 11 - 1) % botNames.count] : Self.names[(n - 1) % Self.names.count] + (n > Self.names.count ? String(n) : "")
             let created = now.addingTimeInterval(-Double(400 - n * 9) * 86_400)
-            let played = n % 7 == 0 ? 0 : Int(rng.next() % 40) + 1
+            let played = bot || n % 7 == 0 ? 0 : Int(rng.next() % 40) + 1
             gamesPlayed[Self.userID(n)] = played
+            let provider = bot ? nil : providers[n % providers.count]
+            let verified = !bot && (provider != nil || n % 5 != 0)
             return AdminUserDetail(
-                id: Self.userID(n), email: "\(name)@example.com", username: name,
-                firstName: n % 3 == 0 ? "" : name.prefix(1).uppercased() + name.dropFirst(), lastName: n % 3 == 0 ? "" : "T",
+                id: Self.userID(n), email: "\(name.lowercased())@example.com", username: name,
+                firstName: bot || n % 3 == 0 ? "" : name.prefix(1).uppercased() + name.dropFirst(), lastName: bot || n % 3 == 0 ? "" : "T",
                 color: ["#4C8BF5", "#DD5144", "#1DA462", "#FFCD46"][n % 4], appRole: n == 1 ? .superadmin : .standard,
                 isActive: n != 8, createdAt: Self.naive(created), registered: true, isCpu: false,
-                lastLoginAt: n % 5 == 0 ? nil : Self.iso(now.addingTimeInterval(-Double(n) * 5_000)),
-                sessionVersion: n == 8 ? 1 : 0, updatedAt: nil, oauthProvider: providers[n % providers.count], profilePictureUrl: nil)
+                lastLoginAt: bot || n % 5 == 0 ? nil : Self.iso(now.addingTimeInterval(-Double(n) * 5_000)),
+                sessionVersion: n == 8 ? 1 : 0, updatedAt: nil, oauthProvider: provider, profilePictureUrl: nil,
+                emailVerifiedAt: verified ? Self.iso(created.addingTimeInterval(3600)) : nil)
         }
         if accounts != nil {
             // The signed-in mock account (`demo`) sits in the directory too, so self-protection
@@ -435,14 +499,19 @@ public actor MockAdminAPI: AdminAPI {
                 id: MockSquareOffAPI.demoUserID, email: MockSquareOffAPI.demoEmail, username: MockSquareOffAPI.demoUsername,
                 firstName: "Demo", lastName: "Player", color: "#0583D2", appRole: .superadmin, isActive: true,
                 createdAt: "2026-09-01T12:00:00", registered: true, isCpu: false, lastLoginAt: Self.iso(now.addingTimeInterval(-60)),
-                sessionVersion: 0, updatedAt: nil, oauthProvider: nil, profilePictureUrl: nil), at: 0)
+                sessionVersion: 0, updatedAt: nil, oauthProvider: nil, profilePictureUrl: nil,
+                emailVerifiedAt: "2026-09-01T12:05:00+00:00"), at: 0)
             gamesPlayed[MockSquareOffAPI.demoUserID] = 3
         }
-        cpus = CPULevel.allCases.map { level in
-            AdminCPURow(id: level.number, cpuType: level.cpuType, displayName: "Level \(level.number) · \(level.shortName)",
-                        color: "#DD5144", description: level == .cnn ? "Retired 2026-10-29; its games keep their history" : level.description, isPremium: level == .maxMinIO,
-                        createdAt: Self.naive(now.addingTimeInterval(-200 * 86_400)), usageCount: level == .maxMinIO ? 0 : 30 + level.number * 11)
-        }
+        // The eight setup levels plus the retired CNN, which keeps its row (and its games) but no level.
+        cpus = CPULevel.selectable.map { level in
+            AdminCPURow(id: level.number, cpuType: level.cpuType, displayName: "CPU (\(level.shortName))",
+                        color: "#DD5144", description: level.description.map { "Level \(level.number) · \($0.prefix(1).lowercased() + $0.dropFirst())" },
+                        isPremium: level == .maxMinIO, createdAt: Self.naive(now.addingTimeInterval(-200 * 86_400)),
+                        usageCount: level == .maxMinIO ? 0 : 30 + level.number * 11)
+        } + [AdminCPURow(id: 9, cpuType: CPULevel.cnn.cpuType, displayName: "CPU (CNN, retired)", color: "#DD5144",
+                         description: "Retired 2026-10-29 · historical games only; cpu_type cnn now plays max-min", isPremium: false,
+                         createdAt: Self.naive(now.addingTimeInterval(-400 * 86_400)), usageCount: 120)]
         games = (1...Self.gameCount).map { n in
             let id = 1000 + n
             let online = n % 3 == 0
@@ -462,9 +531,10 @@ public actor MockAdminAPI: AdminAPI {
                                      finalScore: unfinished ? nil : scoreA, participantOrder: 0, isWinner: !unfinished && !tie && scoreA >= scoreB),
             ]
             if cpuGame {
-                let level = CPULevel.allCases[n % CPULevel.allCases.count]
+                // Every tenth CPU game is an old one against the retired CNN (row id 9).
+                let level = n % 10 == 0 ? CPULevel.cnn : CPULevel.selectable[n % CPULevel.selectable.count]
                 seats.append(AdminGameParticipant(participantId: id * 10 + 2, participantType: .cpu, displayName: "CPU (\(level.shortName))", color: "#DD5144",
-                                                  userId: nil, username: nil, guestId: nil, cpuDefinitionId: level.number, cpuType: level.cpuType,
+                                                  userId: nil, username: nil, guestId: nil, cpuDefinitionId: level == .cnn ? 9 : level.number, cpuType: level.cpuType,
                                                   finalScore: unfinished ? nil : scoreB, participantOrder: 1, isWinner: !unfinished && !tie && scoreB > scoreA))
             } else if online {
                 seats.append(AdminGameParticipant(participantId: id * 10 + 2, participantType: .user, displayName: users[(n * 7) % Self.userCount].username, color: "#DD5144",
@@ -506,7 +576,16 @@ public actor MockAdminAPI: AdminAPI {
                                  target: n % 4 == 0 ? nil : AdminActor(id: target.id, username: target.username, email: target.email),
                                  detail: .object(["note": .string("seeded"), "n": .number(Double(n))]))
         }.sorted { $0.createdAt > $1.createdAt }
-        nextAuditID = 31
+        // One earlier bulk deactivation (two accounts, one batch), so the audit log shows the shape.
+        let admin = AdminActor(id: Self.userID(1), username: "ian", email: "ian@example.com")
+        for (offset, n) in [8, 15].enumerated() {
+            let target = users.first { $0.id == Self.userID(n) }
+            auditRows.insert(AdminAuditRow(id: 31 + offset, createdAt: Self.iso(now.addingTimeInterval(-3_000 - Double(offset))), action: .bulkDeactivate,
+                                           admin: admin, target: target.map { AdminActor(id: $0.id, username: $0.username, email: $0.email) },
+                                           detail: .object(["batch_id": .string("3f9a1c2b4d5e"), "source": .string("ids"),
+                                                            "reason": .string("signup bots"), "session_version": .number(1)])), at: 0)
+        }
+        nextAuditID = 33
     }
 
     private func audit(adminID: String, targetID: String?, action: AdminAuditAction, detail: JSONValue?) {
@@ -522,7 +601,21 @@ public actor MockAdminAPI: AdminAPI {
     private func row(for user: AdminUserDetail) -> AdminUserRow {
         AdminUserRow(id: user.id, email: user.email, username: user.username, firstName: user.firstName, lastName: user.lastName,
                      appRole: user.appRole, isActive: user.isActive, createdAt: user.createdAt, lastLoginAt: user.lastLoginAt,
-                     gamesPlayed: gamesPlayed[user.id] ?? 0, sessionVersion: user.sessionVersion, oauthProvider: user.oauthProvider)
+                     gamesPlayed: gamesPlayed[user.id] ?? 0, sessionVersion: user.sessionVersion, oauthProvider: user.oauthProvider,
+                     emailVerifiedAt: user.emailVerifiedAt, isSuspect: isSuspect(user))
+    }
+
+    /// The server's bot heuristic (`routes/admin.py`): a password-only account that never verified,
+    /// never played, with a 12–24 letter username that flips case at least four times.
+    static func looksSuspect(username: String) -> Bool {
+        guard (12...24).contains(username.count), username.allSatisfy(\.isLetter) else { return false }
+        var flips = 0
+        for (a, b) in zip(username, username.dropFirst()) where a.isUppercase != b.isUppercase { flips += 1 }
+        return flips >= 4
+    }
+
+    private func isSuspect(_ user: AdminUserDetail) -> Bool {
+        user.oauthProvider == nil && user.emailVerifiedAt == nil && (gamesPlayed[user.id] ?? 0) == 0 && Self.looksSuspect(username: user.username)
     }
 
     /// A legal game played by two random CPUs with the row's seats, up to `moves_played`

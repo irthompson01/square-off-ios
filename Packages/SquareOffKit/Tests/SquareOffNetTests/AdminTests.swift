@@ -55,7 +55,7 @@ struct AdminDecodingTests {
         let patched = try decodeAdmin(AdminFeedbackPatchResult.self, "patch_feedback")
         #expect(patched.item?.handledBy?.username == "ian")
         let cpus = try decodeAdmin(AdminItems<AdminCPURow>.self, "cpus")
-        #expect(cpus.items[0].usageCount == 120)
+        #expect(cpus.items.map(\.cpuType) == ["random", "cnn", "impossible"] && cpus.items[1].usageCount == 120)
         let stats = try decodeAdmin(AdminCPUStatsResponse.self, "cpus_stats")
         #expect(stats.items[0].humanWinRate == 37.5 && stats.items[0].usageByDay.count == 2)
         #expect(try decodeAdmin(AdminTestMove.self, "test_move").latencyMs == 38.2)
@@ -162,5 +162,104 @@ struct MockAdminAPITests {
             for turn in payload.turns { _ = try game.place(at: turn.cell) }
             #expect(row.endTime == nil ? !game.isOver : game.isOver)
         }
+    }
+}
+
+/// The 2026-11-05 console additions: verified / suspect users, bulk deactivation, the engine
+/// probe, `bulk_deactivate` audit rows and the test-move options.
+@Suite("Admin API 2026-11 additions")
+struct AdminParityTests {
+    @Test func verifiedAndSuspectUsersDecode() throws {
+        let page = try decodeAdmin(Paged<AdminUserRow>.self, "users_verified")
+        #expect(page.items[0].isEmailVerified && !page.items[0].isSuspect)
+        #expect(page.items[1].isSuspect && page.items[1].emailVerifiedAt == nil && page.items[1].gamesPlayed == 0)
+        let old = try decodeAdmin(Paged<AdminUserRow>.self, "users_page")
+        #expect(old.items[0].isSuspect == false && old.items[0].emailVerifiedAt == nil, "older servers: tolerated")
+        #expect(try decodeAdmin(AdminUserOverview.self, "user_overview").user.emailVerifiedAt != nil)
+    }
+
+    @Test func healthWithAndWithoutTheEngine() throws {
+        #expect(try decodeAdmin(AdminHealth.self, "health").engine == nil)
+        let health = try decodeAdmin(AdminHealth.self, "health_engine")
+        #expect(health.engine?.ok == true && health.engine?.version == "0.1.0" && health.engine?.move?.col == 4)
+    }
+
+    @Test func bulkDeactivationShapes() throws {
+        #expect(try decodeAdmin(AdminBulkDeactivateResult.self, "bulk_deactivate").batchId == "3f9a1c2b4d5e")
+        let audit = try decodeAdmin(Paged<AdminAuditRow>.self, "audit_bulk")
+        #expect(audit.items.allSatisfy { $0.action == .bulkDeactivate })
+        #expect(audit.items[0].detail?["source"] == .string("suspect") && audit.items[0].detail?["reason"] == .null)
+        #expect(audit.items[1].detail?["reason"]?.stringValue == "signup bots" && audit.items[1].detail?["session_version"]?.stringValue == "2")
+        #expect(try jsonObject(BulkDeactivateRequest.ids(["a", "b"], reason: "x")).keys.sorted() == ["reason", "user_ids"])
+        let suspects = try jsonObject(BulkDeactivateRequest.suspects())
+        #expect(suspects.keys.sorted() == ["filter"] && suspects["filter"] as? String == "suspect")
+        #expect(AdminAuditAction.allCases.contains(.bulkDeactivate))
+    }
+
+    @Test func queryPatchAndTestMoveEncoding() throws {
+        let items = Dictionary(uniqueKeysWithValues: AdminUserQuery(verified: false, suspect: true).queryItems.map { ($0.name, $0.value ?? "") })
+        #expect(items["verified"] == "false" && items["suspect"] == "true")
+        #expect(AdminUserQuery(suspect: true).hasFilters)
+        #expect(try jsonObject(AdminUserPatch(emailVerified: true)).keys.sorted() == ["email_verified"])
+        #expect(!AdminUserPatch(emailVerified: false).isEmpty)
+        #expect(try jsonObject(AdminTestMoveRequest(boardSize: 10, deadlineMs: 500)).keys.sorted() == ["board_size", "deadline_ms"])
+        #expect(try jsonObject(AdminTestMoveRequest()).isEmpty)
+        let move = try decodeAdmin(AdminTestMove.self, "test_move_engine")
+        #expect(move.engine?.mode == "ab" && move.engine?.deadlineMs == 1500 && move.latencyMs == 212.4)
+        #expect(try decodeAdmin(AdminTestMove.self, "test_move").engine == nil)
+    }
+}
+
+@Suite("Mock admin API 2026-11 behaviour")
+struct MockAdminParityTests {
+    private func api() -> MockAdminAPI { MockAdminAPI(accounts: nil, latency: .zero) }
+
+    @Test func suspectRule() {
+        #expect(MockAdminAPI.looksSuspect(username: "qXbLmRtWcPaZ"))
+        #expect(!MockAdminAPI.looksSuspect(username: "ian"))
+        #expect(!MockAdminAPI.looksSuspect(username: "Abcdefghijkl"), "one case flip")
+        #expect(!MockAdminAPI.looksSuspect(username: "qXbLmRtWcPaZ123"), "digits")
+    }
+
+    @Test func suspectsAreSeededFilteredAndBulkDeactivated() async throws {
+        let api = api()
+        let suspects = try await api.users(AdminUserQuery(suspect: true))
+        #expect(suspects.total == 3 && suspects.items.allSatisfy { $0.isSuspect && !$0.isEmailVerified && $0.gamesPlayed == 0 })
+        let unverified = try await api.users(AdminUserQuery(verified: false))
+        #expect(unverified.total > suspects.total)
+        let first = try await api.bulkDeactivate(.suspects(reason: "wave"))
+        #expect(first.deactivated == 3 && first.skipped == 0 && first.batchId != nil)
+        let audit = try await api.userAudit(id: suspects.items[0].id, page: PageRequest())
+        #expect(audit.items.first?.action == .bulkDeactivate && audit.items.first?.detail?["batch_id"]?.stringValue == first.batchId)
+        #expect(try await api.users(AdminUserQuery(active: false)).total == 4)   // user 8 was already inactive
+        let again = try await api.bulkDeactivate(.suspects())
+        #expect(again.deactivated == 0 && again.batchId == nil)
+        // Selected ids: the caller (user 1, superadmin) and an inactive user are skipped.
+        let mixed = try await api.bulkDeactivate(.ids([MockAdminAPI.userID(1), MockAdminAPI.userID(8), MockAdminAPI.userID(5)]))
+        #expect(mixed.deactivated == 1 && mixed.skipped == 2)
+        await #expect(throws: APIError.self) { _ = try await api.bulkDeactivate(.ids([])) }
+    }
+
+    @Test func emailVerifiedPatchRoundTrips() async throws {
+        let api = api()
+        let target = try await api.users(AdminUserQuery(verified: false, suspect: false)).items[0].id
+        _ = try await api.patchUser(id: target, AdminUserPatch(emailVerified: true))
+        #expect(try await api.userOverview(id: target).user.emailVerifiedAt != nil)
+        _ = try await api.patchUser(id: target, AdminUserPatch(emailVerified: false))
+        #expect(try await api.userOverview(id: target).user.emailVerifiedAt == nil)
+    }
+
+    @Test func engineHealthCpuRowsAndTestMoveRules() async throws {
+        let api = api()
+        #expect(try await api.health(refresh: false).engine?.ok == true)
+        let cpus = try await api.cpus()
+        #expect(cpus.count == CPULevel.selectable.count + 1 && cpus.contains { $0.cpuType == "cnn" })
+        await #expect(throws: APIError.self) { _ = try await api.testMove(cpuType: "grandmaster", boardSize: 4, deadlineMs: nil) }
+        await #expect(throws: APIError.self) { _ = try await api.testMove(cpuType: "grandmaster", boardSize: 8, deadlineMs: 10) }
+        let engine = try await api.testMove(cpuType: "impossible", boardSize: 8, deadlineMs: 250)
+        #expect(engine.engine?.mode == "nn-puct" && engine.engine?.deadlineMs == 250)
+        let heuristic = try await api.testMove(cpuType: "random", boardSize: 20)
+        #expect(heuristic.engine == nil && (0..<20).contains(heuristic.row))
+        #expect(try await api.games(AdminGameQuery(cpuType: "cnn")).total > 0, "retired CNN games stay filterable")
     }
 }

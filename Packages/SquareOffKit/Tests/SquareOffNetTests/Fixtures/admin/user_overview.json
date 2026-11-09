@@ -15,7 +15,8 @@
     "session_version": 1,
     "updated_at": "2026-10-20T10:00:00",
     "oauth_provider": "google",
-    "profile_picture_url": null
+    "profile_picture_url": null,
+    "email_verified_at": "2025-03-02T09:30:00+00:00"
   },
   "stats": {
     "player_id": "00000000-0000-4000-8000-000000000002",
