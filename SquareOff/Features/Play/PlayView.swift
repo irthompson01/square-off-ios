@@ -79,8 +79,12 @@ struct PlayView: View {
                     settingPicker("Timer", selection: $setup.timer, options: PlaySetupModel.timers, label: PlaySetupModel.timerLabel)
                 }
                 if setup.mode == .cpu {
-                    settingPicker("CPU level", selection: $setup.level, options: CPULevel.allCases, disabled: cnnDisabled) { "Level \($0.number) · \($0.shortName)" }
-                    Label(CPUAvailability.footnote(kind: app.backend.configuration.kind, boardSize: setup.boardSize), systemImage: "info.circle")
+                    settingPicker("CPU level", selection: $setup.level, options: CPULevel.selectable,
+                                  disabled: CPUAvailability.unavailableLevels(boardSize: setup.boardSize)) { "Level \($0.number) · \($0.shortName)" }
+                    if let description = setup.level.description {
+                        Text(description).font(.caption).foregroundStyle(Theme.foregroundSecondary)
+                    }
+                    Label(CPUAvailability.footnote(kind: app.backend.configuration.kind, level: setup.level), systemImage: "info.circle")
                         .font(.caption)
                         .foregroundStyle(Theme.muted)
                 }
@@ -92,12 +96,9 @@ struct PlayView: View {
             .card()
         }
         .onChange(of: setup.boardSize) { _, _ in
-            if setup.level == .cnn, !cnnSelectable { setup.level = .random }
+            if !CPUAvailability.isSelectable(setup.level, boardSize: setup.boardSize) { setup.level = .random }
         }
     }
-
-    private var cnnSelectable: Bool { app.backend.supportsServerCPU(boardSize: setup.boardSize, playerCount: 2) }
-    private var cnnDisabled: Set<CPULevel> { cnnSelectable ? [] : [.cnn] }
 
     private func settingPicker<Option: Hashable>(_ title: String, selection: Binding<Option>, options: [Option],
                                                   disabled: Set<Option> = [], label: @escaping (Option) -> String) -> some View {

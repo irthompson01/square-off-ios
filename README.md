@@ -4,10 +4,10 @@ iOS / iPadOS app for Square Off. SwiftUI, iOS 18+, dark-only.
 
 Status: **design-refresh pass** on top of the server integration. The app follows the web client's design system (`square-off-react/square-off-app/docs/FRONTEND_DESIGN_SYSTEM.md`): the same tokens, Grapple + Chakra Petch Bold, the claim flip and corner spins (empty tiles stay dark on iOS), two-stroke shape draw-on, the GameScreen chrome, merged Play page, accordion rulebook, auth card, profile and stats. Every flow works against two backends, picked under Profile › Developer (debug builds) or with `-backend mock|live`:
 
-- **Mock (default):** an in-app simulated server. Stateful REST mock (accounts, guests, games, turns, stats, replays; `demo` / `password`), an in-process room server with bot opponents for online play, and a simulated Level 3. Nothing to run.
-- **Live:** the docker stack from `square-off-react` (branch `feature/ios-integration`). Real sign-in (password, Sign in with Apple, Google/GitHub), games recorded to Postgres, Level 3 (CNN) from the server, real rooms against the web client.
+- **Mock (default):** an in-app simulated server. Stateful REST mock (accounts, guests, games, turns, stats, replays; `demo` / `password`), an in-process room server with bot opponents for online play, and simulated engine tiers (levels 7–8). Nothing to run.
+- **Live:** the docker stack from `square-off-react` (branch `feature/ios-integration`). Real sign-in (password, Sign in with Apple, Google/GitHub), games recorded to Postgres, levels 7–8 (Grandmaster, Impossible) from the server's engine, real rooms against the web client.
 
-Local games (Vs Computer, Pass & Play) always play with the on-device rules and heuristics (levels 1, 2, 4, 5, 6 in `SquareOffCore/CPU`); the backend only records them and answers Level 3 (8×8, two players). An unfinished local game is saved on device and offered on Home and Play as "Continue game" (the header arrow keeps it; Leave / Home / New game discard it).
+Local games (Vs Computer, Pass & Play) always play with the on-device rules and heuristics (levels 1–6 in `SquareOffCore/CPU`); the backend only records them and answers levels 7–8 (6×6 to 12×12), which fall back to Level 6 on device when it cannot be reached. An unfinished local game is saved on device and offered on Home and Play as "Continue game" (the header arrow keeps it; Leave / Home / New game discard it).
 
 ## Run it
 
@@ -20,7 +20,7 @@ Debug shortcuts (Product › Scheme › Edit Scheme… › Run › Arguments):
 
 | Argument | Effect |
 |---|---|
-| `-demoGame cpu\|cnn\|local4\|busy\|over` | jump into a game (Level 4, Level 3 on the live server, 4-player, a busy 12×12, a finished one) |
+| `-demoGame cpu\|server\|local4\|busy\|over` | jump into a game (Level 3, Level 8 on the live server, 4-player, a busy 12×12, a finished one) |
 | `-demoScreen setup\|rules\|signin\|profile\|stats\|color\|forgot\|feedback` | open a screen or sheet (`-rulesSection <id>` with rules) |
 | `-demoSignedIn YES` | restore the mock `demo` account at launch (pair with `-demoScreen profile\|stats`) |
 | `-demoResetToken mock-reset-token-0123456789` | the reset-password sheet, as a universal link would open it |
@@ -70,7 +70,7 @@ What the store build carries, for App Review:
 - Account deletion in two taps: Profile › Account › Delete account (5.1.1(v)); Apple-linked accounts re-authorise so the server can revoke the Apple session.
 - `PrivacyInfo.xcprivacy`: no tracking, UserDefaults (CA92.1); data collected: email, name, user id (also a guest id), gameplay content, feedback — all linked to the user, none for tracking. The App Privacy answers in App Store Connect mirror that list.
 - `ITSAppUsesNonExemptEncryption = false`, category Board games, universal links for `square-off.com/guest/*` and `/reset-password` (associated domains + the AASA served by the site).
-- Review notes to include: a production demo account, "Level 3 uses our server; the other levels run on device", and that invite links open the app from a second device.
+- Review notes to include: a production demo account, "Levels 7–8 use our server; levels 1–6 run on device", and that invite links open the app from a second device.
 - Still to confirm before submitting: the licences for the Grapple font and the bundled music/SFX.
 
 ## Tests

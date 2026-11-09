@@ -6,10 +6,17 @@ import SquareOffNet
 @MainActor
 final class SessionNoticeRelay {
     weak var session: (any GamePresenting)?
+    private var postedKeys: Set<String> = []
 
     nonisolated init() {}
 
     func post(_ text: String) {
+        session?.notice = text
+    }
+
+    /// Posts once per key for the life of the relay (one game): repeated server fallbacks don't nag.
+    func postOnce(key: String, _ text: String) {
+        guard postedKeys.insert(key).inserted else { return }
         session?.notice = text
     }
 }
@@ -185,36 +192,35 @@ final class Backend {
         )
     }
 
-    /// On-device heuristics, except the CNN (server only) and, with the developer toggle on,
-    /// every level for parity testing.
+    /// On-device heuristics, except the engine tiers (levels 7–8, server only) and, with the
+    /// developer toggle on, every level for parity testing.
     func makeCPUProvider(config: GameConfig, notices: SessionNoticeRelay) -> any CPUMoveProvider {
         guard case .cpu(let level) = config.mode else { return LocalCPUMoveProvider() }
-        if level == .cnn || configuration.cpuMovesFromServer {
-            let levels: Set<CPULevel> = configuration.cpuMovesFromServer ? Set(CPULevel.allCases) : [.cnn]
+        if level.isServerOnly || configuration.cpuMovesFromServer {
+            let levels = configuration.cpuMovesFromServer ? Set(CPULevel.allCases) : Set(CPULevel.allCases.filter(\.isServerOnly))
             return ServerCPUMoveProvider(api: api, serverLevels: levels, notices: notices)
         }
         return LocalCPUMoveProvider()
     }
-
-    /// Whether Level 3 can be picked for this setup (the Keras model is 8×8, two players).
-    func supportsServerCPU(boardSize: Int, playerCount: Int) -> Bool {
-        CPUAvailability.isCNNSelectable(kind: configuration.kind, boardSize: boardSize, playerCount: playerCount)
-    }
 }
 
 nonisolated enum CPUAvailability {
-    /// The CNN model on the server is hard-coded to an 8×8 board with two seats. The mock
-    /// simulates it under the same rule so setup behaves identically on both backends.
-    static func isCNNSelectable(kind: BackendKind, boardSize: Int, playerCount: Int) -> Bool {
-        boardSize == 8 && playerCount == 2
+    /// The engine tiers play 6×6 to 12×12 (`src/ai/state.py`); every other level plays any board.
+    static func isSelectable(_ level: CPULevel, boardSize: Int) -> Bool {
+        level.supportedBoardSizes.contains(boardSize)
     }
 
-    static func footnote(kind: BackendKind, boardSize: Int) -> String {
-        if boardSize != 8 { return "Level 3 (CNN) only plays on 8×8 boards." }
+    /// The levels the picker greys out for a board size.
+    static func unavailableLevels(boardSize: Int) -> Set<CPULevel> {
+        Set(CPULevel.selectable.filter { !isSelectable($0, boardSize: boardSize) })
+    }
+
+    static func footnote(kind: BackendKind, level: CPULevel) -> String {
+        guard level.isServerOnly else { return "Levels 1–6 play on this device." }
         switch kind {
-        case .mock: return "Level 3 (CNN) is simulated by the in-app server. Switch to a real server in Profile › Developer for the real model."
-        case .local: return "Level 3 (CNN) runs on the local server."
-        case .production: return "Level 3 (CNN) runs on the Square Off server."
+        case .mock: return "Levels 7–8 are simulated by the in-app server (6×6 to 12×12). Switch to a real server in Profile › Developer for the real engine."
+        case .local: return "Levels 7–8 run on the local server (6×6 to 12×12). If it can't be reached they play Level 6 on this device."
+        case .production: return "Levels 7–8 run on the Square Off server (6×6 to 12×12). If it can't be reached they play Level 6 on this device."
         }
     }
 }

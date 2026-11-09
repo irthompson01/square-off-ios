@@ -56,7 +56,7 @@ struct ServerGameRecorderTests {
         await session.start()
         try await settle()
         let start = try #require(await api.startRequests.first)
-        #expect(start.players.map(\.playerId) == ["user-uuid", "104"])
+        #expect(start.players.map(\.playerId) == ["user-uuid", "103"])   // SpyAPI: 100 + level number (max-min is level 3)
         #expect(start.cpuType == "max-min")
         #expect(await api.calls.contains("cpuPlayer"))
         #expect(!(await api.calls.contains("createGuest")))
@@ -296,11 +296,15 @@ struct AccountStoreTests {
 }
 
 struct ConfigurationTests {
-    @Test func cnnIsOnlySelectableOn8x8WithTwoPlayers() {
-        #expect(CPUAvailability.isCNNSelectable(kind: .production, boardSize: 8, playerCount: 2))
-        #expect(CPUAvailability.isCNNSelectable(kind: .mock, boardSize: 8, playerCount: 2))
-        #expect(!CPUAvailability.isCNNSelectable(kind: .local, boardSize: 10, playerCount: 2))
-        #expect(!CPUAvailability.isCNNSelectable(kind: .local, boardSize: 8, playerCount: 3))
+    @Test func engineTiersPlaySixToTwelveOnly() {
+        #expect(CPUAvailability.isSelectable(.impossible, boardSize: 8))
+        #expect(CPUAvailability.isSelectable(.grandmaster, boardSize: 12))
+        #expect(!CPUAvailability.isSelectable(.grandmaster, boardSize: 4))
+        #expect(CPUAvailability.isSelectable(.maxMinPlus, boardSize: 4))
+        #expect(CPUAvailability.unavailableLevels(boardSize: 5) == [.grandmaster, .impossible])
+        #expect(CPUAvailability.unavailableLevels(boardSize: 8).isEmpty)
+        #expect(CPUAvailability.footnote(kind: .production, level: .impossible).contains("Square Off server"))
+        #expect(CPUAvailability.footnote(kind: .production, level: .maxMin) == "Levels 1–6 play on this device.")
     }
 
     @Test func launchArgumentBeatsThePersistedBackend() {
@@ -456,5 +460,58 @@ struct GuestSessionTests {
         #expect(configuration.httpShouldSetCookies == false)
         #expect(configuration.httpCookieAcceptPolicy == .never)
         #expect(configuration.httpCookieStorage == nil)
+    }
+}
+
+@MainActor
+struct EngineTierTests {
+    private func game(timer: Int = 0) -> Game {
+        var game = Game(boardSize: 8, players: [
+            PlayerState(id: 1, name: "Me", colorHex: "#0583D2"),
+            PlayerState(id: 2, name: "CPU", colorHex: "#FF3131", isCPU: true, cpuLevel: .impossible),
+        ], timerSeconds: timer)
+        try! game.place(at: Cell(row: 0, col: 0))
+        return game
+    }
+
+    @Test func theBackendSendsOnlyTheEngineTiersToTheServer() {
+        let backend = Backend.test(api: SpyAPI())
+        let me = [SetupPlayer(id: 1, name: "Me", colorHex: "#0583D2")]
+        #expect(backend.makeCPUProvider(config: GameConfig(mode: .cpu(.impossible), boardSize: 8, timerSeconds: 0, players: me), notices: SessionNoticeRelay()) is ServerCPUMoveProvider)
+        #expect(backend.makeCPUProvider(config: GameConfig(mode: .cpu(.grandmaster), boardSize: 8, timerSeconds: 0, players: me), notices: SessionNoticeRelay()) is ServerCPUMoveProvider)
+        #expect(backend.makeCPUProvider(config: GameConfig(mode: .cpu(.maxMinPlus), boardSize: 8, timerSeconds: 0, players: me), notices: SessionNoticeRelay()) is LocalCPUMoveProvider)
+        let all = Backend.test(api: SpyAPI(), cpuMovesFromServer: true)
+        #expect(all.makeCPUProvider(config: GameConfig(mode: .cpu(.random), boardSize: 8, timerSeconds: 0, players: me), notices: SessionNoticeRelay()) is ServerCPUMoveProvider)
+    }
+
+    @Test func theTimerIsForwardedAndAnEngineFallbackIsMentionedOnce() async throws {
+        let api = SpyAPI()
+        await api.setCPUMoveReply(CPUMoveResponse(row: 4, col: 4, engine: CPUEngineInfo(mode: "fallback", fallback: true, fallbackCpuType: "max-min-io")))
+        let notices = SessionNoticeRelay()
+        let session = GameSession(config: GameConfig(mode: .cpu(.impossible), boardSize: 8, timerSeconds: 20, players: [SetupPlayer(id: 1, name: "Me", colorHex: "#0583D2")]))
+        notices.session = session
+        let provider = ServerCPUMoveProvider(api: api, serverLevels: [.impossible], notices: notices)
+        #expect(await provider.move(for: game(timer: 20), level: .impossible) == Cell(row: 4, col: 4))
+        #expect(await api.cpuMoveRequests.first?.timer == 20)
+        #expect(await api.cpuMoveRequests.first?.cpuType == "impossible")
+        #expect(session.notice == "Server engine busy, playing a simpler move")
+        session.notice = nil
+        _ = await provider.move(for: game(timer: 20), level: .impossible)
+        #expect(session.notice == nil, "once per game")
+        #expect(await api.cpuMoveRequests.last?.timer == 20)
+        _ = await provider.move(for: game(), level: .impossible)
+        #expect(await api.cpuMoveRequests.last?.timer == nil)
+    }
+
+    @Test func anUnreachableEngineTierPlaysLevelSixOnDevice() async throws {
+        let api = SpyAPI()
+        await api.setFailing(["cpuMove"])
+        let notices = SessionNoticeRelay()
+        let session = GameSession(config: GameConfig(mode: .cpu(.grandmaster), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Me", colorHex: "#0583D2")]))
+        notices.session = session
+        let provider = ServerCPUMoveProvider(api: api, serverLevels: [.grandmaster], notices: notices)
+        let cell = await provider.move(for: game(), level: .grandmaster)
+        #expect(game().board[cell] == nil)
+        #expect(session.notice == "Level 7 unavailable, using Level 6 on device")
     }
 }

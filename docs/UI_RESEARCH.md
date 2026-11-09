@@ -44,16 +44,18 @@ Source: `square-off-react/square-off-app/hero-client`
 
 ## CPU opponents
 
-**v1 decision:** keep all 6 levels with the web's numbering. The app calls `POST /cpu_move` with the same payload as `modelAPI.cpuMove` (`game_id`, `board_state`, `current_player`, `game_players`, `cpu_type`).
+**v1 decision (updated 2026-11-08):** the web's eight-level ladder from the 2026-10-29 AI engine release. Levels 1–6 are heuristics ported to `SquareOffCore/CPU` and play on device; 7–8 are the server's Rust/ONNX engine (`POST /cpu_move`, same payload as `modelAPI.cpuMove` plus `timer`), 6×6 to 12×12 only, and fall back to Level 6 on device when the server can't be reached (the server itself falls back to max-min-io with `engine.fallback` when its engine is down). The CNN is retired: `cnn` stays in `CPULevel` so old games decode, and plays as max-min.
 
-| Level | `cpu_type` |
-| --- | --- |
-| 1 | `random` |
-| 2 | `max-random` |
-| 3 | `cnn` |
-| 4 | `max-min` |
-| 5 | `max-min-optimal` |
-| 6 | `max-min-io` |
+| Level | `cpu_type` | Where |
+| --- | --- | --- |
+| 1 | `random` | device |
+| 2 | `max-random` | device |
+| 3 | `max-min` | device |
+| 4 | `max-min-plus` | device (0.65 optimal pool, else max-min) |
+| 5 | `max-min-optimal` | device |
+| 6 | `max-min-io` | device |
+| 7 | `grandmaster` | server (alpha-beta, exact endgame) |
+| 8 | `impossible` | server (neural network + search) |
 
 **Blocker for Level 3, on web and iOS alike:** the server's `CNN_MODEL = load_model(...)` is commented out in `model.py`, so `cpu_type: "cnn"` currently returns a 500 error. It's also hardcoded to 8×8 boards and 2 players (`np.zeros((8, 8, 2))`). Before launch, the server needs one of two fixes:
 - re-enable the model, and either restrict Level 3 to 8×8 two-player games in setup or return a clean 4xx error;

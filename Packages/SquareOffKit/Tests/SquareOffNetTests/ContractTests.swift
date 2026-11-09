@@ -44,6 +44,15 @@ struct DecodingTests {
         #expect(!verified.alreadyVerified)
     }
 
+    @Test func engineFallbackMoveDecodes() throws {
+        // Captured from a server without its engine container: level 8 answered by max-min-io.
+        let move = try JSONDecoder().decode(CPUMoveResponse.self, from: fixture("cpu_move_fallback_response"))
+        #expect(move.cell == Cell(row: 3, col: 4))
+        #expect(move.isEngineFallback && move.engine?.mode == "fallback" && move.engine?.fallbackCpuType == "max-min-io")
+        let plain = try JSONDecoder().decode(CPUMoveResponse.self, from: fixture("cpu_move_response"))
+        #expect(!plain.isEngineFallback && plain.engine == nil)
+    }
+
     @Test func sessionErrorBodies() throws {
         func error(_ name: String, status: Int) throws -> APIError {
             .http(status: status, body: String(decoding: try fixture(name), as: UTF8.self))
@@ -68,7 +77,8 @@ struct DecodingTests {
         let response = try JSONDecoder().decode(StartGameResponse.self, from: fixture("start_game_response"))
         #expect(response.gameId > 0)
         #expect(response.participants.map(\.slot) == [0, 1])
-        #expect(response.participants[1].playerId.allSatisfy(\.isNumber), "the CPU seat echoes the definition id")
+        let cpuSeatID = response.participants[1].playerId
+        #expect(Int(cpuSeatID) != nil, "the CPU seat echoes the definition id")
         // Pass & Play: the caller's seat plus two id-less seats, each given a minted guest.
         let seats = try JSONDecoder().decode(StartGameResponse.self, from: fixture("start_game_pass_and_play"))
         #expect(seats.participants.map(\.slot) == [0, 1, 2])
@@ -128,7 +138,11 @@ struct EncodingTests {
             try game.place(at: Cell(row: r, col: c))
         }
         let body = try jsonObject(CPUMoveRequest(gameID: 7, game: game))
-        #expect(Set(body.keys) == ["game_id", "board_state", "current_player", "game_players", "cpu_type"])
+        #expect(Set(body.keys) == ["game_id", "board_state", "current_player", "game_players", "cpu_type", "timer"])
+        #expect(body["timer"] is NSNull, "no turn timer is sent as null, like the web")
+        let timed = Game(boardSize: 8, players: cpuGame().players, timerSeconds: 20)
+        let timedBody = try jsonObject(CPUMoveRequest(gameID: 1, game: timed))
+        #expect(timedBody["timer"] as? Int == 20)
         let board = try #require(body["board_state"] as? [[Any]])
         #expect(board.count == 8)
         #expect((board[0][0] as? [String: Any])?["id"] as? Int == 1)

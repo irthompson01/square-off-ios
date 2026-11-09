@@ -1,4 +1,5 @@
 import Charts
+import SquareOffCore
 import SquareOffNet
 import SwiftUI
 
@@ -206,16 +207,9 @@ struct StatsView: View {
         }
     }
 
+    /// The web's stats-filter labels; old rows may spell types with underscores.
     static func cpuTypeLabel(_ type: String) -> String {
-        switch type {
-        case "random": "Random"
-        case "max_random", "max-random": "Max-Random"
-        case "cnn": "CNN"
-        case "max-min", "max_min": "Max-Min"
-        case "max-min-optimal": "Max-Min-Optimal"
-        case "max-min-io": "Max-Min-IO"
-        default: type
-        }
+        CPULevel(rawValue: type.replacingOccurrences(of: "_", with: "-"))?.statsLabel ?? type
     }
 
     // MARK: History

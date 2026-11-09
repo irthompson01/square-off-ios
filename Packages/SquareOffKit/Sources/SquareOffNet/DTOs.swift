@@ -441,6 +441,8 @@ public struct CPUMoveRequest: Codable, Sendable, Equatable {
     public let currentPlayer: CPUMovePlayer
     public let gamePlayers: [CPUMovePlayer]
     public let cpuType: String
+    /// The turn timer in seconds, nil without one: the engine tiers keep their search inside it.
+    public let timer: Int?
 
     public init(gameID: Int, game: Game) {
         gameId = gameID
@@ -451,9 +453,21 @@ public struct CPUMoveRequest: Codable, Sendable, Equatable {
         currentPlayer = CPUMovePlayer(game.currentPlayer)
         gamePlayers = game.players.map(CPUMovePlayer.init)
         cpuType = game.currentPlayer.cpuLevel?.cpuType ?? CPULevel.random.cpuType
+        timer = game.timerSeconds > 0 ? game.timerSeconds : nil
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(gameId, forKey: .gameId)
+        try c.encode(boardState, forKey: .boardState)
+        try c.encode(currentPlayer, forKey: .currentPlayer)
+        try c.encode(gamePlayers, forKey: .gamePlayers)
+        try c.encode(cpuType, forKey: .cpuType)
+        try c.encode(timer, forKey: .timer)   // explicit null without a timer, like the web
     }
 
     enum CodingKeys: String, CodingKey {
+        case timer
         case gameId = "game_id"
         case boardState = "board_state"
         case currentPlayer = "current_player"
@@ -462,16 +476,40 @@ public struct CPUMoveRequest: Codable, Sendable, Equatable {
     }
 }
 
+/// What the engine tiers (levels 7–8) report alongside the move. `fallback` means the engine was
+/// down or the board unsupported and the server played `fallbackCpuType` (max-min-io) instead.
+public struct CPUEngineInfo: Codable, Sendable, Equatable {
+    public let mode: String?
+    public let fallback: Bool?
+    public let reason: String?
+    public let fallbackCpuType: String?
+
+    public init(mode: String?, fallback: Bool?, reason: String? = nil, fallbackCpuType: String? = nil) {
+        self.mode = mode
+        self.fallback = fallback
+        self.reason = reason
+        self.fallbackCpuType = fallbackCpuType
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case mode, fallback, reason
+        case fallbackCpuType = "fallback_cpu_type"
+    }
+}
+
 public struct CPUMoveResponse: Codable, Sendable, Equatable {
     public let row: Int
     public let col: Int
+    public let engine: CPUEngineInfo?
 
-    public init(row: Int, col: Int) {
+    public init(row: Int, col: Int, engine: CPUEngineInfo? = nil) {
         self.row = row
         self.col = col
+        self.engine = engine
     }
 
     public var cell: Cell { Cell(row: row, col: col) }
+    public var isEngineFallback: Bool { engine?.fallback == true }
 }
 
 // MARK: Auth (added for the server-integration pass)

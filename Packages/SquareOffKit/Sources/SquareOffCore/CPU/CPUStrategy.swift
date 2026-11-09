@@ -1,23 +1,30 @@
-/// On-device port of the server's heuristic opponents (`server/src/routes/model.py`).
+/// On-device port of the server's heuristic opponents (`server/src/ai/players.py`).
 ///
 /// Every heuristic is a one-move lookahead that ends in exactly one uniform random pick over an
 /// ordered list of candidates, so `candidates(in:)` is deterministic and `chooseMove` is just
-/// `randomElement`. Level 3 (CNN) is a Keras model and has no on-device strategy.
+/// `randomElement`. The one exception is Max-Min Plus, which first picks *which* pool to draw
+/// from (`maxMinPlusProbability`). Levels 7 and 8 are the server's engine and have no on-device
+/// strategy; the retired CNN has none either (it plays as max-min).
 public enum CPUStrategy: Sendable, Hashable, CaseIterable {
     case random
     case maxRandom
     case maxMin
+    case maxMinPlus
     case maxMinOptimal
     case maxMinIO
+
+    /// `MAX_MIN_PLUS_P`: how often Max-Min Plus plays the optimal pool instead of max-min's.
+    public static let maxMinPlusProbability = 0.65
 
     public init?(level: CPULevel) {
         switch level {
         case .random: self = .random
         case .maxRandom: self = .maxRandom
         case .maxMin: self = .maxMin
+        case .maxMinPlus: self = .maxMinPlus
         case .maxMinOptimal: self = .maxMinOptimal
         case .maxMinIO: self = .maxMinIO
-        case .cnn: return nil
+        case .grandmaster, .impossible, .cnn: return nil
         }
     }
 
@@ -26,6 +33,7 @@ public enum CPUStrategy: Sendable, Hashable, CaseIterable {
         case .random: .random
         case .maxRandom: .maxRandom
         case .maxMin: .maxMin
+        case .maxMinPlus: .maxMinPlus
         case .maxMinOptimal: .maxMinOptimal
         case .maxMinIO: .maxMinIO
         }
@@ -37,12 +45,19 @@ public enum CPUStrategy: Sendable, Hashable, CaseIterable {
     }
 
     public func chooseMove(in game: Game, using rng: inout some RandomNumberGenerator) -> Cell {
-        let options = candidates(in: game)
+        let options: [Cell]
+        if self == .maxMinPlus {
+            let optimal = Double.random(in: 0..<1, using: &rng) < Self.maxMinPlusProbability
+            options = (optimal ? CPUStrategy.maxMinOptimal : .maxMin).candidates(in: game)
+        } else {
+            options = candidates(in: game)
+        }
         precondition(!options.isEmpty, "No legal move: the game is over")
         return options.randomElement(using: &rng)!
     }
 
-    /// The exact list the server would call `random.choice` on, in row-major order.
+    /// The exact list the server would call `random.choice` on, in row-major order (for
+    /// Max-Min Plus: everything either of its two pools can return).
     /// Precondition: `!game.isOver`.
     public func candidates(in game: Game) -> [Cell] {
         let board = game.board
@@ -52,6 +67,12 @@ public enum CPUStrategy: Sendable, Hashable, CaseIterable {
         switch self {
         case .random:
             return empty
+
+        case .maxMinPlus:
+            var pool = CPUStrategy.maxMinOptimal.candidates(in: game)
+            let seen = Set(pool)
+            pool += CPUStrategy.maxMin.candidates(in: game).filter { !seen.contains($0) }
+            return pool.sorted { ($0.row, $0.col) < ($1.row, $1.col) }
 
         case .maxRandom:
             // `max_random`: best own gain, ties broken by multiplier (with the server's quirk that an
