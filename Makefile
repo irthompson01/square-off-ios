@@ -101,6 +101,6 @@ release-check: archive
 	@echo "--- entitlements"; codesign -d --entitlements :- $(ARCHIVE_APP) 2>/dev/null | grep -E 'associated-domains|applesignin|square-off' || echo "MISSING entitlements"
 	@echo "--- entitlements sanity"; ENT=$$(codesign -d --entitlements :- $(ARCHIVE_APP) 2>/dev/null); \
 	  if echo "$$ENT" | grep -q 'mode=developer'; then echo "FAIL: Debug entitlements (mode=developer) in a Release archive"; exit 1; fi; \
-	  WWW=$$(echo "$$ENT" | grep -c 'www.square-off.com'); test "$$WWW" = 2 && echo "www.square-off.com applinks + webcredentials present" || { echo "FAIL: expected 2 www.square-off.com entries, got $$WWW"; exit 1; }
+	  WWW=$$(echo "$$ENT" | grep -o 'www.square-off.com' | wc -l | tr -d ' '); test "$$WWW" = 2 && echo "www.square-off.com applinks + webcredentials present" || { echo "FAIL: expected 2 www.square-off.com entries, got $$WWW"; exit 1; }
 	@echo "--- icon alpha (expect: no)"; sips -g hasAlpha $(ICON) | tail -1
 	@echo "--- privacy manifest"; test -f $(ARCHIVE_APP)/PrivacyInfo.xcprivacy && echo "PrivacyInfo.xcprivacy present" || echo "MISSING PrivacyInfo.xcprivacy"
