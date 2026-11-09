@@ -274,7 +274,14 @@ Keep the dependency list small. None of these are needed for the wireframe phase
 - LAN testing of the docker stack: the Debug-only `backendAPIBaseURL` default; production needs no setup.
 - Offline sync queue: **not before launch.** The recorder stops after the first failed `/turns` and never retries, so duplicate turns can't happen today; idempotency keys and a client `played_at` are server features to add together with the queue.
 
+**Resolved for launch (2026-11-08, `feature/web-parity`, against the 2026-11-05 server)**
+- Player sessions: every game, CPU, matcher and socket call carries a token. The device owns a 30-day guest session (`POST /create_guest`, Keychain, renewed under 20 days left, re-minted silently on 401 `session_required`); the user's token wins while signed in; a dead *user* token is still a sign-out, a dead guest token never is. The shared URLSession keeps no cookies because the server reads its cookie before the bearer header.
+- Seats belong to sessions: `/start` sends the caller's id (or nil) and nil for Pass & Play partners, adopts the minted ids by `slot`; the socket authenticates on the handshake and `already_seated` / `seat_taken` / `not_your_seat` are handled; the host's session is the room clock (the server only accepts `TURN_COMPLETE` from the host).
+- Sign-up: pending until the emailed link is opened (`/verify-email` universal link → `VerifyEmailView`); production needs a Turnstile token, rendered by `square-off.com/turnstile` in a `WKWebView`; username/password rules checked on device.
+- CPU ladder: eight levels, 7–8 on the server (see "CPU opponents" above).
+
 **Still open (after launch)**
-- Server-side turn timer (the host skips an absent player's turn from the client).
+- Server-side turn timer for human hosts (bot-hosted mock rooms already have one): today the host's device is the room clock, so a backgrounded host stalls a guest's expiry until the stall guard.
+- Sliding renewal of the signed-in user's token (`/check-auth`); the guest session already slides.
 - "Your turn" push notifications (APNs), analytics, StoreKit: out of v1, which keeps the privacy manifest to UserDefaults + account data. Don't ship the crypto-support modal.
 - Licenses: Grapple font and the music / SFX are bundled from the web client (Chakra Petch is OFL); confirm before submitting.
