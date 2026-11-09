@@ -42,17 +42,52 @@ public struct LoginRequest: Codable, Sendable, Equatable {
     }
 }
 
-public struct RegisterRequest: Codable, Sendable, Equatable {
+/// What the server enforces on sign-up (`UserRegister` in `routes/auth.py`), checked on device
+/// first so a typo never costs a round trip (or a single-use captcha token).
+public enum AccountRules {
+    public static var usernamePattern: Regex<Substring> { #/^[A-Za-z0-9_.-]{3,32}$/# }
+    public static let passwordLength = 8...128
+    public static let usernameHint = "3–32 letters, numbers, underscores, dots or dashes."
+
+    public static func isValidUsername(_ username: String) -> Bool {
+        username.wholeMatch(of: usernamePattern) != nil
+    }
+
+    public static func isValidPassword(_ password: String) -> Bool {
+        passwordLength.contains(password.count)
+    }
+}
+
+/// `POST /register`. `website` is the honeypot (always empty; a bot that fills it gets a fake
+/// 201), `turnstile_token` the Cloudflare Turnstile proof production requires.
+public struct RegisterRequest: Encodable, Sendable, Equatable {
     public let username: String
     public let email: String
     public let password: String
     public let registered: Bool
+    public let turnstileToken: String?
 
-    public init(username: String, email: String, password: String) {
+    public init(username: String, email: String, password: String, turnstileToken: String? = nil) {
         self.username = username
         self.email = email
         self.password = password
         self.registered = true
+        self.turnstileToken = turnstileToken
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(username, forKey: .username)
+        try c.encode(email, forKey: .email)
+        try c.encode(password, forKey: .password)
+        try c.encode(registered, forKey: .registered)
+        try c.encode("", forKey: .website)
+        try c.encodeIfPresent(turnstileToken, forKey: .turnstileToken)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case username, email, password, registered, website
+        case turnstileToken = "turnstile_token"
     }
 }
 

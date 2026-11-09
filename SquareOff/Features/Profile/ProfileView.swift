@@ -9,7 +9,7 @@ struct ProfileView: View {
     @AppStorage(MusicPlayer.defaultsKey) private var musicEnabled = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("starsEnabled") private var starsEnabled = true
-    @State private var signIn: SignInView.Mode?
+    @State private var signIn: SignInRoute?
     @State private var isEditing = false
     @State private var firstName = ""
     @State private var lastName = ""
@@ -60,7 +60,7 @@ struct ProfileView: View {
         .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $signIn) { mode in SignInView(initialMode: mode) }
+        .sheet(item: $signIn) { route in SignInView(route: route) }
         .sheet(isPresented: $showsFeedback) { FeedbackView() }
         .sheet(isPresented: $showsForgotPassword) { ForgotPasswordView().presentationBackground(Theme.overlay) }
         .alert("Delete your account?", isPresented: $confirmDelete) {
@@ -76,9 +76,9 @@ struct ProfileView: View {
             Text("You'll be signed out on this device and your account can't be recovered.")
         }
         .onAppear {
-            if app.pendingSignIn {
-                app.pendingSignIn = false
-                signIn = .signIn
+            if let route = app.pendingSignIn {
+                app.pendingSignIn = nil
+                signIn = route
             }
             if app.pendingForgotPassword {
                 app.pendingForgotPassword = false

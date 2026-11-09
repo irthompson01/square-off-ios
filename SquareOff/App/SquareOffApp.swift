@@ -53,8 +53,10 @@ struct SquareOffApp: App {
     #endif
 
     /// Debug launch arguments for screenshots / quick iteration:
-    /// `-demoGame cpu|server|local4|busy|over`, `-demoScreen rules|setup|stats|profile|color|signin|forgot|feedback`
-    /// (`-rulesSection <id>` with rules), `-demoResetToken <token>`, `-demoOnline host|guest|spectator|quickmatch` and `-backend production|local|mock`.
+    /// `-demoGame cpu|server|local4|busy|over`,
+    /// `-demoScreen rules|setup|stats|profile|color|signin|register|checkEmail|verify|resend|forgot|feedback`
+    /// (`-rulesSection <id>` with rules), `-demoResetToken <token>`, `-demoVerifyToken <token>`,
+    /// `-demoOnline host|guest|spectator|quickmatch` and `-backend production|local|mock`.
     private func openDemoGameIfRequested() {
         #if DEBUG
         let players = (1...4).map { SetupPlayer(id: $0, name: "Player \($0)", colorHex: Theme.playerColors[$0 - 1]) }
@@ -70,7 +72,19 @@ struct SquareOffApp: App {
             app.pendingColorPicker = true
         case "signin":
             app.selectedTab = .profile
-            app.pendingSignIn = true
+            app.pendingSignIn = .signIn
+        case "register":
+            app.selectedTab = .profile
+            app.pendingSignIn = .register
+        case "checkEmail":
+            app.selectedTab = .profile
+            app.pendingSignIn = .checkEmail("you@example.com")
+        case "verify":
+            // The confirmation link as a universal link would open it; the mock's token verifies
+            // the newest pending sign-up (register one first for the success path).
+            app.pendingEmailVerification = VerifyToken(token: MockSquareOffAPI.demoVerifyToken)
+        case "resend":
+            app.pendingResendVerification = true
         case "forgot":
             app.selectedTab = .profile
             app.pendingForgotPassword = true
@@ -82,6 +96,10 @@ struct SquareOffApp: App {
         // `-demoResetToken <token>`: the reset sheet as a universal link would open it.
         if let token = UserDefaults.standard.string(forKey: "demoResetToken") {
             app.pendingPasswordReset = ResetToken(token: token)
+        }
+        // `-demoVerifyToken <token>`: the verification sheet (a bad token shows the resend form).
+        if let token = UserDefaults.standard.string(forKey: "demoVerifyToken") {
+            app.pendingEmailVerification = VerifyToken(token: token)
         }
         if let online = UserDefaults.standard.string(forKey: "demoOnline") {
             app.pendingPlayRoute = .play
@@ -191,6 +209,16 @@ struct RootView: View {
         }
         .sheet(item: $app.pendingPasswordReset) { reset in
             ResetPasswordView(token: reset.token)
+                .environment(app)
+                .presentationBackground(Theme.overlay)
+        }
+        .sheet(item: $app.pendingEmailVerification) { verification in
+            VerifyEmailView(token: verification.token)
+                .environment(app)
+                .presentationBackground(Theme.overlay)
+        }
+        .sheet(isPresented: $app.pendingResendVerification) {
+            ResendVerificationView(prefill: "")
                 .environment(app)
                 .presentationBackground(Theme.overlay)
         }

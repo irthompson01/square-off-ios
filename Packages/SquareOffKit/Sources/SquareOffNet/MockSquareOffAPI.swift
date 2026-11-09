@@ -33,6 +33,8 @@ public actor MockSquareOffAPI: SquareOffAPI {
     }
     /// The one reset token the mock ever issues (`squareoff://reset-password?token=…` in demos).
     public static let demoResetToken = "mock-reset-token-0123456789"
+    /// The one verification token the mock ever issues: it verifies the newest pending sign-up.
+    public static let demoVerifyToken = "mock-verify-token-0123456789"
 
     struct User: Sendable {
         let id: String
@@ -44,6 +46,8 @@ public actor MockSquareOffAPI: SquareOffAPI {
         var color: String
         let createdAt: String
         var appRole = "standard"
+        /// Password sign-ups start unverified; `/login` refuses them until the emailed link is used.
+        var emailVerified = true
 
         var profile: ProfileResponse {
             ProfileResponse(id: id, username: username, email: email, firstName: firstName,
@@ -170,27 +174,40 @@ public actor MockSquareOffAPI: SquareOffAPI {
         guard let user = users.first(where: { $0.username.lowercased() == key || $0.email.lowercased() == key }),
               user.password == request.password
         else { throw APIError.http(status: 401, body: #"{"detail":"Invalid credentials"}"#) }
+        guard user.emailVerified else { throw APIError.http(status: 403, body: #"{"detail":"email_unverified"}"#) }
         let token = Self.token(for: user.username)
         sessionToken = token
         return LoginResponse(message: "Login successful", accessToken: token)
     }
 
+    /// The 2026-11 server: username 3–32 `[A-Za-z0-9_.-]`, password 8–128 (422 like pydantic),
+    /// disposable domains refused, duplicates 409, and the account stays pending until the
+    /// emailed link is used (`demoVerifyToken` here). No token comes back.
     public func register(_ request: RegisterRequest) async throws -> RegisterResponse {
         try await pause()
         ensureSeeded()
         let username = request.username.trimmingCharacters(in: .whitespaces)
-        let email = request.email.trimmingCharacters(in: .whitespaces)
-        guard !username.isEmpty, email.contains("@"), request.password.count >= 1 else {
-            throw APIError.http(status: 422, body: #"{"detail":"Invalid registration"}"#)
+        let email = request.email.trimmingCharacters(in: .whitespaces).lowercased()
+        var problems: [String] = []
+        if !AccountRules.isValidUsername(username) { problems.append("String should match pattern '^[A-Za-z0-9_.-]{3,32}$'") }
+        if !email.contains("@") { problems.append("value is not a valid email address") }
+        if !AccountRules.isValidPassword(request.password) { problems.append("String should have at least 8 characters") }
+        guard problems.isEmpty else {
+            let detail = problems.map { #"{"msg":"\#($0)"}"# }.joined(separator: ",")
+            throw APIError.http(status: 422, body: #"{"detail":[\#(detail)]}"#)
         }
-        guard !users.contains(where: { $0.username.lowercased() == username.lowercased() || $0.email.lowercased() == email.lowercased() }) else {
-            throw APIError.http(status: 400, body: #"{"detail":"Username or email already registered"}"#)
+        guard !email.hasSuffix("@mailinator.com") else {
+            throw APIError.http(status: 400, body: #"{"detail":"email_domain_blocked"}"#)
         }
-        let user = User(id: "mock-user-\(UUID().uuidString.lowercased())", username: username, email: email,
+        guard !users.contains(where: { $0.username.lowercased() == username.lowercased() || $0.email.lowercased() == email }) else {
+            throw APIError.http(status: 409, body: #"{"detail":"already_registered"}"#)
+        }
+        var user = User(id: "mock-user-\(UUID().uuidString.lowercased())", username: username, email: email,
                         password: request.password, firstName: "", lastName: "", color: "#0583D2",
                         createdAt: Self.timestamp(Date()))
+        user.emailVerified = false
         users.append(user)
-        return RegisterResponse(message: "User registered successfully", playerId: user.id)
+        return RegisterResponse(message: "Check your email to verify your account", playerId: user.id, verificationRequired: true)
     }
 
     public func logout() async throws {
@@ -202,9 +219,19 @@ public actor MockSquareOffAPI: SquareOffAPI {
         return (try? currentUser()) != nil
     }
 
+    /// `demoVerifyToken` verifies the newest pending account; used again it answers
+    /// `already_verified`. Anything else is 400 `verify_token_invalid`.
     public func verifyEmail(token: String) async throws -> VerifyEmailResponse {
         try await pause()
-        throw APIError.http(status: 400, body: #"{"detail":"verify_token_invalid"}"#)
+        ensureSeeded()
+        guard token == Self.demoVerifyToken else {
+            throw APIError.http(status: 400, body: #"{"detail":"verify_token_invalid"}"#)
+        }
+        if let index = users.lastIndex(where: { !$0.emailVerified }) {
+            users[index].emailVerified = true
+            return VerifyEmailResponse(message: "Email verified", alreadyVerified: false)
+        }
+        return VerifyEmailResponse(message: "Email already verified", alreadyVerified: true)
     }
 
     public func resendVerification(email: String) async throws -> MessageResponse {

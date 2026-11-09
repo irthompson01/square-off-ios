@@ -264,3 +264,21 @@ struct LiveContractTests {
         }
     }
 }
+
+@Suite("Sign-up request body")
+struct RegisterEncodingTests {
+    @Test func registerKeysMatchTheWebForm() throws {
+        let plain = try jsonObject(RegisterRequest(username: "u", email: "e@x.y", password: "p"))
+        #expect(Set(plain.keys) == ["username", "email", "password", "registered", "website"])
+        #expect(plain["website"] as? String == "" && plain["registered"] as? Bool == true)
+        let withCaptcha = try jsonObject(RegisterRequest(username: "u", email: "e@x.y", password: "p", turnstileToken: "tok"))
+        #expect(withCaptcha["turnstile_token"] as? String == "tok")
+    }
+
+    @Test func accountRulesMatchTheServer() {
+        #expect(AccountRules.isValidUsername("ian_t.01-x"))
+        #expect(!AccountRules.isValidUsername("ab") && !AccountRules.isValidUsername("has space") && !AccountRules.isValidUsername(String(repeating: "a", count: 33)))
+        #expect(AccountRules.isValidPassword(String(repeating: "p", count: 8)) && !AccountRules.isValidPassword("short"))
+        #expect(!AccountRules.isValidPassword(String(repeating: "p", count: 129)))
+    }
+}

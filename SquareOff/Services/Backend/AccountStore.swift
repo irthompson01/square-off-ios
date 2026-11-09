@@ -25,6 +25,21 @@ enum AuthError: LocalizedError, Equatable {
     case resetLinkInvalid
     /// 422 from a password endpoint, with the server's reason.
     case weakPassword(String)
+    /// 403 `email_unverified`: a password account whose emailed link hasn't been opened yet.
+    case emailUnverified
+    /// 400 `captcha_failed` / 503 `captcha_unavailable` from `/register` (Cloudflare Turnstile).
+    case captchaFailed
+    case captchaUnavailable
+    /// 400 `email_domain_blocked` (disposable address) / `email_domain_unreachable` (no mail server).
+    case emailDomainBlocked
+    case emailDomainUnreachable
+    /// `POST /verify-email` refused the token.
+    case verifyLinkExpired
+    case verifyLinkInvalid
+    /// 401 `account_required`: a guest session on a route that needs an account.
+    case signInRequired
+    /// 422 outside the password routes, with the server's reason.
+    case invalidInput(String)
     case server(status: Int)
     /// A provider sign-in that came back with `?error=<code>` (web `oauth-errors.ts` wording).
     case oauth(String)
@@ -41,6 +56,15 @@ enum AuthError: LocalizedError, Equatable {
         case .accountDisabled: "This account has been disabled. Contact support if you think this is a mistake."
         case .resetLinkInvalid: "This reset link is invalid or has expired. Request a new one."
         case .weakPassword(let reason): reason
+        case .emailUnverified: "Verify your email first. We sent you a link."
+        case .captchaFailed: "The anti-bot check didn't pass. Try again."
+        case .captchaUnavailable: "The anti-bot check is unavailable right now. Try again in a minute."
+        case .emailDomainBlocked: "Please use a non-disposable email address."
+        case .emailDomainUnreachable: "We can't deliver email to that domain."
+        case .verifyLinkExpired: "This verification link has expired. Request a new one below."
+        case .verifyLinkInvalid: "This verification link is invalid or was already used. Request a new one below."
+        case .signInRequired: "Sign in to continue."
+        case .invalidInput(let reason): reason
         case .server(let status): "Sign-in failed (HTTP \(status))."
         }
     }
@@ -51,10 +75,23 @@ enum AuthError: LocalizedError, Equatable {
             switch api {
             case .http(let status, let body):
                 if (status == 401 || status == 403), body.contains(SessionEndReason.disabled.rawValue) { return .accountDisabled }
+                switch api.detail {
+                case "email_unverified": return .emailUnverified
+                case "captcha_failed": return .captchaFailed
+                case "captcha_unavailable": return .captchaUnavailable
+                case "email_domain_blocked": return .emailDomainBlocked
+                case "email_domain_unreachable": return .emailDomainUnreachable
+                case "verify_token_expired": return .verifyLinkExpired
+                case "verify_token_invalid": return .verifyLinkInvalid
+                case "already_registered": return .alreadyRegistered
+                case APIError.accountRequiredCode: return .signInRequired
+                default: break
+                }
                 if status == 400, body.contains("reset_token_") { return .resetLinkInvalid }
                 if status == 422, body.contains("new_password") || body.contains("characters") {
                     return .weakPassword(api.detail ?? "Choose a longer password.")
                 }
+                if status == 422 { return .invalidInput(api.detail ?? "Check the form and try again.") }
                 if status == 401 { return .invalidCredentials }
                 if status == 429 { return .tooManyAttempts }
                 if status == 409, body.contains("apple_no_email") { return .appleNoEmail }
@@ -152,13 +189,34 @@ final class AccountStore {
         }
     }
 
-    func register(username: String, email: String, password: String) async throws {
+    /// Creates the account. Since the 2026-11 server it comes back pending
+    /// (`verificationRequired`) with no token: the caller shows "Check your email" and the user
+    /// logs in after opening the link. An older server answers without the flag; log in then.
+    @discardableResult
+    func register(username: String, email: String, password: String, turnstileToken: String? = nil) async throws -> RegisterResponse {
         do {
-            _ = try await backend.api.register(RegisterRequest(username: username, email: email, password: password))
+            return try await backend.api.register(RegisterRequest(username: username, email: email, password: password, turnstileToken: turnstileToken))
         } catch {
             throw AuthError.wrap(error)
         }
-        try await signIn(emailOrUsername: email, password: password)
+    }
+
+    /// Redeems the emailed verification token (`POST /verify-email`).
+    func verifyEmail(token: String) async throws -> VerifyEmailResponse {
+        do {
+            return try await backend.api.verifyEmail(token: token)
+        } catch {
+            throw AuthError.wrap(error)
+        }
+    }
+
+    /// `POST /verify-email/resend`: the same answer whether or not the address has a pending account.
+    func resendVerification(email: String) async throws {
+        do {
+            _ = try await backend.api.resendVerification(email: email)
+        } catch {
+            throw AuthError.wrap(error)
+        }
     }
 
     func signInWithApple(_ credential: AppleNativeCredential) async throws {

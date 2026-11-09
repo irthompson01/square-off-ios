@@ -32,6 +32,7 @@ struct MockServerTests {
     @Test func deletingTheAccountEndsTheSessionAndFreesTheEmail() async throws {
         let api = api()
         _ = try await api.register(RegisterRequest(username: "gone", email: "gone@example.com", password: "secret123"))
+        _ = try await api.verifyEmail(token: MockSquareOffAPI.demoVerifyToken)
         _ = try await api.login(LoginRequest(emailOrUsername: "gone", password: "secret123"))
         #expect(try await api.deleteAccount(AccountDeleteRequest()).message == "Account deleted")
         await #expect(throws: APIError.self) { _ = try await api.profile() }
@@ -79,9 +80,14 @@ struct MockServerTests {
     @Test func registerLoginRecordEndShowsUpInStats() async throws {
         let api = api()
         let registered = try await api.register(RegisterRequest(username: "ian", email: "ian@example.com", password: "secret123"))
-        await #expect(throws: APIError.self) {
-            _ = try await api.register(RegisterRequest(username: "ian", email: "other@example.com", password: "x"))
+        #expect(registered.verificationRequired)
+        await #expect(throws: APIError.self) {   // 409 already_registered
+            _ = try await api.register(RegisterRequest(username: "ian", email: "other@example.com", password: "secret123"))
         }
+        await #expect(throws: APIError.self) {   // 403 email_unverified
+            _ = try await api.login(LoginRequest(emailOrUsername: "ian@example.com", password: "secret123"))
+        }
+        #expect(try await api.verifyEmail(token: MockSquareOffAPI.demoVerifyToken).alreadyVerified == false)
         _ = try await api.login(LoginRequest(emailOrUsername: "ian@example.com", password: "secret123"))
 
         let cpu = try await api.cpuPlayer(.maxMin)
@@ -212,4 +218,46 @@ struct MockSessionTests {
 private final class Recorder: @unchecked Sendable {
     var reasons: [SessionEndReason] = []
     var count = 0
+}
+
+/// Sign-up on the mock follows the 2026-11 server: validation, pending accounts, one-time link.
+@Suite("Mock sign-up and verification")
+struct MockSignUpTests {
+    private func api() -> MockSquareOffAPI { MockSquareOffAPI(latency: .zero) }
+
+    @Test func rejectsWhatTheServerRejects() async throws {
+        let api = api()
+        for (username, email, password) in [("ab", "a@b.co", "longenough1"), ("has space", "a@b.co", "longenough1"), ("fine_user", "a@b.co", "short")] {
+            await #expect(throws: APIError.self) {   // 422
+                _ = try await api.register(RegisterRequest(username: username, email: email, password: password))
+            }
+        }
+        await #expect(throws: APIError.self) {   // 400 email_domain_blocked
+            _ = try await api.register(RegisterRequest(username: "fine_user", email: "x@mailinator.com", password: "longenough1"))
+        }
+        do {
+            _ = try await api.register(RegisterRequest(username: "demo", email: "new@example.com", password: "longenough1"))
+            Issue.record("duplicate username accepted")
+        } catch let error as APIError {
+            #expect(error.status == 409 && error.detail == "already_registered")
+        }
+    }
+
+    @Test func pendingUntilTheLinkIsUsedThenTheLinkIsSpent() async throws {
+        let api = api()
+        let registered = try await api.register(RegisterRequest(username: "newbie", email: "newbie@example.com", password: "longenough1"))
+        #expect(registered.verificationRequired)
+        do {
+            _ = try await api.login(LoginRequest(emailOrUsername: "newbie", password: "longenough1"))
+            Issue.record("unverified login accepted")
+        } catch let error as APIError {
+            #expect(error.status == 403 && error.detail == "email_unverified")
+        }
+        _ = try await api.resendVerification(email: "newbie@example.com")
+        await #expect(throws: APIError.self) { _ = try await api.verifyEmail(token: "nope") }
+        #expect(try await api.verifyEmail(token: MockSquareOffAPI.demoVerifyToken).alreadyVerified == false)
+        #expect(try await api.verifyEmail(token: MockSquareOffAPI.demoVerifyToken).alreadyVerified == true)
+        _ = try await api.login(LoginRequest(emailOrUsername: "newbie", password: "longenough1"))
+        #expect(try await api.checkAuth())
+    }
 }

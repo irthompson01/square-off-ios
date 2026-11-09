@@ -515,3 +515,52 @@ struct EngineTierTests {
         #expect(session.notice == "Level 7 unavailable, using Level 6 on device")
     }
 }
+
+@MainActor
+struct SignUpTests {
+    @Test func registerDoesNotSignInAndReportsThePendingState() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api)
+        let accounts = AccountStore(backend: backend)
+        let response = try await accounts.register(username: "ian", email: "ian@example.com", password: "longenough1", turnstileToken: "tok")
+        #expect(response.verificationRequired)
+        #expect(!accounts.account.isSignedIn)
+        #expect(backend.tokenStore.accessToken() == nil)
+        #expect(await api.calls == ["register"])
+    }
+
+    @Test func signUpAndVerificationErrorsMapToCopy() async throws {
+        let api = SpyAPI()
+        let accounts = AccountStore(backend: Backend.test(api: api))
+        let cases: [(String, Int, String, AuthError)] = [
+            ("register", 409, "already_registered", .alreadyRegistered),
+            ("register", 400, "captcha_failed", .captchaFailed),
+            ("register", 503, "captcha_unavailable", .captchaUnavailable),
+            ("register", 400, "email_domain_blocked", .emailDomainBlocked),
+            ("register", 400, "email_domain_unreachable", .emailDomainUnreachable),
+        ]
+        for (method, status, detail, expected) in cases {
+            await api.setFailure(method, status: status, detail: detail)
+            await #expect(throws: expected) {
+                try await accounts.register(username: "ian", email: "ian@example.com", password: "longenough1")
+            }
+        }
+        await api.setFailure("login", status: 403, detail: "email_unverified")
+        await #expect(throws: AuthError.emailUnverified) {
+            try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        }
+        await api.setFailure("verifyEmail", status: 400, detail: "verify_token_expired")
+        await #expect(throws: AuthError.verifyLinkExpired) { _ = try await accounts.verifyEmail(token: "t") }
+        await api.setFailure("verifyEmail", status: 400, detail: "verify_token_invalid")
+        await #expect(throws: AuthError.verifyLinkInvalid) { _ = try await accounts.verifyEmail(token: "t") }
+        await api.setFailure("resendVerification", status: 429, detail: "Rate limit exceeded")
+        await #expect(throws: AuthError.tooManyAttempts) { try await accounts.resendVerification(email: "a@b.c") }
+        #expect(AuthError.wrap(APIError.http(status: 401, body: #"{"detail":"account_required"}"#)) == .signInRequired)
+    }
+
+    @Test func turnstilePageIsProductionOnly() {
+        #expect(BackendConfiguration.production.turnstilePageURL?.absoluteString == "https://square-off.com/turnstile?theme=dark")
+        #expect(BackendConfiguration.mock.turnstilePageURL == nil)
+        #expect(BackendConfiguration.localDocker.turnstilePageURL == nil)
+    }
+}

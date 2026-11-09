@@ -64,13 +64,19 @@ final class AppModel {
     var selectedTab: AppTab = .play
     /// Debug deep links (`-demoScreen`): screens to open once the root view appears.
     var pendingPlayRoute: PlayRoute?
-    var pendingSignIn = false
+    /// Profile opens the sign-in sheet on this route when it appears (after a reset, a
+    /// verification, or `-demoScreen signin|register|checkEmail`).
+    var pendingSignIn: SignInRoute?
     var pendingRulesSection: String?
     var pendingColorPicker = false
     /// `squareoff://join/<code>` or an invite link: the Online hub joins it when it appears.
     var pendingJoinCode: Int?
     /// A password-reset link was opened: `RootView` presents `ResetPasswordView` for it.
     var pendingPasswordReset: ResetToken?
+    /// The sign-up confirmation link was opened: `RootView` presents `VerifyEmailView` for it.
+    var pendingEmailVerification: VerifyToken?
+    /// "Resend the link" without a known address: `RootView` presents `ResendVerificationView`.
+    var pendingResendVerification = false
     /// "Request a new link" from an expired reset: Profile opens the forgot-password sheet.
     var pendingForgotPassword = false
     /// `-demoScreen feedback`: Profile opens the feedback sheet.
@@ -127,6 +133,8 @@ final class AppModel {
             pendingPlayRoute = .play
         case .passwordReset(let token):
             pendingPasswordReset = ResetToken(token: token)
+        case .verifyEmail(let token):
+            pendingEmailVerification = VerifyToken(token: token)
         case .authCallback, nil:
             break
         }
