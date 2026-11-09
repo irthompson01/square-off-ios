@@ -129,7 +129,9 @@ struct MockServerTests {
             PlayerState(id: 2, name: "CPU", colorHex: "#FF3131", isCPU: true, cpuLevel: .maxMin),
         ])
         for (r, c) in [(0, 0), (6, 6), (0, 1), (6, 3), (1, 0)] { try game.place(at: Cell(row: r, col: c)) }
-        let reply = try await api().cpuMove(CPUMoveRequest(gameID: 1, game: game))
+        let api = api()
+        _ = try await api.createGuest(CreateGuestRequest(name: "Guest", color: "#0583D2"))   // /cpu_move needs a session
+        let reply = try await api.cpuMove(CPUMoveRequest(gameID: 1, game: game))
         #expect(reply.cell == Cell(row: 1, col: 1))
     }
 
@@ -139,4 +141,75 @@ struct MockServerTests {
         #expect(login.url.scheme == "squareoff")
         #expect(try await api.checkAuth())
     }
+}
+
+/// Player sessions on the mock: guests get a token, routes need one, and seats belong to sessions.
+@Suite("Mock player sessions")
+struct MockSessionTests {
+    private func api() -> MockSquareOffAPI { MockSquareOffAPI(latency: .zero) }
+    private let guestRequest = CreateGuestRequest(name: "Guest", color: "#0583D2")
+
+    @Test func guestSessionsAreMintedRenewedAndRequired() async throws {
+        let api = api()
+        await #expect(throws: APIError.self) { _ = try await api.cpuPlayer(.random) }   // session_required
+        let guest = try await api.createGuest(guestRequest)
+        #expect(guest.accessToken == MockSquareOffAPI.guestToken(for: guest.playerId))
+        _ = try await api.cpuPlayer(.random)
+        #expect(try await api.checkAuth() == false)
+        await #expect(throws: APIError.self) { _ = try await api.profile() }             // account_required
+        let again = try await api.createGuest(guestRequest)
+        #expect(again.playerId == guest.playerId)
+        _ = try await api.login(LoginRequest(emailOrUsername: MockSquareOffAPI.demoUsername, password: MockSquareOffAPI.demoPassword))
+        await #expect(throws: APIError.self) { _ = try await api.createGuest(guestRequest) }   // already_signed_in
+    }
+
+    @Test func revokedGuestIsNotASignOutButRecoveryWorks() async throws {
+        let recovered = Recorder()
+        let api = MockSquareOffAPI(latency: .zero, onSessionEnded: { recovered.reasons.append($0) },
+                                   sessionRecovery: { recovered.count += 1; return true })
+        _ = try await api.createGuest(guestRequest)
+        await api.revokeSession()
+        // The recovery closure above does not mint anything, so the retry fails the same way.
+        await #expect(throws: APIError.self) { _ = try await api.cpuPlayer(.random) }
+        #expect(recovered.count == 1)
+        #expect(recovered.reasons.isEmpty)
+    }
+
+    @Test func startClaimsTheCallersSeatAndMintsTheOthers() async throws {
+        let api = api()
+        let guest = try await api.createGuest(guestRequest)
+        let seats = [
+            StartPlayer(id: 1, name: "Me", color: "#0583D2", playerId: nil, isCPU: false, cpuType: nil),
+            StartPlayer(id: 2, name: "Friend", color: "#FF3131", playerId: nil, isCPU: false, cpuType: nil),
+        ]
+        let start = try await api.startGame(StartGameRequest(boardSize: 6, timer: 0, seats: seats, type: .local))
+        #expect(start.participants.map(\.slot) == [0, 1])
+        #expect(start.participants[0].playerId == guest.playerId)
+        #expect(start.participants[1].playerId.hasPrefix("mock-guest-"))
+        await #expect(throws: APIError.self) {
+            _ = try await api.startGame(StartGameRequest(boardSize: 6, timer: 0, seats: [
+                StartPlayer(id: 1, name: "Me", color: "#0583D2", playerId: "someone-else", isCPU: false, cpuType: nil),
+                StartPlayer(id: 2, name: "CPU", color: "#FF3131", playerId: "1", isCPU: true, cpuType: "random"),
+            ], type: .local))
+        }
+    }
+
+    @Test func onlyPlayersCanEndAGame() async throws {
+        let api = api()
+        _ = try await api.createGuest(guestRequest)
+        let start = try await api.startGame(StartGameRequest(boardSize: 6, timer: 0, seats: [
+            StartPlayer(id: 1, name: "Me", color: "#0583D2", playerId: nil, isCPU: false, cpuType: nil),
+            StartPlayer(id: 2, name: "CPU", color: "#FF3131", playerId: "1", isCPU: true, cpuType: "random"),
+        ], type: .local))
+        try await api.logout()
+        _ = try await api.createGuest(guestRequest)   // a different guest
+        await #expect(throws: APIError.self) {
+            try await api.endGame(GameEndRequest(gameId: start.gameId, winnerId: "", scores: []))
+        }
+    }
+}
+
+private final class Recorder: @unchecked Sendable {
+    var reasons: [SessionEndReason] = []
+    var count = 0
 }

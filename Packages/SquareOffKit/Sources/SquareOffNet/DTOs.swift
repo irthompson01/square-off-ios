@@ -7,12 +7,6 @@ import SquareOffCore
 
 // MARK: Auth
 
-public struct GuestsResponse: Codable, Sendable, Equatable {
-    public let guests: [String]
-
-    public init(guests: [String]) { self.guests = guests }
-}
-
 public struct CPUPlayerResponse: Codable, Sendable, Equatable {
     public let id: Int
     public let cpuType: String
@@ -248,15 +242,20 @@ public enum GameType: String, Codable, Sendable {
 
 public struct StartGameResponse: Codable, Sendable, Equatable {
     public struct Participant: Codable, Sendable, Equatable {
+        /// The seat's user/guest UUID (a guest the server minted for an id-less seat) or CPU id.
         public let playerId: String
         public let participantId: Int
+        /// Index of the seat in the `players` array that was sent; nil on pre-2026-11 servers.
+        public let slot: Int?
 
-        public init(playerId: String, participantId: Int) {
+        public init(playerId: String, participantId: Int, slot: Int? = nil) {
             self.playerId = playerId
             self.participantId = participantId
+            self.slot = slot
         }
 
         enum CodingKeys: String, CodingKey {
+            case slot
             case playerId = "player_id"
             case participantId = "participant_id"
         }
@@ -499,16 +498,62 @@ public struct LoginResponse: Codable, Sendable, Equatable {
 public struct RegisterResponse: Codable, Sendable, Equatable {
     public let message: String?
     public let playerId: String
+    /// True since the 2026-11-05 server: the account is pending until the emailed link is opened,
+    /// and no token is issued. False (absent) on older servers, where `/login` follows at once.
+    public let verificationRequired: Bool
 
-    public init(message: String?, playerId: String) {
+    public init(message: String?, playerId: String, verificationRequired: Bool = false) {
         self.message = message
         self.playerId = playerId
+        self.verificationRequired = verificationRequired
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        message = try c.decodeIfPresent(String.self, forKey: .message)
+        playerId = try c.decode(String.self, forKey: .playerId)
+        verificationRequired = try c.decodeIfPresent(Bool.self, forKey: .verificationRequired) ?? false
     }
 
     enum CodingKeys: String, CodingKey {
         case message
         case playerId = "player_id"
+        case verificationRequired = "verification_required"
     }
+}
+
+public struct VerifyEmailRequest: Codable, Sendable, Equatable {
+    public let token: String
+
+    public init(token: String) { self.token = token }
+}
+
+public struct VerifyEmailResponse: Codable, Sendable, Equatable {
+    public let message: String?
+    /// The link was already used, or the account was verified another way; log in works either way.
+    public let alreadyVerified: Bool
+
+    public init(message: String?, alreadyVerified: Bool) {
+        self.message = message
+        self.alreadyVerified = alreadyVerified
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        message = try c.decodeIfPresent(String.self, forKey: .message)
+        alreadyVerified = try c.decodeIfPresent(Bool.self, forKey: .alreadyVerified) ?? false
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case alreadyVerified = "already_verified"
+    }
+}
+
+public struct ResendVerificationRequest: Codable, Sendable, Equatable {
+    public let email: String
+
+    public init(email: String) { self.email = email }
 }
 
 public struct CheckAuthResponse: Codable, Sendable, Equatable {
@@ -612,15 +657,22 @@ public struct CreateGuestRequest: Codable, Sendable, Equatable {
 public struct CreateGuestResponse: Codable, Sendable, Equatable {
     public let message: String?
     public let playerId: String
+    /// The guest session's bearer token (30-day sliding lifetime); nil only on pre-2026-11 servers.
+    public let accessToken: String?
+    public let tokenType: String?
 
-    public init(message: String?, playerId: String) {
+    public init(message: String?, playerId: String, accessToken: String? = nil, tokenType: String? = "bearer") {
         self.message = message
         self.playerId = playerId
+        self.accessToken = accessToken
+        self.tokenType = tokenType
     }
 
     enum CodingKeys: String, CodingKey {
         case message
         case playerId = "player_id"
+        case accessToken = "access_token"
+        case tokenType = "token_type"
     }
 }
 

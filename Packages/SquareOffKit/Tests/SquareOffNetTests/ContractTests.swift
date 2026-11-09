@@ -23,9 +23,10 @@ private func cpuGame() -> Game {
 /// Responses captured from the local docker-compose server (`https://localhost:8002/api`).
 @Suite("Decoding real server responses")
 struct DecodingTests {
-    @Test func guests() throws {
-        let response = try JSONDecoder().decode(GuestsResponse.self, from: fixture("guests"))
-        #expect(response.guests.count == 4)
+    @Test func createGuestWithoutATokenStillDecodes() throws {
+        // Captured before the 2026-11 server; the token fields are optional for that reason.
+        let response = try JSONDecoder().decode(CreateGuestResponse.self, from: fixture("create_guest_response"))
+        #expect(!response.playerId.isEmpty)
     }
 
     @Test func cpuPlayer() throws {
@@ -113,9 +114,18 @@ struct MockAPITests {
         }
         try game.place(at: Cell(row: 6, col: 5)) // red
         try game.place(at: Cell(row: 0, col: 7)) // blue
-        let move = try await MockSquareOffAPI(latency: .zero).cpuMove(CPUMoveRequest(gameID: 1, game: game))
+        let api = MockSquareOffAPI(latency: .zero)
+        _ = try await api.createGuest(CreateGuestRequest(name: "Guest", color: "#0583D2"))   // /cpu_move needs a session
+        let move = try await api.cpuMove(CPUMoveRequest(gameID: 1, game: game))
         #expect(move.cell == Cell(row: 6, col: 6))
     }
+}
+
+/// A token holder the live tests fill after `create_guest`, standing in for the app's Keychain.
+final class LiveTokenBox: TokenProvider, @unchecked Sendable {
+    var token: String?
+    func accessToken() -> String? { token }
+    func kind(of token: String) -> TokenKind { .guest }
 }
 
 /// Opt-in: runs the real web flow against the local server.
@@ -123,18 +133,28 @@ struct MockAPITests {
 /// `SQUAREOFF_LIVE_API=1 swift test --filter LiveContract`.
 @Suite("Live contract (local server)", .enabled(if: ProcessInfo.processInfo.environment["SQUAREOFF_LIVE_API"] == "1"))
 struct LiveContractTests {
-    let api = LiveSquareOffAPI(environment: .local)
+    let box = LiveTokenBox()
+    var api: LiveSquareOffAPI { LiveSquareOffAPI(environment: .local, tokenProvider: box) }
+
+    /// `POST /create_guest` as the app does it on launch: the token goes in the box, the id is the seat.
+    private func mintGuest() async throws -> String {
+        let guest = try await api.createGuest(CreateGuestRequest(name: "Guest", color: "#0583D2"))
+        box.token = try #require(guest.accessToken)
+        return guest.playerId
+    }
 
     @Test func guestCPUGameFlowMatchesWeb() async throws {
-        let guests = try await api.guests()
+        let guestID = try await mintGuest()
         let cpu = try await api.cpuPlayer(.maxMin)
         var game = Game(boardSize: 8, players: [
-            PlayerState(id: 1, name: "Player 1", colorHex: "#0583D2", serverPlayerID: try #require(guests.guests.first)),
+            PlayerState(id: 1, name: "Player 1", colorHex: "#0583D2", serverPlayerID: guestID),
             PlayerState(id: 2, name: "CPU (max-min)", colorHex: cpu.color ?? "#FF3131", isCPU: true, cpuLevel: .maxMin, serverPlayerID: String(cpu.id)),
         ])
 
         let start = try await api.startGame(StartGameRequest(boardSize: 8, timer: 0, players: game.players, type: .local))
         #expect(start.participants.count == 2)
+        #expect(start.participants.map(\.slot) == [0, 1])
+        #expect(start.participants[0].playerId == guestID)
         game.assignParticipants(Dictionary(uniqueKeysWithValues: zip([1, 2], start.participants.map(\.participantId))))
 
         // Blue threatens a 2×2; Max-Min must block at (1,1).
@@ -147,8 +167,30 @@ struct LiveContractTests {
         #expect(reply.cell == Cell(row: 1, col: 1))
     }
 
-    @Test func guestIsNotAuthenticated() async throws {
-        #expect(try await api.checkAuth() == false)
+    @Test func guestSessionIsRequiredRenewedAndNotAnAccount() async throws {
+        box.token = nil
+        await #expect(throws: APIError.self) { _ = try await api.cpuPlayer(.random) }   // 401 session_required
+        let guestID = try await mintGuest()
+        let renewed = try await api.createGuest(CreateGuestRequest(name: "Guest", color: "#0583D2"))
+        #expect(renewed.playerId == guestID, "a live guest token renews the same session")
+        #expect(try await api.checkAuth() == false, "a guest is not an account (401 account_required)")
+    }
+
+    @Test func startRefusesSomebodyElsesSeatAndMintsIdLessOnes() async throws {
+        _ = try await mintGuest()
+        let foreign = StartPlayer(id: 1, name: "Not me", color: "#0583D2", playerId: UUID().uuidString.lowercased(), isCPU: false, cpuType: nil)
+        let cpu = StartPlayer(id: 2, name: "CPU", color: "#FF3131", playerId: "1", isCPU: true, cpuType: "random")
+        await #expect(throws: APIError.self) {
+            _ = try await api.startGame(StartGameRequest(boardSize: 6, timer: 0, seats: [foreign, cpu], type: .local))
+        }
+        let seats = [
+            StartPlayer(id: 1, name: "Player 1", color: "#0583D2", playerId: nil, isCPU: false, cpuType: nil),
+            StartPlayer(id: 2, name: "Player 2", color: "#FF3131", playerId: nil, isCPU: false, cpuType: nil),
+            StartPlayer(id: 3, name: "Player 3", color: "#50C878", playerId: nil, isCPU: false, cpuType: nil),
+        ]
+        let start = try await api.startGame(StartGameRequest(boardSize: 6, timer: 0, seats: seats, type: .local))
+        #expect(start.participants.map(\.slot) == [0, 1, 2])
+        #expect(Set(start.participants.map(\.playerId)).count == 3, "every id-less seat got its own guest")
     }
 
     @Test func cnnMovePlaysLegallyOn8x8() async throws {

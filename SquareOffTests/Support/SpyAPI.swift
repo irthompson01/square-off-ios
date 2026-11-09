@@ -13,6 +13,7 @@ actor SpyAPI: SquareOffAPI {
     private(set) var feedbackRequests: [FeedbackRequest] = []
     private(set) var deleteRequests: [AccountDeleteRequest] = []
     private(set) var resetRequests: [(token: String, password: String)] = []
+    private(set) var guestsMinted = 0
     var failing: Set<String> = []
     /// Per-method HTTP failures with a specific status and body (beats `failing`).
     var failures: [String: APIError] = [:]
@@ -36,7 +37,6 @@ actor SpyAPI: SquareOffAPI {
         if failing.contains(name) { throw APIError.http(status: 500, body: #"{"detail":"spy failure"}"#) }
     }
 
-    func guests() async throws -> GuestsResponse { try await hit("guests"); return GuestsResponse(guests: ["g1"]) }
     func cpuPlayer(_ level: CPULevel) async throws -> CPUPlayerResponse {
         try await hit("cpuPlayer")
         return CPUPlayerResponse(id: 100 + level.number, cpuType: level.cpuType, displayName: "CPU", color: "#FF3131")
@@ -46,10 +46,16 @@ actor SpyAPI: SquareOffAPI {
         guard request.password == "secret" else { throw APIError.http(status: 401, body: #"{"detail":"Invalid credentials"}"#) }
         return LoginResponse(message: "ok", accessToken: "spy-token")
     }
-    func register(_ request: RegisterRequest) async throws -> RegisterResponse { try await hit("register"); return RegisterResponse(message: "ok", playerId: "user-1") }
+    func register(_ request: RegisterRequest) async throws -> RegisterResponse { try await hit("register"); return RegisterResponse(message: "ok", playerId: "user-1", verificationRequired: true) }
+    func verifyEmail(token: String) async throws -> VerifyEmailResponse { try await hit("verifyEmail"); return VerifyEmailResponse(message: "Email verified", alreadyVerified: false) }
+    func resendVerification(email: String) async throws -> MessageResponse { try await hit("resendVerification"); return MessageResponse(message: "sent") }
     func logout() async throws { try await hit("logout") }
     func checkAuth() async throws -> Bool { try await hit("checkAuth"); return authenticated }
-    func createGuest(_ request: CreateGuestRequest) async throws -> CreateGuestResponse { try await hit("createGuest"); return CreateGuestResponse(message: "ok", playerId: "guest-uuid") }
+    func createGuest(_ request: CreateGuestRequest) async throws -> CreateGuestResponse {
+        try await hit("createGuest")
+        guestsMinted += 1
+        return CreateGuestResponse(message: "ok", playerId: "guest-uuid", accessToken: "spy-guest-token-\(guestsMinted)")
+    }
     func profile() async throws -> ProfileResponse { try await hit("profile"); return profileResponse }
     func updateProfile(_ request: ProfileUpdateRequest) async throws { try await hit("updateProfile") }
     func oauthLoginURL(_ provider: OAuthProvider, client: OAuthClient) async throws -> OAuthLoginResponse { try await hit("oauthLoginURL"); return OAuthLoginResponse(url: oauthURL, state: "s") }

@@ -165,8 +165,10 @@ public struct QuickMatchCancelRequest: Codable, Sendable, Equatable {
 public struct LiveMatcherAPI: MatcherAPI {
     private let client: RESTClient
 
-    public init(environment: APIEnvironment, session: URLSession = .shared, tokenProvider: (any TokenProvider)? = nil) {
-        client = RESTClient(baseURL: environment.baseURL, session: session, tokenProvider: tokenProvider)
+    public init(environment: APIEnvironment, session: URLSession = .shared, tokenProvider: (any TokenProvider)? = nil,
+                sessionRecovery: SessionRecovery? = nil) {
+        client = RESTClient(baseURL: environment.baseURL, session: session, tokenProvider: tokenProvider,
+                            sessionRecovery: sessionRecovery)
     }
 
     public func openRooms(boardSize: Int?, timer: Int?, limit: Int, offset: Int) async throws -> [OpenRoomDTO] {
