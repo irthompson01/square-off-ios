@@ -5,6 +5,7 @@
 #
 #   scripts/store-screenshots.sh                 # both families → build-screenshots/{iphone-6.9,ipad-13}/
 #   FAMILIES=iphone scripts/store-screenshots.sh # one family
+#   ONLY=04 scripts/store-screenshots.sh         # retake the shots whose name starts with "04"
 #   RUNTIME="iOS 27.0" IPHONE_NAME="iPhone 18 Pro Max" IPAD_NAME="iPad Pro 13-inch (M5)" …
 #
 # No framing or captions: Apple accepts raw device captures. Check each PNG shows no "mock",
@@ -73,6 +74,7 @@ capture() {   # family dir, device name
   xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4
   for shot in "${shots[@]}"; do
     local file=${shot%%|*} args=${shot#*|}
+    if [ -n "${ONLY:-}" ] && [[ $file != ${ONLY}* ]]; then continue; fi
     xcrun simctl terminate "$udid" $BUNDLE 2>/dev/null || true
     sleep 5                                     # a relaunch under ~5 s shows stale state
     xcrun simctl launch "$udid" $BUNDLE -backend mock -demoSignedIn YES ${=args} >/dev/null

@@ -137,12 +137,14 @@ struct SquareOffApp: App {
                 }
             }
         case "over":
-            // A finished 6×6 Pass & Play game played out by two CPUs, for the end-of-game screens.
+            // A finished 6×6 Pass & Play game, for the end-of-game screens: a strong player against
+            // a random one, so the board fills with shapes and there is a clear winner.
             app.start(GameConfig(mode: .passAndPlay, boardSize: 6, timerSeconds: 0, players: Array(players.prefix(2))))
             if let session = app.activeGame {
                 var rng = SplitMix64(seed: 7)
                 while !session.isOver {
-                    session.tap(CPUStrategy.maxMinOptimal.chooseMove(in: session.game, using: &rng))
+                    let strategy: CPUStrategy = session.game.moves.count % 2 == 0 ? .maxMinOptimal : .random
+                    session.tap(strategy.chooseMove(in: session.game, using: &rng))
                 }
             }
         case "server", "cnn":
