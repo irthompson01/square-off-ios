@@ -323,6 +323,13 @@ struct ProfileView: View {
     }
 
     #if DEBUG
+    private var guestTokenLabel: String {
+        let identity = app.backend.identity
+        guard identity.guestToken != nil else { return "—" }
+        guard let expiry = identity.guestTokenExpiry else { return "no expiry (mock)" }
+        return "until " + expiry.formatted(date: .abbreviated, time: .omitted) + (identity.needsRenewal ? " · renews" : "")
+    }
+
     private var developerPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionLabel("Developer")
@@ -344,10 +351,16 @@ struct ProfileView: View {
             ))
             row("API", app.backend.configuration.environment.baseURL.absoluteString)
             row("Guest ID", app.backend.identity.guest.map { String($0.playerID.prefix(13)) + "…" } ?? "—")
-            Button("Reset guest identity") { app.backend.identity.reset() }
-                .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
-            if app.backend.configuration.kind == .mock, app.account.isSignedIn {
-                Button("Simulate revoked session") {
+            row("Guest token", guestTokenLabel)
+            Button("Reset guest identity") {
+                app.backend.identity.reset()
+                Task { await app.accounts.restore() }   // mints a fresh session straight away
+            }
+            .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
+            if app.backend.configuration.kind == .mock {
+                // Signed in: the next request signs the user out with a toast. Guest: the next
+                // game call mints a new session silently and the Guest ID row changes.
+                Button(app.account.isSignedIn ? "Simulate revoked session" : "Simulate dead guest session") {
                     Task { await (app.backend.api as? MockSquareOffAPI)?.revokeSession(); await app.accounts.restore() }
                 }
                 .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))

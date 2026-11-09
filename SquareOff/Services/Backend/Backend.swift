@@ -26,7 +26,19 @@ nonisolated final class SessionRelay: Sendable {
     }
 }
 
-/// One composed backend: REST client, matcher, socket factory, token store and identities for
+/// The API clients' `SessionRecovery`, bridged to the main-actor `IdentityStore`: a 401
+/// `session_required` mints a new guest session and the request is retried once.
+nonisolated final class SessionRecoveryRelay: Sendable {
+    nonisolated(unsafe) var recover: (@MainActor () async -> Bool)?
+
+    init() {}
+
+    func run() async -> Bool {
+        await recover?() ?? false
+    }
+}
+
+/// One composed backend: REST client, matcher, socket factory, token stores and identities for
 /// the configured kind. Rebuilt wholesale when the kind changes; a running game keeps the
 /// providers it was created with.
 @MainActor
@@ -45,24 +57,36 @@ final class Backend {
     let configuration: BackendConfiguration
     let api: any SquareOffAPI
     let matcher: any MatcherAPI
+    /// The signed-in user's token.
     let tokenStore: any TokenStore
+    /// The device's guest session token (sent whenever there is no user token).
+    let guestTokens: any TokenStore
+    /// What every client attaches: the user's token, else the guest's.
+    let tokens: SessionTokenProvider
     let identity: IdentityStore
     let roomServer: MockRoomServer?
     let sessions = SessionRelay()
-    private let urlSession: URLSession
+    let recovery = SessionRecoveryRelay()
+    let urlSession: URLSession
 
     init(configuration: BackendConfiguration) {
         self.configuration = configuration
         urlSession = Self.makeURLSession()
         let sessions = sessions
+        let recovery = recovery
         let onSessionEnded: @Sendable (SessionEndReason) -> Void = { sessions.post($0) }
+        let sessionRecovery: SessionRecovery = { await recovery.run() }
 
         switch configuration.kind {
         case .mock:
             #if DEBUG
-            let tokens = UserDefaultsTokenStore(key: "mockAccessToken")
-            tokenStore = tokens
-            let mock = MockSquareOffAPI(tokenProvider: tokens, onSessionEnded: onSessionEnded, demoRole: Self.mockDemoRole)
+            let user = UserDefaultsTokenStore(key: "mockAccessToken")
+            let guest = UserDefaultsTokenStore(key: "mockGuestToken")
+            tokenStore = user
+            guestTokens = guest
+            tokens = SessionTokenProvider(user: user, guest: guest)
+            let mock = MockSquareOffAPI(tokenProvider: tokens, onSessionEnded: onSessionEnded,
+                                        sessionRecovery: sessionRecovery, demoRole: Self.mockDemoRole)
             api = mock
             let server = MockRoomServer(configuration: Self.mockRoomConfiguration)
             roomServer = server
@@ -74,40 +98,55 @@ final class Backend {
             fatalError("The mock backend is not part of release builds")
             #endif
         case .production, .local:
-            let tokens = KeychainTokenStore(service: "com.novastrada.squareoff", account: "accessToken")
-            tokenStore = tokens
+            let user = KeychainTokenStore(service: "com.novastrada.squareoff", account: "accessToken")
+            let guest = KeychainTokenStore(service: "com.novastrada.squareoff", account: "guestToken.\(configuration.id)")
+            tokenStore = user
+            guestTokens = guest
+            tokens = SessionTokenProvider(user: user, guest: guest)
             api = LiveSquareOffAPI(environment: configuration.environment, session: urlSession, tokenProvider: tokens,
-                                   onSessionEnded: onSessionEnded)
-            matcher = LiveMatcherAPI(environment: configuration.environment, session: urlSession, tokenProvider: tokens)
+                                   onSessionEnded: onSessionEnded, sessionRecovery: sessionRecovery)
+            matcher = LiveMatcherAPI(environment: configuration.environment, session: urlSession, tokenProvider: tokens,
+                                     sessionRecovery: sessionRecovery)
             roomServer = nil
             #if ADMIN_CONSOLE
             adminAPI = LiveAdminAPI(environment: configuration.environment, session: urlSession, tokenProvider: tokens,
                                     onSessionEnded: onSessionEnded)
             #endif
         }
-        identity = IdentityStore(backendID: configuration.id, api: api)
+        identity = IdentityStore(backendID: configuration.id, api: api, userTokens: tokenStore, guestTokens: guestTokens)
+        let identity = identity
+        recovery.recover = { await identity.recoverSession() }
     }
 
     /// Injected collaborators (tests).
     init(configuration: BackendConfiguration, api: any SquareOffAPI, matcher: any MatcherAPI,
-         tokenStore: any TokenStore, roomServer: MockRoomServer?, defaults: UserDefaults = .standard) {
+         tokenStore: any TokenStore, guestTokens: any TokenStore = InMemoryTokenStore(),
+         roomServer: MockRoomServer?, defaults: UserDefaults = .standard) {
         self.configuration = configuration
         self.api = api
         self.matcher = matcher
         self.tokenStore = tokenStore
+        self.guestTokens = guestTokens
+        tokens = SessionTokenProvider(user: tokenStore, guest: guestTokens)
         self.roomServer = roomServer
         urlSession = Self.makeURLSession()
-        identity = IdentityStore(backendID: configuration.id, api: api, defaults: defaults)
+        identity = IdentityStore(backendID: configuration.id, api: api, userTokens: tokenStore, guestTokens: guestTokens,
+                                 defaults: defaults)
+        let identity = identity
+        recovery.recover = { await identity.recoverSession() }
         #if ADMIN_CONSOLE
         adminAPI = MockAdminAPI(accounts: nil, latency: .zero)
         #endif
     }
 
-    /// No cookies (auth is the bearer header), short timeouts so a dead server fails fast.
+    /// No cookies at all (auth is the bearer header, and the server reads its cookie *before*
+    /// the header, so a stored one would override whichever token we meant to send); short
+    /// timeouts so a dead server fails fast. Shared by the REST clients and the socket.
     private static func makeURLSession() -> URLSession {
         let sessionConfiguration = URLSessionConfiguration.ephemeral
         sessionConfiguration.httpCookieAcceptPolicy = .never
         sessionConfiguration.httpShouldSetCookies = false
+        sessionConfiguration.httpCookieStorage = nil
         sessionConfiguration.timeoutIntervalForRequest = 15
         sessionConfiguration.waitsForConnectivity = false
         return URLSession(configuration: sessionConfiguration)
@@ -134,8 +173,8 @@ final class Backend {
         return ServerGameRecorder(
             api: api,
             humanPlayerID: account.serverPlayerID,
-            ensureGuest: { try await identity.ensureGuest(name: "Guest", colorHex: Theme.playerColors[0]).playerID },
-            localSeatIDs: identity.localSeatIDs,
+            ensureGuest: { try await identity.ensureGuest().playerID },
+            localSeatIDs: [],
             notices: notices
         )
     }

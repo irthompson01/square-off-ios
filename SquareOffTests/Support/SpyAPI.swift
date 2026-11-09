@@ -103,12 +103,14 @@ struct UnusedMatcher: MatcherAPI {
 extension Backend {
     /// A backend over a spy API with an in-memory token store (and its own UserDefaults suite).
     @MainActor
-    static func test(api: any SquareOffAPI, kind: BackendKind = .local, token: String? = nil, cpuMovesFromServer: Bool = false) -> Backend {
+    static func test(api: any SquareOffAPI, kind: BackendKind = .local, token: String? = nil, guestToken: String? = nil,
+                     cpuMovesFromServer: Bool = false, defaults: UserDefaults? = nil) -> Backend {
         var configuration = BackendConfiguration.standard(for: kind)
         configuration.cpuMovesFromServer = cpuMovesFromServer
-        let defaults = UserDefaults(suiteName: "SquareOffTests.\(UUID().uuidString)")!
+        let defaults = defaults ?? UserDefaults(suiteName: "SquareOffTests.\(UUID().uuidString)")!
         return Backend(configuration: configuration, api: api, matcher: UnusedMatcher(),
-                       tokenStore: InMemoryTokenStore(token: token), roomServer: nil, defaults: defaults)
+                       tokenStore: InMemoryTokenStore(token: token), guestTokens: InMemoryTokenStore(token: guestToken),
+                       roomServer: nil, defaults: defaults)
     }
 }
 

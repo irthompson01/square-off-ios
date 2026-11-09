@@ -37,7 +37,8 @@ struct ServerGameRecorderTests {
         #expect(backend.identity.guest?.playerID == "guest-uuid")
 
         let start = try #require(await api.startRequests.first)
-        #expect(start.players.map(\.playerId) == ["guest-uuid", backend.identity.localSeatIDs[0]])
+        #expect(start.players.map(\.playerId) == ["guest-uuid", nil], "only the caller's seat carries an id; the server mints the rest")
+        #expect(backend.guestTokens.accessToken() == "spy-guest-token-1")
         let turns = await api.turnRequests
         #expect(turns.map(\.participantId) == Array(repeating: [500, 501], count: 8).flatMap { $0 })
         #expect(turns[0].playerId == "guest-uuid")
@@ -164,14 +165,15 @@ struct AccountStoreTests {
         #expect(await api.calls == ["checkAuth", "profile"])
     }
 
-    @Test func anExpiredTokenIsDroppedWithoutANetworkCall() async throws {
+    @Test func anExpiredTokenIsDroppedWithoutAnAuthCallAndAGuestIsMinted() async throws {
         let api = SpyAPI()
         let backend = Backend.test(api: api, token: fakeJWT(expiringAt: Date().addingTimeInterval(-60)))
         let accounts = AccountStore(backend: backend)
         await accounts.restore()
         #expect(!accounts.account.isSignedIn)
         #expect(backend.tokenStore.accessToken() == nil)
-        #expect(await api.calls.isEmpty)
+        #expect(await api.calls == ["createGuest"])
+        #expect(accounts.account.serverPlayerID == "guest-uuid")
     }
 
     @Test func aRejectedTokenFallsBackToGuest() async throws {
@@ -230,10 +232,11 @@ struct AccountStoreTests {
         let backend = Backend.test(api: api, token: "stored")
         let accounts = AccountStore(backend: backend)
         try await accounts.deleteAccount(appleAuthorizationCode: "apple-code")
-        #expect(await api.calls == ["deleteAccount"])
+        #expect(await api.calls == ["deleteAccount", "createGuest"], "the device goes on as a guest")
         #expect(await api.deleteRequests == [AccountDeleteRequest(appleAuthorizationCode: "apple-code")])
         #expect(backend.tokenStore.accessToken() == nil)
         #expect(!accounts.account.isSignedIn)
+        #expect(accounts.account.serverPlayerID == "guest-uuid")
     }
 
     @Test func deleteAccountFailureKeepsTheSession() async throws {
@@ -351,5 +354,106 @@ struct ConfigurationTests {
         #expect(JWT.expiry(of: fakeJWT(expiringAt: soon))!.timeIntervalSince(soon) < 1)
         #expect(JWT.isExpired(fakeJWT(expiringAt: Date().addingTimeInterval(-1))))
         #expect(!JWT.isExpired("not-a-jwt"))
+    }
+}
+
+/// The device's guest session: minted on a fresh install, renewed when old, replaced when the
+/// server drops it, never touched while a user is signed in.
+@MainActor
+struct GuestSessionTests {
+    @Test func aFreshInstallMintsAGuestOnceAcrossRestores() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api)
+        let accounts = AccountStore(backend: backend)
+        await accounts.restore()
+        await accounts.restore()
+        #expect(await api.calls == ["createGuest"])
+        #expect(backend.guestTokens.accessToken() == "spy-guest-token-1")
+        #expect(backend.identity.guest?.playerID == "guest-uuid")
+        #expect(backend.tokens.accessToken() == "spy-guest-token-1")
+        #expect(backend.tokens.kind(of: "spy-guest-token-1") == .guest)
+    }
+
+    @Test func theUserTokenWinsOverTheGuestToken() async throws {
+        let backend = Backend.test(api: SpyAPI(), token: "user-token", guestToken: "guest-token")
+        #expect(backend.tokens.accessToken() == "user-token")
+        #expect(backend.tokens.kind(of: "user-token") == .user)
+        #expect(backend.tokens.kind(of: "guest-token") == .guest)
+    }
+
+    @Test func anOldGuestTokenIsRenewedKeepingNameAndColour() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api)
+        _ = try await backend.identity.ensureGuest(name: "Zed", colorHex: "#123456")
+        try backend.guestTokens.store(fakeJWT(expiringAt: Date().addingTimeInterval(5 * 86_400)))
+        #expect(backend.identity.needsRenewal)
+        let renewed = try await backend.identity.ensureGuest()
+        #expect(renewed.name == "Zed" && renewed.colorHex == "#123456")
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 2)
+        try backend.guestTokens.store(fakeJWT(expiringAt: Date().addingTimeInterval(29 * 86_400)))
+        #expect(!backend.identity.needsRenewal)
+        _ = try await backend.identity.ensureGuest()
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 2)
+    }
+
+    @Test func concurrentCallersShareOneMint() async throws {
+        let api = SpyAPI()
+        await api.setDelay("createGuest", .milliseconds(100))
+        let backend = Backend.test(api: api)
+        async let a = backend.identity.ensureGuest()
+        async let b = backend.identity.ensureGuest()
+        let (first, second) = try await (a, b)
+        #expect(first == second)
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
+    }
+
+    @Test func recoveryMintsANewGuestUnlessAUserIsSignedIn() async throws {
+        let api = SpyAPI()
+        let guest = Backend.test(api: api, guestToken: "dead-guest")
+        #expect(await guest.recovery.run())
+        #expect(guest.guestTokens.accessToken() == "spy-guest-token-1")
+        #expect(await api.calls == ["createGuest"])
+
+        let signedIn = Backend.test(api: SpyAPI(), token: "user-token", guestToken: "guest-token")
+        #expect(await signedIn.recovery.run() == false)
+        #expect(signedIn.guestTokens.accessToken() == "guest-token")
+    }
+
+    @Test func signOutAndSessionEndFallBackToAGuest() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api)
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        await accounts.signOut()
+        #expect(accounts.account.serverPlayerID == "guest-uuid")
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
+
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        backend.sessions.post(.revoked)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!accounts.account.isSignedIn)
+        #expect(accounts.account.serverPlayerID == "guest-uuid")   // the fresh guest token was reused
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
+    }
+
+    @Test func legacySeatIDsAreDroppedAndTheGuestIdentityKept() async throws {
+        let defaults = UserDefaults(suiteName: "SquareOffTests.identity.\(UUID().uuidString)")!
+        let id = BackendConfiguration.standard(for: .local).id
+        defaults.set(["a", "b", "c"], forKey: "localSeatIDs.\(id)")
+        defaults.set(try JSONEncoder().encode(GuestIdentity(playerID: "old-guest", name: "Old", colorHex: "#ABCDEF")), forKey: "guestIdentity.\(id)")
+        let api = SpyAPI()
+        let backend = Backend.test(api: api, defaults: defaults)
+        #expect(defaults.stringArray(forKey: "localSeatIDs.\(id)") == nil)
+        #expect(backend.identity.guest?.playerID == "old-guest")
+        // No token for the old id: the first use mints a session, carrying the name and colour over.
+        let guest = try await backend.identity.ensureGuest()
+        #expect(guest.playerID == "guest-uuid" && guest.name == "Old" && guest.colorHex == "#ABCDEF")
+    }
+
+    @Test func noCookiesEverOnTheSharedSession() {
+        let configuration = Backend.test(api: SpyAPI()).urlSession.configuration
+        #expect(configuration.httpShouldSetCookies == false)
+        #expect(configuration.httpCookieAcceptPolicy == .never)
+        #expect(configuration.httpCookieStorage == nil)
     }
 }

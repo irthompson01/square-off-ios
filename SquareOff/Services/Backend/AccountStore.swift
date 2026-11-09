@@ -102,34 +102,45 @@ final class AccountStore {
         backend.tokenStore.clear()
         account = .guest(backend.identity.guest)
         onSessionEnded?(reason)
+        Task { await becomeGuest() }
     }
 
     /// Token → `/check-auth` → `/profile`. An expired token is dropped without a round-trip;
     /// a network error keeps the token for the next try but leaves the account as guest.
+    /// Without a usable user token the device's guest session is made sure of instead (minted
+    /// on a fresh install, renewed when its token is getting old).
     func restore() async {
         guard !isRestoring else { return }
         isRestoring = true
         defer { isRestoring = false }
         guard let token = backend.tokenStore.accessToken() else {
-            account = .guest(backend.identity.guest)
+            await becomeGuest()
             return
         }
         if JWT.isExpired(token) {
             backend.tokenStore.clear()
-            account = .guest(backend.identity.guest)
+            await becomeGuest()
             return
         }
         do {
             guard try await backend.api.checkAuth() else {
                 backend.tokenStore.clear()
-                account = .guest(backend.identity.guest)
+                await becomeGuest()
                 return
             }
             account = .signedIn(try await backend.api.profile())
         } catch {
             if let api = error as? APIError, api.isUnauthorized { backend.tokenStore.clear() }
             account = .guest(backend.identity.guest)
+            if backend.tokenStore.accessToken() == nil { await becomeGuest() }
         }
+    }
+
+    /// Guest state: the cached identity at once, then the session confirmed with the server.
+    /// Failures are silent; the next player call recovers on its own (`RESTClient`).
+    private func becomeGuest() async {
+        account = .guest(backend.identity.guest)
+        if let guest = try? await backend.identity.ensureGuest() { account = .guest(guest) }
     }
 
     func signIn(emailOrUsername: String, password: String) async throws {
@@ -179,7 +190,7 @@ final class AccountStore {
         }
         backend.tokenStore.clear()
         defaults.removeObject(forKey: Self.signedInWithAppleKey)
-        account = .guest(backend.identity.guest)
+        await becomeGuest()
     }
 
     func requestPasswordReset(email: String) async throws {
@@ -225,11 +236,13 @@ final class AccountStore {
         }
     }
 
+    /// Logs the account out; the device keeps playing on its guest session (reused when its
+    /// token is still fresh, minted again otherwise).
     func signOut() async {
         try? await backend.api.logout()
         backend.tokenStore.clear()
         defaults.removeObject(forKey: Self.signedInWithAppleKey)
-        account = .guest(backend.identity.guest)
+        await becomeGuest()
     }
 
     /// The identity to play online or record games with; creates the guest row on first use.
