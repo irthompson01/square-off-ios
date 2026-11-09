@@ -33,7 +33,10 @@ fi
 echo "Runtime: $RUNTIME"
 
 udid_for() {   # device name → UDID in that runtime (empty when absent; `set -e` must not trip on grep)
-  { xcrun simctl list devices available "$RUNTIME" | grep -E "^\s+$1 \(" || true; } | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/'
+  # Names like "iPad Pro 13-inch (M5)" carry regex metacharacters, so escape them and insist the
+  # UDID follows the name directly (keeps "(M5) (16GB)" variants from matching).
+  local escaped; escaped=$(printf '%s' "$1" | sed -E 's/[][(){}.*+?^$|\\]/\\&/g')
+  { xcrun simctl list devices available "$RUNTIME" | grep -E "^\s+$escaped \([0-9A-F-]{36}\)" || true; } | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/'
 }
 
 shots=(
