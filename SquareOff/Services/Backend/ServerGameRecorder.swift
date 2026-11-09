@@ -6,13 +6,17 @@ import SquareOffNet
 /// `POST /{id}/turns` per move, `PUT /end` when the board is full. The session serialises the
 /// calls, so this actor only has to keep the seat → server id map. The first failure disables
 /// recording for the rest of the game and posts a single notice; play is never blocked.
+///
+/// Seats follow the server's claim rule: the caller's seat (seat 1) carries the signed-in
+/// user's id or the device's guest id, every other human seat is sent without an id and the
+/// server mints a guest for it. The ids it returns (matched by `slot`) are what turns and the
+/// final scores are recorded under.
 actor ServerGameRecorder: GameRecorder {
     static let offlineNotice = "Playing offline, this game won't be saved"
 
     private let api: any SquareOffAPI
     private let humanPlayerID: String?
     private let ensureGuest: @Sendable () async throws -> String
-    private let localSeatIDs: [String]
     private let notices: SessionNoticeRelay
 
     private var gameID: Int?
@@ -21,11 +25,10 @@ actor ServerGameRecorder: GameRecorder {
     private var disabled = false
 
     init(api: any SquareOffAPI, humanPlayerID: String?, ensureGuest: @escaping @Sendable () async throws -> String,
-         localSeatIDs: [String], notices: SessionNoticeRelay) {
+         notices: SessionNoticeRelay) {
         self.api = api
         self.humanPlayerID = humanPlayerID
         self.ensureGuest = ensureGuest
-        self.localSeatIDs = localSeatIDs
         self.notices = notices
     }
 
@@ -45,7 +48,7 @@ actor ServerGameRecorder: GameRecorder {
                 } else if player.id == 1 {
                     if let humanPlayerID { id = humanPlayerID } else { id = try await ensureGuest() }
                 } else {
-                    id = localSeatIDs.indices.contains(player.id - 2) ? localSeatIDs[player.id - 2] : nil
+                    id = nil   // Pass & Play partners: the server mints a guest per seat
                 }
                 playerIDs[player.id] = id
                 seats.append(StartPlayer(seat: player, playerID: id))
@@ -53,9 +56,11 @@ actor ServerGameRecorder: GameRecorder {
             let response = try await api.startGame(StartGameRequest(boardSize: game.board.size, timer: game.timerSeconds, seats: seats, type: .local))
             gameID = response.gameId
             for (index, player) in game.players.enumerated() {
-                let match = response.participants.first { $0.playerId == playerIDs[player.id] }
+                let match = response.participants.first { $0.slot == index }
+                    ?? response.participants.first { $0.slot == nil && $0.playerId == playerIDs[player.id] }
                     ?? (response.participants.indices.contains(index) ? response.participants[index] : nil)
                 participantIDs[player.id] = match?.participantId
+                if !player.isCPU, let id = match?.playerId, !id.isEmpty { playerIDs[player.id] = id }
             }
         } catch {
             await fail(error)
@@ -87,7 +92,7 @@ actor ServerGameRecorder: GameRecorder {
         guard !disabled else { return }
         disabled = true
         #if DEBUG
-        print("[ServerGameRecorder] recording disabled: \(error)")
+        print("[ServerGameRecorder] recording disabled: \((error as? APIError)?.detail ?? "\(error)")")
         #endif
         await notices.post(Self.offlineNotice)
     }

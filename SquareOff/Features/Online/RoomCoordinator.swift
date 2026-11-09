@@ -189,7 +189,7 @@ final class RoomCoordinator {
             let me = try await resolvedIdentity()
             self.me = me
             let transport = ensureTransport()
-            let result = try await transport.matcher.quickMatch(QuickMatchRequest(requesterId: me.playerID, boardSize: boardSize, timer: timer))
+            let result = try await transport.matcher.quickMatch(QuickMatchRequest(boardSize: boardSize, timer: timer))
             await handleMatch(result, boardSize: boardSize, timer: timer)
         } catch {
             fail(.network(Self.describe(error)))
@@ -199,8 +199,8 @@ final class RoomCoordinator {
     func cancelQuickMatch() async {
         pollTask?.cancel()
         pollTask = nil
-        if let ticketID, let transport, let me {
-            try? await transport.matcher.cancelQuickMatch(ticketID: ticketID, requesterID: me.playerID)
+        if let ticketID, let transport {
+            try? await transport.matcher.cancelQuickMatch(ticketID: ticketID)
         }
         ticketID = nil
         state = .idle
@@ -475,7 +475,7 @@ final class RoomCoordinator {
         case .queued, .waitForHost:
             ticketID = result.ticketId ?? ticketID
             state = .matching(ticketID: ticketID, message: result.action == .waitForHost ? "Matched — waiting for the host to open the room…" : "In queue — waiting for a compatible player…")
-            guard let ticketID, let transport, let me else { return fail(.network("The matcher returned no ticket.")) }
+            guard let ticketID, let transport else { return fail(.network("The matcher returned no ticket.")) }
             pollTask?.cancel()
             let deadline = ContinuousClock.now + .seconds(180)
             pollTask = Task {
@@ -483,7 +483,7 @@ final class RoomCoordinator {
                     try? await Task.sleep(for: .seconds(2))
                     guard !Task.isCancelled else { return }
                     do {
-                        let status = try await transport.matcher.quickMatchStatus(ticketID: ticketID, requesterID: me.playerID)
+                        let status = try await transport.matcher.quickMatchStatus(ticketID: ticketID)
                         if status.status == .matched {
                             await handleMatch(status, boardSize: boardSize, timer: timer)
                             return
@@ -505,7 +505,7 @@ final class RoomCoordinator {
         guard let transport, let me else { return }
         advertiseTask = Task {
             while !Task.isCancelled {
-                _ = try? await transport.matcher.advertise(AdvertiseRoomRequest(roomCode: code, listed: true, hostLabel: me.displayName, hostKey: me.playerID))
+                _ = try? await transport.matcher.advertise(AdvertiseRoomRequest(roomCode: code, listed: true, hostLabel: me.displayName))
                 try? await Task.sleep(for: .seconds(15))
             }
         }

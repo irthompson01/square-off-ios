@@ -1,0 +1,20 @@
+{
+    "game_id": 2728,
+    "participants": [
+        {
+            "slot": 0,
+            "player_id": "8d9509eb-72be-4b91-9774-652b1899a936",
+            "participant_id": 5018
+        },
+        {
+            "slot": 1,
+            "player_id": "92149bf4-d4c8-4c6f-9427-d5c6a21bb1f7",
+            "participant_id": 5019
+        },
+        {
+            "slot": 2,
+            "player_id": "afa57a8c-25cb-4214-adff-5e0c4b555545",
+            "participant_id": 5020
+        }
+    ]
+}

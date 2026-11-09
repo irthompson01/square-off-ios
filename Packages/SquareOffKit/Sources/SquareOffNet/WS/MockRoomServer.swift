@@ -232,11 +232,10 @@ public actor MockRoomServer {
             }
     }
 
-    public func upsertListing(code: Int, listed: Bool, hostLabel: String, hostKey: String) -> AdvertiseRoomResponse? {
+    public func upsertListing(code: Int, listed: Bool, hostLabel: String) -> AdvertiseRoomResponse? {
         guard var room = rooms[code] else { return nil }
         room.listed = listed && !room.matchInProgress
         room.hostLabel = hostLabel
-        room.hostKey = hostKey
         room.lastHeartbeat = Date()
         rooms[code] = room
         return AdvertiseRoomResponse(roomCode: code, listed: room.listed, slotsFilled: room.seats.count)

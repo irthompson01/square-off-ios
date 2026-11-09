@@ -23,10 +23,39 @@ private func cpuGame() -> Game {
 /// Responses captured from the local docker-compose server (`https://localhost:8002/api`).
 @Suite("Decoding real server responses")
 struct DecodingTests {
-    @Test func createGuestWithoutATokenStillDecodes() throws {
-        // Captured before the 2026-11 server; the token fields are optional for that reason.
+    @Test func createGuestCarriesTheSessionToken() throws {
         let response = try JSONDecoder().decode(CreateGuestResponse.self, from: fixture("create_guest_response"))
-        #expect(!response.playerId.isEmpty)
+        #expect(response.playerId.count == 36)
+        #expect(response.accessToken?.hasPrefix("eyJ") == true && response.tokenType == "bearer")
+        // Pre-2026-11 servers answered without a token; the fields stay optional for them.
+        let old = try JSONDecoder().decode(CreateGuestResponse.self, from: Data(#"{"message":"Guest created successfully","player_id":"abc"}"#.utf8))
+        #expect(old.accessToken == nil)
+    }
+
+    @Test func newCPUDefinitionsAndSignUpResponses() throws {
+        for (name, type) in [("cpu_player_max_min_plus", "max-min-plus"), ("cpu_player_grandmaster", "grandmaster"), ("cpu_player_impossible", "impossible")] {
+            let cpu = try JSONDecoder().decode(CPUPlayerResponse.self, from: fixture(name))
+            #expect(cpu.cpuType == type)
+        }
+        let registered = try JSONDecoder().decode(RegisterResponse.self, from: fixture("register_response"))
+        #expect(registered.verificationRequired && registered.playerId.count == 36)
+        #expect(try JSONDecoder().decode(MessageResponse.self, from: fixture("verify_email_resend_response")).message.hasPrefix("If that address"))
+        let verified = try JSONDecoder().decode(VerifyEmailResponse.self, from: Data(#"{"message":"Email verified","already_verified":false}"#.utf8))
+        #expect(!verified.alreadyVerified)
+    }
+
+    @Test func sessionErrorBodies() throws {
+        func error(_ name: String, status: Int) throws -> APIError {
+            .http(status: status, body: String(decoding: try fixture(name), as: UTF8.self))
+        }
+        #expect(try error("error_session_required", status: 401).isSessionRequired)
+        #expect(try error("error_account_required", status: 401).isAccountRequired)
+        #expect(try error("error_already_signed_in", status: 409).detail == APIError.alreadySignedInCode)
+        #expect(try error("error_seat_not_yours", status: 403).detail == "seat_not_yours")
+        #expect(try error("error_not_a_player", status: 403).detail == "not_a_player")
+        #expect(try error("error_email_unverified", status: 403).detail == "email_unverified")
+        #expect(try error("error_verify_token_invalid", status: 400).detail == "verify_token_invalid")
+        #expect(try error("error_session_required", status: 401).sessionEndReason == nil, "not a sign-out")
     }
 
     @Test func cpuPlayer() throws {
@@ -37,8 +66,14 @@ struct DecodingTests {
 
     @Test func startGame() throws {
         let response = try JSONDecoder().decode(StartGameResponse.self, from: fixture("start_game_response"))
-        #expect(response.gameId == 2535)
-        #expect(response.participants.map(\.participantId) == [4677, 4678])
+        #expect(response.gameId > 0)
+        #expect(response.participants.map(\.slot) == [0, 1])
+        #expect(response.participants[1].playerId.allSatisfy(\.isNumber), "the CPU seat echoes the definition id")
+        // Pass & Play: the caller's seat plus two id-less seats, each given a minted guest.
+        let seats = try JSONDecoder().decode(StartGameResponse.self, from: fixture("start_game_pass_and_play"))
+        #expect(seats.participants.map(\.slot) == [0, 1, 2])
+        #expect(Set(seats.participants.map(\.playerId)).count == 3)
+        #expect(seats.participants.allSatisfy { $0.playerId.count == 36 })
     }
 
     @Test func cpuMoveIgnoresExtraDebugFields() throws {

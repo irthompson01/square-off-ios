@@ -1,0 +1,5 @@
+{
+  "type": "JOIN_ERROR",
+  "reason": "already_seated",
+  "message": "You already have a seat in this room"
+}

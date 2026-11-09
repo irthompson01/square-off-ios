@@ -199,9 +199,9 @@ struct MockRoomServerTests {
         let matcher = MockMatcherAPI(server: server, ticketDelay: .zero)
         let rooms = try await matcher.openRooms(boardSize: nil, timer: nil, limit: 10, offset: 0)
         #expect(rooms.count == 3)
-        let ticket = try await matcher.quickMatch(QuickMatchRequest(requesterId: "me", boardSize: 8, timer: 20))
+        let ticket = try await matcher.quickMatch(QuickMatchRequest(boardSize: 8, timer: 20))
         #expect(ticket.status == .pending)
-        let status = try await matcher.quickMatchStatus(ticketID: try #require(ticket.ticketId), requesterID: "me")
+        let status = try await matcher.quickMatchStatus(ticketID: try #require(ticket.ticketId))
         #expect(status.action == .joinRoom)
         #expect(status.roomCode == 73055)   // the seeded 8×8 / 20 s bot room
         #expect(try await matcher.openRooms(boardSize: 8, timer: 20, limit: 10, offset: 0).map(\.roomCode) == [73055])

@@ -179,9 +179,8 @@ final class Backend {
         let identity = identity
         return ServerGameRecorder(
             api: api,
-            humanPlayerID: account.serverPlayerID,
+            humanPlayerID: account.profile?.id,
             ensureGuest: { try await identity.ensureGuest().playerID },
-            localSeatIDs: [],
             notices: notices
         )
     }

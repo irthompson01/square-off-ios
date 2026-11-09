@@ -42,9 +42,10 @@ struct ServerGameRecorderTests {
         let turns = await api.turnRequests
         #expect(turns.map(\.participantId) == Array(repeating: [500, 501], count: 8).flatMap { $0 })
         #expect(turns[0].playerId == "guest-uuid")
+        #expect(turns[1].playerId == "minted-1", "seat 2 records under the guest the server minted for it")
         let end = try #require(await api.endRequests.first)
-        #expect(end.scores.count == 2)
-        #expect(end.winnerId == (session.game.isDraw ? "" : start.players[session.game.standings[0].id - 1].playerId))
+        #expect(end.scores.map(\.playerId) == ["guest-uuid", "minted-1"])
+        #expect(end.winnerId == (session.game.isDraw ? "" : (session.game.standings[0].id == 1 ? "guest-uuid" : "minted-1")))
     }
 
     @Test func cpuSeatUsesTheServerCPUIdAndASignedInUserTheirUUID() async throws {

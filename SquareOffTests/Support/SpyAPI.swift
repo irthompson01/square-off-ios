@@ -67,8 +67,10 @@ actor SpyAPI: SquareOffAPI {
     func startGame(_ request: StartGameRequest) async throws -> StartGameResponse {
         try await hit("startGame")
         startRequests.append(request)
-        return StartGameResponse(gameId: 42, participants: request.players.enumerated().map {
-            StartGameResponse.Participant(playerId: $1.playerId ?? "\($1.id)", participantId: 500 + $0)
+        // Like the server: id-less human seats get a minted guest id back, keyed by `slot`.
+        return StartGameResponse(gameId: 42, participants: request.players.enumerated().map { index, seat in
+            let playerID = seat.playerId ?? (seat.isCPU ? "\(seat.id)" : "minted-\(index)")
+            return StartGameResponse.Participant(playerId: playerID, participantId: 500 + index, slot: index)
         })
     }
     func insertTurn(gameID: Int, _ turn: GameTurnRequest) async throws -> GameTurnResponse {
@@ -96,8 +98,8 @@ struct UnusedMatcher: MatcherAPI {
     func advertise(_ request: AdvertiseRoomRequest) async throws -> AdvertiseRoomResponse { AdvertiseRoomResponse(roomCode: request.roomCode, listed: true, slotsFilled: 1) }
     func delist(roomCode: Int) async throws {}
     func quickMatch(_ request: QuickMatchRequest) async throws -> QuickMatchResult { QuickMatchResult(status: .pending, action: .queued, ticketId: "t") }
-    func quickMatchStatus(ticketID: String, requesterID: String) async throws -> QuickMatchResult { QuickMatchResult(status: .pending, action: .queued, ticketId: ticketID) }
-    func cancelQuickMatch(ticketID: String, requesterID: String) async throws {}
+    func quickMatchStatus(ticketID: String) async throws -> QuickMatchResult { QuickMatchResult(status: .pending, action: .queued, ticketId: ticketID) }
+    func cancelQuickMatch(ticketID: String) async throws {}
 }
 
 extension Backend {
