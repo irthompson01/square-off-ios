@@ -137,10 +137,13 @@ struct SquareOffApp: App {
                 }
             }
         case "over":
-            // A finished 2×2 Pass & Play game, for the end-of-game screens.
-            app.start(GameConfig(mode: .passAndPlay, boardSize: 2, timerSeconds: 0, players: Array(players.prefix(2))))
-            for cell in [Cell(row: 0, col: 0), Cell(row: 1, col: 1), Cell(row: 0, col: 1), Cell(row: 1, col: 0)] {
-                app.activeGame?.tap(cell)
+            // A finished 6×6 Pass & Play game played out by two CPUs, for the end-of-game screens.
+            app.start(GameConfig(mode: .passAndPlay, boardSize: 6, timerSeconds: 0, players: Array(players.prefix(2))))
+            if let session = app.activeGame {
+                var rng = SplitMix64(seed: 7)
+                while !session.isOver {
+                    session.tap(CPUStrategy.maxMinOptimal.chooseMove(in: session.game, using: &rng))
+                }
             }
         case "server", "cnn":
             // Level 8 against the server's engine (needs `-backend local` and the docker stack, or production).

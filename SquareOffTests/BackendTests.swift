@@ -166,6 +166,23 @@ struct AccountStoreTests {
         #expect(await api.calls == ["checkAuth", "profile"])
     }
 
+    @Test func ensureIdentityWaitsForTheRestorePassInsteadOfMintingAGuest() async throws {
+        // Opening a room right after launch, while the stored user token is still being checked,
+        // must not call create_guest (the server answers 409 already_signed_in to a user token).
+        let api = SpyAPI()
+        await api.setAuthenticated(true)
+        await api.setDelay("checkAuth", .milliseconds(100))
+        let backend = Backend.test(api: api, token: "stored")
+        let accounts = AccountStore(backend: backend)
+        async let restoring: () = accounts.restore()
+        try await Task.sleep(for: .milliseconds(10))
+        let identity = try await accounts.ensureIdentity()
+        await restoring
+        #expect(accounts.account.isSignedIn)
+        #expect(identity.displayName == "ian")
+        #expect(!(await api.calls.contains("createGuest")))
+    }
+
     @Test func anExpiredTokenIsDroppedWithoutAnAuthCallAndAGuestIsMinted() async throws {
         let api = SpyAPI()
         let backend = Backend.test(api: api, token: fakeJWT(expiringAt: Date().addingTimeInterval(-60)))

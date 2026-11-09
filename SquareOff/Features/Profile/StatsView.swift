@@ -212,6 +212,14 @@ struct StatsView: View {
         CPULevel(rawValue: type.replacingOccurrences(of: "_", with: "-"))?.statsLabel ?? type
     }
 
+    /// The server labels CPU opponents by type ("CPU (max-min)"); show the level name instead.
+    static func opponentLabel(_ label: String) -> String {
+        guard label.hasPrefix("CPU ("), label.hasSuffix(")") else { return label }
+        let type = String(label.dropFirst(5).dropLast())
+        guard let level = CPULevel(rawValue: type.replacingOccurrences(of: "_", with: "-")) else { return label }
+        return "CPU (\(level.statsLabel))"
+    }
+
     // MARK: History
 
     private var historyPanel: some View {
@@ -260,17 +268,17 @@ struct StatsView: View {
             Text(row.gameType.uppercased())
                 .font(Theme.display(10, relativeTo: .caption2)).tracking(1).foregroundStyle(Theme.muted)
                 .frame(width: 52, alignment: .leading)
-            Text(row.opponentLabel).font(.subheadline).foregroundStyle(Theme.foreground).lineLimit(1)
+            Text(Self.opponentLabel(row.opponentLabel)).font(.subheadline).foregroundStyle(Theme.foreground).lineLimit(1)
             Spacer()
             Text("\(row.myScore)").font(Theme.display(14, relativeTo: .subheadline)).monospacedDigit().foregroundStyle(Theme.foreground)
             Chip(text: Self.resultWord(row.result), style: row.result == "W" ? .success : row.result == "L" ? .danger : .default)
             Button {
-                replayGame = ReplayTarget(id: row.gameId, opponent: row.opponentLabel)
+                replayGame = ReplayTarget(id: row.gameId, opponent: Self.opponentLabel(row.opponentLabel))
             } label: {
                 Image(systemName: "play").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foregroundSecondary).frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Replay game vs \(row.opponentLabel)")
+            .accessibilityLabel("Replay game vs \(Self.opponentLabel(row.opponentLabel))")
         }
         .padding(.vertical, 10)
     }

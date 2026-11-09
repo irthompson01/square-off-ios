@@ -145,3 +145,14 @@ struct DesignRefreshTests {
         #expect(OAuthCallback.errorCode(from: URL(string: "squareoff://auth?error=apple_failed")!) == "apple_failed")
     }
 }
+
+struct StatsLabelTests {
+    @Test func cpuOpponentLabelsUseTheLevelNames() {
+        #expect(StatsView.opponentLabel("CPU (max-min)") == "CPU (Max-Min)")
+        #expect(StatsView.opponentLabel("CPU (max_min_optimal)") == "CPU (Max-Min Optimal)")
+        #expect(StatsView.opponentLabel("CPU (cnn)") == "CPU (CNN)")
+        #expect(StatsView.opponentLabel("CPU (mystery)") == "CPU (mystery)")
+        #expect(StatsView.opponentLabel("Guest, Guest") == "Guest, Guest")
+        #expect(StatsView.cpuTypeLabel("max_min_io") == "Max-Min IO")
+    }
+}

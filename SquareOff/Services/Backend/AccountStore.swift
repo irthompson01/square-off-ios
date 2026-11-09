@@ -146,8 +146,20 @@ final class AccountStore {
     /// a network error keeps the token for the next try but leaves the account as guest.
     /// Without a usable user token the device's guest session is made sure of instead (minted
     /// on a fresh install, renewed when its token is getting old).
+    /// Launch, foreground and after a 403: confirm the stored token or fall back to a guest.
+    /// Concurrent callers share one pass, and `ensureIdentity()` waits for it so a room opened
+    /// right after launch doesn't mint a guest while a user token is still being checked.
     func restore() async {
-        guard !isRestoring else { return }
+        if let restoreTask { await restoreTask.value; return }
+        let task = Task { await performRestore() }
+        restoreTask = task
+        await task.value
+        restoreTask = nil
+    }
+
+    private var restoreTask: Task<Void, Never>?
+
+    private func performRestore() async {
         isRestoring = true
         defer { isRestoring = false }
         guard let token = backend.tokenStore.accessToken() else {
@@ -305,6 +317,7 @@ final class AccountStore {
 
     /// The identity to play online or record games with; creates the guest row on first use.
     func ensureIdentity() async throws -> Identity {
+        if let restoreTask { await restoreTask.value }
         if let identity = account.identity { return identity }
         let guest = try await backend.identity.ensureGuest(name: "Guest", colorHex: Theme.playerColors[0])
         account = .guest(guest)

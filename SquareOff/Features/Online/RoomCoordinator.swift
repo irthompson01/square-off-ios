@@ -564,6 +564,7 @@ final class RoomCoordinator {
         if let api = error as? APIError {
             if api == .timeout { return "The server didn't answer in time." }
             if api.detail == "not_room_host" { return "Only the room's host can change its listing." }
+            if api.detail == APIError.alreadySignedInCode { return "Your sign-in couldn't be confirmed. Check your connection and try again." }
             if let detail = api.detail { return detail }
         }
         if case let SocketError.handshakeRefused(_, reason) = error {

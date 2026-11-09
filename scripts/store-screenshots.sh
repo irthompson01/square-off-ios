@@ -59,8 +59,13 @@ capture() {   # family dir, device name
   fi
   echo "== $name ($udid) → $OUT/$dir"
   mkdir -p "$OUT/$dir"
-  xcodebuild -project SquareOff.xcodeproj -scheme SquareOff -configuration Debug \
-    -destination "platform=iOS Simulator,id=$udid" -derivedDataPath "$DERIVED" build -quiet 2>&1 | grep -v "exit code 0" || true
+  # A failed build must stop the run, or the shots silently come from a stale product.
+  if ! xcodebuild -project SquareOff.xcodeproj -scheme SquareOff -configuration Debug \
+      -destination "platform=iOS Simulator,id=$udid" -derivedDataPath "$DERIVED" build -quiet > "$OUT/build-$dir.log" 2>&1; then
+    grep -E "error:|BUILD FAILED" "$OUT/build-$dir.log" | head -20 >&2
+    echo "Build failed; see $OUT/build-$dir.log" >&2
+    exit 1
+  fi
   xcrun simctl boot "$udid" 2>/dev/null || true
   xcrun simctl bootstatus "$udid" -b >/dev/null
   xcrun simctl uninstall "$udid" $BUNDLE 2>/dev/null || true     # clean defaults: no stale Continue game
