@@ -93,6 +93,16 @@ public indirect enum JSONValue: Codable, Sendable, Equatable {
         if case .object(let object) = self { return object[key] }
         return nil
     }
+
+    /// The string behind `.string`, a whole number behind `.number`, or nil.
+    public var stringValue: String? {
+        switch self {
+        case .string(let value): value
+        case .number(let value): value == value.rounded() ? String(Int(value)) : String(value)
+        case .bool(let value): value ? "true" : "false"
+        default: nil
+        }
+    }
 }
 
 /// Decodes an unknown raw value as `.unknown` instead of failing the whole response.
@@ -149,6 +159,30 @@ public struct AdminHealth: Codable, Sendable, Equatable {
         public let server: String?
     }
 
+    /// The Rust engine behind levels 7–8 (2026-10-29 server); `model` is the level-8 neural
+    /// network probe since then. Absent on older servers.
+    public struct Engine: Codable, Sendable, Equatable {
+        public let ok: Bool
+        public let latencyMs: Double?
+        public let cached: Bool
+        public let checkedAt: String?
+        public let version: String?
+        public let move: Model.Move?
+        public let error: String?
+
+        public init(ok: Bool, latencyMs: Double?, cached: Bool, checkedAt: String?, version: String?, move: Model.Move?, error: String?) {
+            self.ok = ok
+            self.latencyMs = latencyMs
+            self.cached = cached
+            self.checkedAt = checkedAt
+            self.version = version
+            self.move = move
+            self.error = error
+        }
+
+        enum CodingKeys: String, CodingKey { case ok, latencyMs = "latency_ms", cached, checkedAt = "checked_at", version, move, error }
+    }
+
     public struct App: Codable, Sendable, Equatable {
         public let version: String
         public let buildSha: String?
@@ -169,6 +203,15 @@ public struct AdminHealth: Codable, Sendable, Equatable {
     public let model: Model
     public let mail: Mail
     public let app: App
+    public let engine: Engine?
+
+    public init(db: Database, model: Model, mail: Mail, app: App, engine: Engine? = nil) {
+        self.db = db
+        self.model = model
+        self.mail = mail
+        self.app = app
+        self.engine = engine
+    }
 }
 
 // MARK: - Live
@@ -372,12 +415,100 @@ public struct AdminUserRow: Codable, Sendable, Equatable, Identifiable {
     public let gamesPlayed: Int
     public let sessionVersion: Int
     public let oauthProvider: String?
+    /// When the address was verified (sign-up link, OAuth, or an admin); nil = password sign-in blocked.
+    public let emailVerifiedAt: String?
+    /// The server's bot heuristic: unverified password-only account, random-case username, no games.
+    public let isSuspect: Bool
+
+    public var isEmailVerified: Bool { emailVerifiedAt != nil }
 
     enum CodingKeys: String, CodingKey {
         case id, email, username, firstName = "first_name", lastName = "last_name", appRole = "app_role"
         case isActive = "is_active", createdAt = "created_at", lastLoginAt = "last_login_at", gamesPlayed = "games_played"
         case sessionVersion = "session_version", oauthProvider = "oauth_provider"
+        case emailVerifiedAt = "email_verified_at", isSuspect = "is_suspect"
     }
+}
+
+extension AdminUserRow {
+    /// Older servers (and fixtures) have no verification fields; decode them as "verified, not suspect".
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        email = try c.decode(String.self, forKey: .email)
+        username = try c.decode(String.self, forKey: .username)
+        firstName = try c.decodeIfPresent(String.self, forKey: .firstName) ?? ""
+        lastName = try c.decodeIfPresent(String.self, forKey: .lastName) ?? ""
+        appRole = try c.decode(AppRole.self, forKey: .appRole)
+        isActive = try c.decode(Bool.self, forKey: .isActive)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        lastLoginAt = try c.decodeIfPresent(String.self, forKey: .lastLoginAt)
+        gamesPlayed = try c.decodeIfPresent(Int.self, forKey: .gamesPlayed) ?? 0
+        sessionVersion = try c.decodeIfPresent(Int.self, forKey: .sessionVersion) ?? 0
+        oauthProvider = try c.decodeIfPresent(String.self, forKey: .oauthProvider)
+        emailVerifiedAt = try c.decodeIfPresent(String.self, forKey: .emailVerifiedAt)
+        isSuspect = try c.decodeIfPresent(Bool.self, forKey: .isSuspect) ?? false
+    }
+}
+
+/// `POST /admin/users/bulk-deactivate`: exactly one of `user_ids` (1–500) or `filter: "suspect"`.
+public struct BulkDeactivateRequest: Codable, Sendable, Equatable {
+    public enum Source: Sendable, Equatable {
+        case ids([String])
+        /// Every active account the server's suspected-bot filter matches, up to 500 per call.
+        case suspects
+    }
+
+    public var source: Source
+    /// Free text kept in the audit rows (≤ 200 characters).
+    public var reason: String?
+
+    public init(source: Source, reason: String? = nil) {
+        self.source = source
+        self.reason = reason
+    }
+
+    public static func ids(_ ids: [String], reason: String? = nil) -> BulkDeactivateRequest { .init(source: .ids(ids), reason: reason) }
+    public static func suspects(reason: String? = nil) -> BulkDeactivateRequest { .init(source: .suspects, reason: reason) }
+
+    enum CodingKeys: String, CodingKey { case userIds = "user_ids", filter, reason }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch source {
+        case .ids(let ids): try c.encode(ids, forKey: .userIds)
+        case .suspects: try c.encode("suspect", forKey: .filter)
+        }
+        try c.encodeIfPresent(reason, forKey: .reason)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let ids = try c.decodeIfPresent([String].self, forKey: .userIds) {
+            source = .ids(ids)
+        } else if try c.decodeIfPresent(String.self, forKey: .filter) == "suspect" {
+            source = .suspects
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .filter, in: c, debugDescription: "user_ids or filter=suspect expected")
+        }
+        reason = try c.decodeIfPresent(String.self, forKey: .reason)
+    }
+}
+
+public struct AdminBulkDeactivateResult: Codable, Sendable, Equatable {
+    public let deactivated: Int
+    /// Already inactive, superadmins, CPUs and the caller are skipped.
+    public let skipped: Int
+    /// Shared by the audit rows of one call; nil when nothing was deactivated.
+    public let batchId: String?
+
+    public init(deactivated: Int, skipped: Int, batchId: String?) {
+        self.deactivated = deactivated
+        self.skipped = skipped
+        self.batchId = batchId
+    }
+
+    enum CodingKeys: String, CodingKey { case deactivated, skipped, batchId = "batch_id" }
 }
 
 public struct AdminUserDetail: Codable, Sendable, Equatable, Identifiable {
@@ -397,12 +528,48 @@ public struct AdminUserDetail: Codable, Sendable, Equatable, Identifiable {
     public let updatedAt: String?
     public let oauthProvider: String?
     public let profilePictureUrl: String?
+    /// nil = the address is unverified and password sign-in is blocked (absent on older servers).
+    public let emailVerifiedAt: String?
+
+    public init(id: String, email: String, username: String, firstName: String, lastName: String, color: String, appRole: AppRole,
+                isActive: Bool, createdAt: String?, registered: Bool, isCpu: Bool, lastLoginAt: String?, sessionVersion: Int,
+                updatedAt: String?, oauthProvider: String?, profilePictureUrl: String?, emailVerifiedAt: String? = nil) {
+        self.id = id
+        self.email = email
+        self.username = username
+        self.firstName = firstName
+        self.lastName = lastName
+        self.color = color
+        self.appRole = appRole
+        self.isActive = isActive
+        self.createdAt = createdAt
+        self.registered = registered
+        self.isCpu = isCpu
+        self.lastLoginAt = lastLoginAt
+        self.sessionVersion = sessionVersion
+        self.updatedAt = updatedAt
+        self.oauthProvider = oauthProvider
+        self.profilePictureUrl = profilePictureUrl
+        self.emailVerifiedAt = emailVerifiedAt
+    }
+
+    /// A copy with some fields changed (the mock's writes); `emailVerifiedAt: .some(nil)` clears it.
+    public func updating(username: String? = nil, firstName: String? = nil, lastName: String? = nil, color: String? = nil,
+                         appRole: AppRole? = nil, isActive: Bool? = nil, sessionVersion: Int? = nil, updatedAt: String? = nil,
+                         emailVerifiedAt: String?? = nil) -> AdminUserDetail {
+        AdminUserDetail(id: id, email: email, username: username ?? self.username, firstName: firstName ?? self.firstName,
+                        lastName: lastName ?? self.lastName, color: color ?? self.color, appRole: appRole ?? self.appRole,
+                        isActive: isActive ?? self.isActive, createdAt: createdAt, registered: registered, isCpu: isCpu,
+                        lastLoginAt: lastLoginAt, sessionVersion: sessionVersion ?? self.sessionVersion, updatedAt: updatedAt ?? self.updatedAt,
+                        oauthProvider: oauthProvider, profilePictureUrl: profilePictureUrl,
+                        emailVerifiedAt: emailVerifiedAt.map { $0 } ?? self.emailVerifiedAt)
+    }
 
     enum CodingKeys: String, CodingKey {
         case id, email, username, firstName = "first_name", lastName = "last_name", color, appRole = "app_role"
         case isActive = "is_active", createdAt = "created_at", registered, isCpu = "is_cpu", lastLoginAt = "last_login_at"
         case sessionVersion = "session_version", updatedAt = "updated_at", oauthProvider = "oauth_provider"
-        case profilePictureUrl = "profile_picture_url"
+        case profilePictureUrl = "profile_picture_url", emailVerifiedAt = "email_verified_at"
     }
 
     public var displayName: String {
@@ -419,19 +586,23 @@ public struct AdminUserPatch: Codable, Sendable, Equatable {
     public var lastName: String?
     public var username: String?
     public var color: String?
+    /// `true` stamps `email_verified_at` (kept if already set), `false` clears it.
+    public var emailVerified: Bool?
 
     public init(appRole: AppRole? = nil, isActive: Bool? = nil, firstName: String? = nil, lastName: String? = nil,
-                username: String? = nil, color: String? = nil) {
+                username: String? = nil, color: String? = nil, emailVerified: Bool? = nil) {
         self.appRole = appRole
         self.isActive = isActive
         self.firstName = firstName
         self.lastName = lastName
         self.username = username
         self.color = color
+        self.emailVerified = emailVerified
     }
 
     enum CodingKeys: String, CodingKey {
         case appRole = "app_role", isActive = "is_active", firstName = "first_name", lastName = "last_name", username, color
+        case emailVerified = "email_verified"
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -442,10 +613,11 @@ public struct AdminUserPatch: Codable, Sendable, Equatable {
         try c.encodeIfPresent(lastName, forKey: .lastName)
         try c.encodeIfPresent(username, forKey: .username)
         try c.encodeIfPresent(color, forKey: .color)
+        try c.encodeIfPresent(emailVerified, forKey: .emailVerified)
     }
 
     public var isEmpty: Bool {
-        appRole == nil && isActive == nil && firstName == nil && lastName == nil && username == nil && color == nil
+        appRole == nil && isActive == nil && firstName == nil && lastName == nil && username == nil && color == nil && emailVerified == nil
     }
 }
 
@@ -631,10 +803,12 @@ public enum AdminAuditAction: String, LenientEnum, Sendable, Equatable, CaseIter
     case userPatch = "user_patch", resetPassword = "reset_password", forceLogout = "force_logout"
     case cpuCreate = "cpu_create", cpuPatch = "cpu_patch", cpuDelete = "cpu_delete", feedbackPatch = "feedback_patch"
     case passwordResetSelf = "password_reset_self", accountDeleteSelf = "account_delete_self"
+    /// One row per account of a `POST /admin/users/bulk-deactivate` call; rows share `detail.batch_id`.
+    case bulkDeactivate = "bulk_deactivate"
     case unknown
 
     public static var allCases: [AdminAuditAction] {
-        [.userPatch, .resetPassword, .forceLogout, .cpuCreate, .cpuPatch, .cpuDelete, .feedbackPatch, .passwordResetSelf, .accountDeleteSelf]
+        [.userPatch, .resetPassword, .forceLogout, .cpuCreate, .cpuPatch, .cpuDelete, .feedbackPatch, .bulkDeactivate, .passwordResetSelf, .accountDeleteSelf]
     }
 }
 
@@ -836,13 +1010,63 @@ public struct AdminCPUStatsResponse: Codable, Sendable, Equatable {
 }
 
 public struct AdminTestMove: Codable, Sendable, Equatable {
+    /// What the engine tiers report with the move (`src/ai/engine_move.py`); absent for heuristics.
+    public struct Engine: Codable, Sendable, Equatable {
+        public let mode: String?
+        public let fallback: Bool?
+        public let reason: String?
+        public let depth: Int?
+        public let nodes: Int?
+        public let deadlineMs: Int?
+
+        public init(mode: String?, fallback: Bool?, reason: String? = nil, depth: Int? = nil, nodes: Int? = nil, deadlineMs: Int? = nil) {
+            self.mode = mode
+            self.fallback = fallback
+            self.reason = reason
+            self.depth = depth
+            self.nodes = nodes
+            self.deadlineMs = deadlineMs
+        }
+
+        enum CodingKeys: String, CodingKey { case mode, fallback, reason, depth, nodes, deadlineMs = "deadline_ms" }
+    }
+
     public let cpuType: String
     public let row: Int
     public let col: Int
     public let latencyMs: Double
     public let message: String
+    public let engine: Engine?
 
-    enum CodingKeys: String, CodingKey { case cpuType = "cpu_type", row, col, latencyMs = "latency_ms", message }
+    public init(cpuType: String, row: Int, col: Int, latencyMs: Double, message: String, engine: Engine? = nil) {
+        self.cpuType = cpuType
+        self.row = row
+        self.col = col
+        self.latencyMs = latencyMs
+        self.message = message
+        self.engine = engine
+    }
+
+    enum CodingKeys: String, CodingKey { case cpuType = "cpu_type", row, col, latencyMs = "latency_ms", message, engine }
+}
+
+/// `POST /admin/cpus/{type}/test-move` body: board 4–20 (engine tiers 6–12), deadline 50–10000 ms.
+public struct AdminTestMoveRequest: Codable, Sendable, Equatable {
+    public var boardSize: Int?
+    public var deadlineMs: Int?
+
+    public init(boardSize: Int? = nil, deadlineMs: Int? = nil) {
+        self.boardSize = boardSize
+        self.deadlineMs = deadlineMs
+    }
+
+    enum CodingKeys: String, CodingKey { case boardSize = "board_size", deadlineMs = "deadline_ms" }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(boardSize, forKey: .boardSize)
+        try c.encodeIfPresent(deadlineMs, forKey: .deadlineMs)
+    }
 }
 
 /// `{items: [...]}` wrappers (`/admin/cpus`).

@@ -17,6 +17,8 @@ public protocol AdminAPI: Sendable {
     func patchUser(id: String, _ patch: AdminUserPatch) async throws -> MessageResponse
     func resetPassword(id: String, newPassword: String) async throws -> MessageResponse
     func forceLogout(id: String) async throws -> AdminForceLogoutResult
+    /// `POST /admin/users/bulk-deactivate`: selected ids, or every suspected bot (≤ 500 per call).
+    func bulkDeactivate(_ request: BulkDeactivateRequest) async throws -> AdminBulkDeactivateResult
 
     // Games
     func games(_ query: AdminGameQuery) async throws -> Paged<AdminGameRow>
@@ -33,10 +35,17 @@ public protocol AdminAPI: Sendable {
     // CPUs
     func cpus() async throws -> [AdminCPURow]
     func cpuStats(days: Int, tz: String?) async throws -> AdminCPUStatsResponse
-    func testMove(cpuType: String, boardSize: Int?) async throws -> AdminTestMove
+    /// Board 4–20 (engine tiers 6–12); `deadlineMs` 50–10000 caps the engine's search.
+    func testMove(cpuType: String, boardSize: Int?, deadlineMs: Int?) async throws -> AdminTestMove
     func createCPU(_ body: AdminCPUCreate) async throws -> MessageResponse
     func patchCPU(id: Int, _ patch: AdminCPUPatch) async throws -> MessageResponse
     func deleteCPU(id: Int) async throws -> MessageResponse
+}
+
+public extension AdminAPI {
+    func testMove(cpuType: String, boardSize: Int?) async throws -> AdminTestMove {
+        try await testMove(cpuType: cpuType, boardSize: boardSize, deadlineMs: nil)
+    }
 }
 
 /// `?limit=&offset=`; lists page 50 at a time like the web.
@@ -69,10 +78,15 @@ public struct AdminUserQuery: Sendable, Equatable {
     public var active: Bool?
     public var provider: AuthProvider?
     public var hasPlayed: Bool?
+    /// `email_verified_at` set (true) or null (false).
+    public var verified: Bool?
+    /// `true`: only accounts the server's suspected-bot heuristic flags.
+    public var suspect: Bool?
     public var page: PageRequest
 
     public init(q: String? = nil, sort: Sort = .createdAt, dir: SortDir = .desc, role: AppRole? = nil, active: Bool? = nil,
-                provider: AuthProvider? = nil, hasPlayed: Bool? = nil, page: PageRequest = PageRequest()) {
+                provider: AuthProvider? = nil, hasPlayed: Bool? = nil, verified: Bool? = nil, suspect: Bool? = nil,
+                page: PageRequest = PageRequest()) {
         self.q = q
         self.sort = sort
         self.dir = dir
@@ -80,10 +94,12 @@ public struct AdminUserQuery: Sendable, Equatable {
         self.active = active
         self.provider = provider
         self.hasPlayed = hasPlayed
+        self.verified = verified
+        self.suspect = suspect
         self.page = page
     }
 
-    public var hasFilters: Bool { role != nil || active != nil || provider != nil || hasPlayed != nil }
+    public var hasFilters: Bool { role != nil || active != nil || provider != nil || hasPlayed != nil || verified != nil || suspect != nil }
 
     public var queryItems: [URLQueryItem] {
         var items: [URLQueryItem] = []
@@ -94,6 +110,8 @@ public struct AdminUserQuery: Sendable, Equatable {
         if let active { items.append(URLQueryItem(name: "active", value: String(active))) }
         if let provider { items.append(URLQueryItem(name: "provider", value: provider.rawValue)) }
         if let hasPlayed { items.append(URLQueryItem(name: "has_played", value: String(hasPlayed))) }
+        if let verified { items.append(URLQueryItem(name: "verified", value: String(verified))) }
+        if let suspect { items.append(URLQueryItem(name: "suspect", value: String(suspect))) }
         return items + page.queryItems
     }
 }
@@ -236,6 +254,10 @@ public struct LiveAdminAPI: AdminAPI {
         try await client.send("POST", "admin/users/\(id)/force-logout")
     }
 
+    public func bulkDeactivate(_ request: BulkDeactivateRequest) async throws -> AdminBulkDeactivateResult {
+        try await client.send("POST", "admin/users/bulk-deactivate", body: request)
+    }
+
     public func games(_ query: AdminGameQuery) async throws -> Paged<AdminGameRow> {
         try await client.send("GET", "admin/games", query: query.queryItems)
     }
@@ -266,9 +288,8 @@ public struct LiveAdminAPI: AdminAPI {
         try await client.send("GET", "admin/cpus/stats", query: [URLQueryItem(name: "days", value: String(days))] + tzItems(tz))
     }
 
-    public func testMove(cpuType: String, boardSize: Int?) async throws -> AdminTestMove {
-        let body: [String: Int] = boardSize.map { ["board_size": $0] } ?? [:]
-        return try await client.send("POST", "admin/cpus/\(cpuType)/test-move", body: body)
+    public func testMove(cpuType: String, boardSize: Int?, deadlineMs: Int?) async throws -> AdminTestMove {
+        try await client.send("POST", "admin/cpus/\(cpuType)/test-move", body: AdminTestMoveRequest(boardSize: boardSize, deadlineMs: deadlineMs))
     }
 
     public func createCPU(_ body: AdminCPUCreate) async throws -> MessageResponse {
