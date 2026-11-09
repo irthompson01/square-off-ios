@@ -1,7 +1,8 @@
 import SquareOffNet
 import SwiftUI
 
-/// The user directory: search, sort, filters, 50 a page (web `pages/admin/users.tsx`).
+/// The user directory: search, sort, filters (role, status, provider, played, verified, bots),
+/// 50 a page, with a select mode for bulk deactivation (web `pages/admin/users.tsx`).
 struct UsersView: View {
     @Environment(AppModel.self) private var app
     @Environment(AdminAppModel.self) private var console
@@ -9,7 +10,11 @@ struct UsersView: View {
     @State private var search = ""
     @State private var draft = AdminUserQuery()
     @State private var showsFilters = false
-    @State private var path: [AdminRoute] = []
+    @State private var selecting = false
+    @State private var selected: Set<String> = []
+    @State private var confirmSelected = false
+    @State private var confirmSuspects = false
+    @State private var deactivating = false
 
     var body: some View {
         @Bindable var console = console
@@ -24,8 +29,17 @@ struct UsersView: View {
                         Label(draft.hasFilters ? "Filters · on" : "Filters", systemImage: "line.3.horizontal.decrease.circle")
                     }
                     .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
+                    if selecting, let list, !list.items.isEmpty {
+                        Button(selected.count == list.items.count ? "Deselect all" : "Select all") {
+                            selected = selected.count == list.items.count ? [] : Set(list.items.map(\.id))
+                        }
+                        .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
+                    }
                     Spacer()
                     if let list { Text(list.rangeLabel).font(.caption).foregroundStyle(Theme.muted) }
+                }
+                if let list, selected.count > 0 || (draft.suspect == true && list.total > 0) {
+                    bulkBar(total: list.total)
                 }
                 if let list {
                     if let error = list.error, list.items.isEmpty {
@@ -42,8 +56,15 @@ struct UsersView: View {
                     } else {
                         VStack(spacing: 0) {
                             ForEach(list.items) { user in
-                                NavigationLink(value: AdminRoute.user(id: user.id)) { row(user) }
-                                    .buttonStyle(.plain)
+                                if selecting {
+                                    Button { toggle(user.id) } label: { row(user, checked: selected.contains(user.id)) }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel("Select \(user.username)")
+                                        .accessibilityAddTraits(selected.contains(user.id) ? .isSelected : [])
+                                } else {
+                                    NavigationLink(value: AdminRoute.user(id: user.id)) { row(user, checked: nil) }
+                                        .buttonStyle(.plain)
+                                }
                                 if user.id != list.items.last?.id { Theme.separator.frame(height: 1) }
                             }
                         }
@@ -62,8 +83,20 @@ struct UsersView: View {
         .navigationTitle("Users")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, prompt: "Email or username")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(selecting ? "Done" : "Select") {
+                    selecting.toggle()
+                    if !selecting { selected = [] }
+                }
+            }
+        }
         .onAppear {
             if list == nil {
+                if console.pendingUsersSuspects {
+                    console.pendingUsersSuspects = false
+                    draft.suspect = true
+                }
                 let api = app.admin
                 list = PagedQuery(query: draft) { query, page in
                     var q = query
@@ -80,20 +113,26 @@ struct UsersView: View {
             draft.q = search.isEmpty ? nil : search
             await list?.setQuery(draft)
         }
+        // Like the web, the selection belongs to the page on screen: a new page, sort or filter clears it.
+        .onChange(of: list?.items.map(\.id) ?? []) { _, _ in selected = [] }
         .sheet(isPresented: $showsFilters) {
             UserFiltersSheet(query: $draft) { Task { await list?.setQuery(draft) } }
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
                 .presentationBackground(Theme.overlay)
         }
+        .alert(UsersBulk.selectedTitle(selected.count), isPresented: $confirmSelected) {
+            Button("Deactivate", role: .destructive) { deactivate(.ids(Array(selected))) }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text(UsersBulk.selectedMessage(selected.count)) }
+        .alert(UsersBulk.suspectsTitle, isPresented: $confirmSuspects) {
+            Button("Deactivate", role: .destructive) { deactivate(.suspects()) }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text(UsersBulk.suspectsMessage(list?.total ?? 0)) }
         .onChange(of: console.pendingUser, initial: true) { _, id in
             guard let id else { return }
             console.pendingUser = nil
-            path.append(.user(id: id))
+            console.paths[.users, default: []].append(.user(id: id))
         }
-        .navigationDestination(for: AdminRoute.self) { route in
-            if case .user(let id) = route { UserDetailView(userID: id) }
-        }
-        .modifier(PathHost(path: $path))
     }
 
     private var sortMenu: some View {
@@ -121,32 +160,75 @@ struct UsersView: View {
         }
     }
 
-    private func row(_ user: AdminUserRow) -> some View {
+    /// "{n} selected" (or "Suspected bots" while that filter is on with nothing ticked) and the
+    /// deactivate buttons (web `bulk-deactivate-bar.tsx`).
+    private func bulkBar(total: Int) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(selected.isEmpty ? "Suspected bots" : "\(selected.count) selected")
+                .font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foreground)
+            HStack(spacing: 10) {
+                if !selected.isEmpty {
+                    Button("Deactivate \(selected.count) selected") { confirmSelected = true }
+                        .buttonStyle(DangerButtonStyle(small: true, fullWidth: false))
+                        .disabled(deactivating)
+                }
+                if draft.suspect == true {
+                    Button("Deactivate all suspected bots (\(total))") { confirmSuspects = true }
+                        .buttonStyle(DangerButtonStyle(soft: true, small: true, fullWidth: false))
+                        .disabled(deactivating || total == 0)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card(fill: Theme.surfaceSecondary, radius: 12)
+    }
+
+    private func toggle(_ id: String) {
+        if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
+    }
+
+    private func deactivate(_ request: BulkDeactivateRequest) {
+        deactivating = true
+        Task {
+            defer { deactivating = false }
+            do {
+                let result = try await app.admin.bulkDeactivate(request)
+                app.toasts.success(UsersBulk.successTitle(result), description: UsersBulk.skippedDescription(result))
+                selected = []
+                await list?.load()
+            } catch {
+                app.toasts.danger(UsersBulk.failureTitle, description: AdminErrors.message(for: error))
+            }
+        }
+    }
+
+    private func row(_ user: AdminUserRow, checked: Bool?) -> some View {
         HStack(spacing: 12) {
+            if let checked {
+                Image(systemName: checked ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(checked ? Theme.link : Theme.muted)
+            }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(user.username).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foreground)
                     if user.appRole == .superadmin { AdminChips.role(user.appRole) }
                     if !user.isActive { AdminChips.active(false) }
+                    if !user.isEmailVerified { AdminChips.verified(nil) }
+                    if user.isSuspect { AdminChips.suspect() }
                 }
                 Text(user.email).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
                 Text("\(user.gamesPlayed) games · joined \(AdminFormat.absolute(user.createdAt, time: false)) · last sign-in \(AdminFormat.relative(user.lastLoginAt))")
                     .font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
+            if checked == nil {
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
+            }
         }
         .padding(.vertical, 12)
         .contentShape(Rectangle())
-    }
-}
-
-/// Hosts a tab's `NavigationStack` path so deep links can push onto it.
-struct PathHost: ViewModifier {
-    @Binding var path: [AdminRoute]
-
-    func body(content: Content) -> some View {
-        content
     }
 }
 
@@ -176,8 +258,19 @@ struct UserFiltersSheet: View {
                     Text("Yes").tag(Bool?.some(true))
                     Text("No").tag(Bool?.some(false))
                 }
-                Button("Clear filters") { query.role = nil; query.active = nil; query.provider = nil; query.hasPlayed = nil }
-                    .disabled(!query.hasFilters)
+                Picker("Verified", selection: $query.verified) {
+                    Text("Any").tag(Bool?.none)
+                    Text("Verified").tag(Bool?.some(true))
+                    Text("Unverified").tag(Bool?.some(false))
+                }
+                Picker("Bots", selection: $query.suspect) {
+                    Text("Any").tag(Bool?.none)
+                    Text("Suspected").tag(Bool?.some(true))
+                }
+                Button("Clear filters") {
+                    query.role = nil; query.active = nil; query.provider = nil; query.hasPlayed = nil; query.verified = nil; query.suspect = nil
+                }
+                .disabled(!query.hasFilters)
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Filters")

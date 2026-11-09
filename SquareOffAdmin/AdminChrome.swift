@@ -1,3 +1,4 @@
+import SquareOffCore
 import SquareOffNet
 import SwiftUI
 
@@ -11,6 +12,32 @@ enum AdminChips {
 
     static func active(_ isActive: Bool) -> Chip {
         Chip(text: isActive ? "Active" : "Inactive", style: isActive ? .success : .danger, dot: true)
+    }
+
+    /// "Verified" / "Unverified" from `email_verified_at` (web `chips.tsx`).
+    static func verified(_ at: String?) -> Chip {
+        at == nil ? Chip(text: "Unverified", style: .default) : Chip(text: "Verified", style: .success)
+    }
+
+    static func suspect() -> Chip {
+        Chip(text: "Suspected bot", style: .warning)
+    }
+
+    enum HealthState: Equatable { case ok, down, off, unknown }
+
+    static func health(_ state: HealthState) -> Chip {
+        switch state {
+        case .ok: Chip(text: "OK", style: .success, dot: true)
+        case .down: Chip(text: "Down", style: .danger, dot: true)
+        case .off: Chip(text: "Not configured", style: .default)
+        case .unknown: Chip(text: "Unknown", style: .default)
+        }
+    }
+
+    /// The setup level a CPU type maps to; the retired CNN (and any unknown type) has none.
+    static func level(cpuType: String) -> Chip {
+        if let level = CPULevel(rawValue: cpuType), !level.isRetired { return Chip(text: "Level \(level.number)") }
+        return Chip(text: "Not in setup", style: .warning)
     }
 
     static func phase(_ room: AdminLiveRoom) -> Chip {

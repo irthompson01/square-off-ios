@@ -40,6 +40,7 @@ struct AdminSearchView: View {
                                         Text(user.email).font(.caption).foregroundStyle(Theme.muted)
                                     }
                                     Spacer()
+                                    if user.isSuspect { AdminChips.suspect() }
                                     AdminChips.role(user.appRole)
                                     Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
                                 }

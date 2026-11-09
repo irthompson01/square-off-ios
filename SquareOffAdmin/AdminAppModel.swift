@@ -13,6 +13,14 @@ final class AdminAppModel {
     var pendingReplay: Int?
     var newFeedbackCount = 0
     var liveAutoRefresh = true
+    /// `-adminUsersSuspects YES`: the Users tab opens with the Bots filter on (screenshots).
+    var pendingUsersSuspects = false
+    /// Each tab's navigation path, owned here so deep links can push onto a tab's stack.
+    var paths: [AdminSection: [AdminRoute]] = [:]
+
+    func path(for section: AdminSection) -> Binding<[AdminRoute]> {
+        Binding(get: { self.paths[section] ?? [] }, set: { self.paths[section] = $0 })
+    }
 
     init() {
         applyLaunchArguments()
@@ -36,6 +44,10 @@ final class AdminAppModel {
         }
         if let user = defaults.string(forKey: "adminUser") { open(user: user) }
         if let replay = defaults.string(forKey: "adminReplay").flatMap(Int.init) { open(replay: replay) }
+        if defaults.bool(forKey: "adminUsersSuspects") {
+            section = .users
+            pendingUsersSuspects = true
+        }
         #endif
     }
 }
