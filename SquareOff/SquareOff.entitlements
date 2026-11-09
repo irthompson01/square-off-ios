@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Release entitlements (hand-maintained; project.yml points CODE_SIGN_ENTITLEMENTS here).
+	     Keep SquareOffDebug.entitlements in step: same list, with `?mode=developer` on the
+	     applinks entries. Both hosts matter: the site answers on square-off.com and
+	     www.square-off.com, and both serve the AASA. -->
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>
@@ -9,7 +13,9 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:square-off.com</string>
+		<string>applinks:www.square-off.com</string>
 		<string>webcredentials:square-off.com</string>
+		<string>webcredentials:www.square-off.com</string>
 	</array>
 </dict>
 </plist>

@@ -33,15 +33,6 @@ targets:
       # Server clients (live docker + in-app mock), picked at runtime by BackendConfiguration.
       - package: SquareOffKit
         product: SquareOffNet
-    entitlements:
-      path: SquareOff/SquareOff.entitlements
-      properties:
-        com.apple.developer.applesignin: [Default]
-        # Universal links (invite links, password-reset links) and password AutoFill; the
-        # matching AASA is served by Caddy at square-off.com/.well-known/apple-app-site-association.
-        com.apple.developer.associated-domains:
-          - applinks:square-off.com
-          - webcredentials:square-off.com
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff
@@ -51,8 +42,14 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # Both entitlements files are hand-maintained (an XcodeGen `entitlements:` key would
+        # force one file on every configuration): Sign in with Apple, universal links for
+        # square-off.com and www.square-off.com (invite, password-reset and verify-email
+        # links; the AASA is served by Caddy) and password AutoFill.
+        CODE_SIGN_ENTITLEMENTS: SquareOff/SquareOff.entitlements
       configs:
-        # Hand-maintained twin with `applinks:square-off.com?mode=developer` (see the file).
+        # Same list with `applinks:…?mode=developer`, so a device with Settings › Developer ›
+        # Associated Domains Development on skips Apple's CDN copy of the AASA.
         Debug:
           CODE_SIGN_ENTITLEMENTS: SquareOff/SquareOffDebug.entitlements
     info:
