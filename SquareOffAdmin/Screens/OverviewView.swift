@@ -72,10 +72,7 @@ struct OverviewView: View {
             } else if let h = query.value {
                 let columns = [GridItem(.adaptive(minimum: 150), spacing: 10)]
                 LazyVGrid(columns: columns, spacing: 10) {
-                    healthTile("Database", ok: h.db.ok, detail: h.db.ok ? "\(h.db.latencyMs.map { String(format: "%.0f ms", $0) } ?? "—") · pool \(h.db.pool?.inUse ?? 0)/\(h.db.pool?.max ?? 0)" : (h.db.error ?? "down"))
-                    healthTile("Model", ok: h.model.ok, detail: h.model.ok ? "\(h.model.latencyMs.map { String(format: "%.0f ms", $0) } ?? "—")\(h.model.cached ? " · cached" : "")" : (h.model.error ?? "down"))
-                    healthTile("Mail", ok: h.mail.configured, detail: h.mail.server ?? "not configured")
-                    healthTile("App", ok: true, detail: "\(h.app.version) · \(h.app.buildSha.map { String($0.prefix(7)) } ?? "no sha") · up \(AdminFormat.duration(h.app.uptimeS))")
+                    ForEach(HealthTiles.tiles(for: h)) { tile in healthTile(tile) }
                 }
             } else {
                 SkeletonRows(count: 2)
@@ -85,13 +82,18 @@ struct OverviewView: View {
         .card()
     }
 
-    private func healthTile(_ title: String, ok: Bool, detail: String) -> some View {
+    /// Database · Neural model · Engine · Mail · App (web `health-strip.tsx`).
+    private func healthTile(_ tile: HealthTile) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Circle().fill(ok ? Theme.success : Theme.dangerText).frame(width: 8, height: 8)
-                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foreground)
+                Text(tile.title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foreground)
+                Spacer(minLength: 4)
+                AdminChips.health(tile.state)
             }
-            Text(detail).font(.caption).foregroundStyle(Theme.muted).lineLimit(2)
+            Text(tile.detail).font(.caption).foregroundStyle(Theme.foregroundSecondary).lineLimit(2)
+            if let note = tile.note {
+                Text(note).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
