@@ -1,4 +1,5 @@
 import Charts
+import SquareOffCore
 import SquareOffNet
 import SwiftUI
 
@@ -33,7 +34,7 @@ struct CPUsView: View {
                     if let error = rows.error, rows.value == nil {
                         SectionError(message: error) { Task { await rows.refresh() } }
                     } else if let cpus = rows.value {
-                        ForEach(cpus) { cpu in card(cpu, stats: stats?.value?.items.first { $0.id == cpu.id }) }
+                        ForEach(Self.ordered(cpus)) { cpu in card(cpu, stats: stats?.value?.items.first { $0.id == cpu.id }) }
                     } else {
                         SkeletonRows().padding(16).card()
                     }
@@ -67,11 +68,31 @@ struct CPUsView: View {
         var id: Int { days }
     }
 
+    /// Setup order (level 1 first); types with no level (the retired CNN) last, by id.
+    static func ordered(_ cpus: [AdminCPURow]) -> [AdminCPURow] {
+        cpus.sorted { a, b in
+            let la = CPULevel(rawValue: a.cpuType).flatMap { $0.isRetired ? nil : $0.number } ?? Int.max
+            let lb = CPULevel(rawValue: b.cpuType).flatMap { $0.isRetired ? nil : $0.number } ?? Int.max
+            return la == lb ? a.id < b.id : la < lb
+        }
+    }
+
+    /// The server's Rust / ONNX engine plays 6×6 to 12×12; everything else takes 4–20.
+    static func boardSizes(for cpuType: String) -> ClosedRange<Int> {
+        CPULevel(rawValue: cpuType)?.isServerOnly == true ? 6...12 : 4...20
+    }
+
+    static let deadlineOptions: [Int?] = [nil, 50, 250, 1000, 3000, 10_000]
+
+    @State private var testBoard: [String: Int] = [:]
+    @State private var testDeadline: [String: Int] = [:]
+
     private func card(_ cpu: AdminCPURow, stats: AdminCPUStats?) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Circle().fill(Color(hex: cpu.color)).frame(width: 12, height: 12)
                 Text(cpu.displayName).font(Theme.display(16, relativeTo: .headline)).foregroundStyle(Theme.foreground)
+                AdminChips.level(cpuType: cpu.cpuType)
                 Chip(text: cpu.cpuType)
                 if cpu.isPremium { Chip(text: "Premium", style: .warning) }
                 Spacer()
@@ -98,14 +119,32 @@ struct CPUsView: View {
                 .frame(height: 44)
                 .accessibilityLabel("\(stats?.gamesTotal ?? 0) games in the last \(days) days")
             }
+            testMoveControls(cpu)
+        }
+        .padding(16)
+        .card()
+    }
+
+    /// "Test move" with the board size (and, for the engine tiers, the search deadline) the
+    /// server allows; the result shows the cell, the latency and the engine's mode.
+    private func testMoveControls(_ cpu: AdminCPURow) -> some View {
+        let sizes = Self.boardSizes(for: cpu.cpuType)
+        let size = testBoard[cpu.cpuType] ?? 8
+        let isEngine = CPULevel(rawValue: cpu.cpuType)?.isServerOnly == true
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Button {
                     testing.insert(cpu.cpuType)
                     Task {
                         defer { testing.remove(cpu.cpuType) }
                         do {
-                            let move = try await app.admin.testMove(cpuType: cpu.cpuType, boardSize: 8)
-                            testResults[cpu.cpuType] = "(\(move.row), \(move.col)) in \(Int(move.latencyMs)) ms"
+                            let move = try await app.admin.testMove(cpuType: cpu.cpuType, boardSize: size, deadlineMs: testDeadline[cpu.cpuType])
+                            var text = "Row \(move.row + 1), column \(move.col + 1) · \(Int(move.latencyMs)) ms"
+                            if let engine = move.engine {
+                                text += " · \(engine.mode ?? "engine")"
+                                if engine.fallback == true { text += " (fallback\(engine.reason.map { ": \($0)" } ?? ""))" }
+                            }
+                            testResults[cpu.cpuType] = text
                         } catch {
                             testResults[cpu.cpuType] = AdminErrors.message(for: error)
                         }
@@ -113,13 +152,30 @@ struct CPUsView: View {
                 } label: { PendingLabel(title: "Test move", pendingTitle: "Asking…", symbol: "bolt", isPending: testing.contains(cpu.cpuType)) }
                     .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
                     .disabled(testing.contains(cpu.cpuType))
-                if let result = testResults[cpu.cpuType] {
-                    Text(result).font(.caption).monospacedDigit().foregroundStyle(Theme.foregroundSecondary)
+                Menu {
+                    ForEach(Array(sizes), id: \.self) { option in
+                        Button { testBoard[cpu.cpuType] = option } label: {
+                            if option == size { Label("\(option)×\(option)", systemImage: "checkmark") } else { Text("\(option)×\(option)") }
+                        }
+                    }
+                } label: { Text("\(size)×\(size)") }
+                    .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
+                if isEngine {
+                    Menu {
+                        ForEach(Array(Self.deadlineOptions.enumerated()), id: \.offset) { _, option in
+                            Button { testDeadline[cpu.cpuType] = option } label: {
+                                let title = option.map { "\($0) ms" } ?? "Default deadline"
+                                if option == testDeadline[cpu.cpuType] { Label(title, systemImage: "checkmark") } else { Text(title) }
+                            }
+                        }
+                    } label: { Text(testDeadline[cpu.cpuType].map { "\($0) ms" } ?? "Deadline · default") }
+                        .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
                 }
             }
+            if let result = testResults[cpu.cpuType] {
+                Text(result).font(.caption).monospacedDigit().foregroundStyle(Theme.foregroundSecondary)
+            }
         }
-        .padding(16)
-        .card()
     }
 
     private func delete(_ cpu: AdminCPURow) {
@@ -156,7 +212,7 @@ struct CPUEditorSheet: View {
                 VStack(spacing: 16) {
                     if let error { AlertBox(.danger, title: "Couldn't save", message: error) }
                     if existing == nil {
-                        LabeledField(label: "Id", help: "Also the setup level number.") { TextField("7", text: $id).keyboardType(.numberPad).foregroundStyle(Theme.foreground) }
+                        LabeledField(label: "Id", help: "The definition's row id; the setup level comes from the type.") { TextField("21", text: $id).keyboardType(.numberPad).foregroundStyle(Theme.foreground) }
                         LabeledField(label: "CPU type", help: "What the move endpoint is asked for, e.g. max-min-io.") { TextField("cpu-type", text: $cpuType).textInputAutocapitalization(.never).autocorrectionDisabled().foregroundStyle(Theme.foreground) }
                     }
                     LabeledField(label: "Display name") { TextField("Level 7 · Name", text: $displayName).foregroundStyle(Theme.foreground) }

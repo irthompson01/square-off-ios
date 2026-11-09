@@ -1,4 +1,5 @@
 import Foundation
+import SquareOffCore
 import SquareOffNet
 import Testing
 @testable import SquareOffAdmin
@@ -132,4 +133,56 @@ private actor Flag {
 private actor Counter {
     var value = 0
     func next() -> Int { value += 1; return value }
+}
+
+struct AdminParityCopyTests {
+    @Test func bulkDeactivationCopy() {
+        #expect(UsersBulk.accounts(1) == "1 account" && UsersBulk.accounts(3) == "3 accounts")
+        #expect(UsersBulk.selectedTitle(2) == "Deactivate 2 accounts?")
+        #expect(UsersBulk.selectedMessage(1).hasPrefix("The 1 account you selected"))
+        #expect(UsersBulk.suspectsMessage(7).contains("(7, up to 500 per batch)"))
+        let partial = AdminBulkDeactivateResult(deactivated: 2, skipped: 1, batchId: "b1")
+        #expect(UsersBulk.successTitle(partial) == "Deactivated 2 accounts")
+        #expect(UsersBulk.skippedDescription(partial) == "1 account skipped: already inactive, a superadmin, or you.")
+        #expect(UsersBulk.skippedDescription(AdminBulkDeactivateResult(deactivated: 3, skipped: 0, batchId: nil)) == nil)
+    }
+
+    @Test func healthTilesFollowTheWebOrderAndTolerateAnOlderServer() throws {
+        let decoder = JSONDecoder()
+        let older = try decoder.decode(AdminHealth.self, from: Data("""
+        {"db":{"ok":true,"latency_ms":3.2,"pool":{"min":1,"max":10,"in_use":1,"idle":0}},"model":{"ok":false,"error":"timeout","cached":true},
+         "mail":{"configured":false},"app":{"version":"1.2.0","env":"production","started_at":"2026-11-08T00:00:00+00:00","uptime_s":4000}}
+        """.utf8))
+        let tiles = HealthTiles.tiles(for: older)
+        #expect(tiles.map(\.title) == ["Database", "Neural model", "Engine", "Mail", "App"])
+        #expect(tiles[0].state == .ok && tiles[0].detail == "3 ms" && tiles[0].note == "Pool 1 of 10 in use")
+        #expect(tiles[1].state == .down && tiles[1].detail == "timeout" && tiles[1].note == "Cached probe")
+        #expect(tiles[2].state == .unknown && tiles[2].detail == "No engine probe")
+        #expect(tiles[3].state == .off && tiles[3].detail == "Not configured")
+        #expect(tiles[4].detail == "v1.2.0" && tiles[4].note == "production · up 1 h 6 min")
+
+        let engine = AdminHealth.Engine(ok: true, latencyMs: 41.4, cached: true, checkedAt: nil, version: "0.1.0", move: nil, error: nil)
+        let tile = HealthTiles.engine(engine)
+        #expect(tile.state == .ok && tile.detail == "41 ms" && tile.note == "v0.1.0 · Cached probe")
+        #expect(HealthTiles.engine(AdminHealth.Engine(ok: false, latencyMs: nil, cached: false, checkedAt: nil, version: nil, move: nil, error: "connection refused")).detail == "connection refused")
+    }
+
+    @Test func cpusSortBySetupLevelWithUnknownAndRetiredLast() {
+        func row(_ id: Int, _ type: String) -> AdminCPURow {
+            AdminCPURow(id: id, cpuType: type, displayName: type, color: "#000000", description: nil, isPremium: false, createdAt: nil, usageCount: 0)
+        }
+        let rows = [row(9, "cnn"), row(3, "impossible"), row(2, "max-min-plus"), row(1, "random"), row(7, "mystery")]
+        #expect(CPUsView.ordered(rows).map(\.cpuType) == ["random", "max-min-plus", "impossible", "mystery", "cnn"])
+        #expect(CPUsView.boardSizes(for: "grandmaster") == 6...12 && CPUsView.boardSizes(for: "random") == 4...20 && CPUsView.boardSizes(for: "cnn") == 4...20)
+        #expect(GameFiltersSheet.cpuOptions.count == 9)
+        #expect(GameFiltersSheet.cpuOptions.first?.title == "Level 1 · Random" && GameFiltersSheet.cpuOptions.last?.cpuType == "cnn")
+    }
+
+    @Test func bulkAuditSummaries() {
+        let detail = JSONValue.object(["batch_id": .string("3f9a"), "source": .string("suspect"), "reason": .string("signup wave"), "session_version": .number(2)])
+        #expect(AuditDetail.bulkSummary(detail) == "Batch 3f9a · suspected-bot filter · signup wave")
+        #expect(AuditDetail.bulkSummary(.object(["source": .string("ids")])) == "selected accounts")
+        #expect(AuditDetail.bulkSummary(.object(["other": .bool(true)])) == nil)
+        #expect(AuditDetail.bulkSummary(nil) == nil)
+    }
 }
