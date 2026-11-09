@@ -19,6 +19,7 @@ struct UserDetailView: View {
     @State private var confirmRole: AppRole?
     @State private var confirmDeactivate = false
     @State private var confirmForceLogout = false
+    @State private var confirmVerify = false
     @State private var showsResetPassword = false
     @State private var replay: ReplayTarget?
 
@@ -66,6 +67,14 @@ struct UserDetailView: View {
             Button("Sign out", role: .destructive) { forceLogout() }
             Button("Cancel", role: .cancel) {}
         } message: { Text("Every device's session ends on its next request. The user can sign in again.") }
+        .alert("Mark email as verified?", isPresented: $confirmVerify) {
+            Button("Mark verified") {
+                patch(AdminUserPatch(emailVerified: true), success: "Email marked verified", failure: "Couldn't mark the email verified")
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("\(overview?.value?.user.username ?? "This user") can sign in with their password without opening the verification email.")
+        }
         .sheet(isPresented: $showsResetPassword) {
             ResetPasswordSheet(userID: userID, username: overview?.value?.user.username ?? "") { Task { await audit?.load() } }
                 .presentationDetents([.medium])
@@ -101,6 +110,7 @@ struct UserDetailView: View {
                 HStack(spacing: 6) {
                     AdminChips.role(user.appRole)
                     AdminChips.active(user.isActive)
+                    AdminChips.verified(user.emailVerifiedAt)
                     AdminChips.provider(user.oauthProvider)
                     if isSelf { Chip(text: "You", style: .accentFilled) }
                 }
@@ -136,6 +146,8 @@ struct UserDetailView: View {
                     DetailRow(label: "User id", value: data.user.id)
                     DetailRow(label: "Joined", value: AdminFormat.absolute(data.user.createdAt))
                     DetailRow(label: "Last sign-in", value: AdminFormat.absolute(data.user.lastLoginAt), dim: data.user.lastLoginAt == nil)
+                    DetailRow(label: "Email verified", value: data.user.emailVerifiedAt.map { AdminFormat.absolute($0) } ?? "Not verified",
+                              dim: data.user.emailVerifiedAt == nil)
                     DetailRow(label: "Session version", value: "\(data.user.sessionVersion)")
                     DetailRow(label: "Games played", value: "\(data.gamesPlayed) (\(data.gamesAbandoned) abandoned)")
                     DetailRow(label: "Last played", value: AdminFormat.relative(data.lastPlayedAt), dim: data.lastPlayedAt == nil)
@@ -171,6 +183,13 @@ struct UserDetailView: View {
                 Button("Set password") { showsResetPassword = true }.buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false)).disabled(pending)
                 Button("Sign out everywhere") { confirmForceLogout = true }
                     .buttonStyle(DangerButtonStyle(soft: true, small: true, fullWidth: false)).disabled(isSelf || pending)
+            }
+            if let verifiedAt = user.emailVerifiedAt {
+                Text("Email verified \(AdminFormat.absolute(verifiedAt, time: false)).").font(.caption).foregroundStyle(Theme.muted)
+            } else {
+                Text("Email not verified: password sign-in stays blocked until it is.").font(.caption).foregroundStyle(Theme.muted)
+                Button("Mark email verified") { confirmVerify = true }
+                    .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false)).disabled(pending)
             }
         }
         .padding(16)
@@ -266,18 +285,19 @@ struct UserDetailView: View {
         self.patch(patch) { isEditing = false }
     }
 
-    private func patch(_ patch: AdminUserPatch, then: @escaping () -> Void = {}) {
+    private func patch(_ patch: AdminUserPatch, success: String = "User updated", failure: String = "Couldn't update the user",
+                       then: @escaping () -> Void = {}) {
         pending = true
         Task {
             defer { pending = false }
             do {
                 _ = try await app.admin.patchUser(id: userID, patch)
-                app.toasts.success("User updated")
+                app.toasts.success(success)
                 then()
                 await overview?.refresh()
                 await audit?.load()
             } catch {
-                app.toasts.danger("Couldn't update the user", description: AdminErrors.message(for: error))
+                app.toasts.danger(failure, description: AdminErrors.message(for: error))
             }
         }
     }
@@ -373,6 +393,9 @@ struct AuditRowView: View {
                     }
                 }
             }
+            if row.action == .bulkDeactivate, let summary = AuditDetail.bulkSummary(row.detail) {
+                Text(summary).font(.caption).foregroundStyle(Theme.foregroundSecondary)
+            }
             if let detail = row.detail {
                 DisclosureGroup(isExpanded: $expanded) {
                     Text(detail.prettyPrinted).font(.system(.caption, design: .monospaced)).foregroundStyle(Theme.foregroundSecondary)
@@ -395,6 +418,7 @@ struct AuditRowView: View {
         case .cpuPatch: "CPU edited"
         case .cpuDelete: "CPU deleted"
         case .feedbackPatch: "Feedback updated"
+        case .bulkDeactivate: "Bulk deactivation"
         case .passwordResetSelf: "Password reset (self)"
         case .accountDeleteSelf: "Account deleted (self)"
         case .unknown: action.rawValue
@@ -403,7 +427,7 @@ struct AuditRowView: View {
 
     static func style(_ action: AdminAuditAction) -> Chip.Style {
         switch action {
-        case .forceLogout, .cpuDelete, .accountDeleteSelf: .danger
+        case .forceLogout, .cpuDelete, .accountDeleteSelf, .bulkDeactivate: .danger
         case .resetPassword, .passwordResetSelf: .warning
         case .feedbackPatch: .success
         default: .accent

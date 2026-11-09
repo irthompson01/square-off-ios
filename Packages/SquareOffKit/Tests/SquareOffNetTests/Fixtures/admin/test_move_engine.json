@@ -1,0 +1,8 @@
+{
+  "cpu_type": "grandmaster",
+  "row": 3,
+  "col": 4,
+  "latency_ms": 212.4,
+  "message": "Move computed on an empty 8x8 board",
+  "engine": {"cpu_type": "grandmaster", "mode": "ab", "depth": 7, "nodes": 48213, "time_ms": 211, "exact": false, "score": 0.0, "deadline_ms": 1500, "fallback": false}
+}

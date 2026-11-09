@@ -105,7 +105,7 @@ struct AdminShell: View {
 
     private func tab<Content: View>(_ section: AdminSection, @ViewBuilder content: () -> Content) -> some TabContent<AdminSection> {
         Tab(section.title, systemImage: section.symbol, value: section) {
-            NavigationStack {
+            NavigationStack(path: console.path(for: section)) {
                 content()
                     .navigationDestination(for: AdminRoute.self) { route in destination(route) }
             }

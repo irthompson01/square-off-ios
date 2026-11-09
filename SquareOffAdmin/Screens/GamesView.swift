@@ -1,3 +1,4 @@
+import SquareOffCore
 import SquareOffNet
 import SwiftUI
 
@@ -8,7 +9,6 @@ struct GamesView: View {
     @Environment(AdminAppModel.self) private var console
     @State private var list: PagedQuery<AdminGameRow, AdminGameQuery>?
     @State private var draft = AdminGameQuery()
-    @State private var cpuTypes: [String] = []
     @State private var showsFilters = false
     @State private var seats: AdminGameRow?
     @State private var replay: ReplayTarget?
@@ -67,14 +67,11 @@ struct GamesView: View {
                     let result = try await api.games(q)
                     return (result.total, result.items)
                 }
-                Task {
-                    await list?.load()
-                    cpuTypes = (try? await api.cpus().map(\.cpuType)) ?? []
-                }
+                Task { await list?.load() }
             }
         }
         .sheet(isPresented: $showsFilters) {
-            GameFiltersSheet(query: $draft, cpuTypes: cpuTypes) { Task { await list?.setQuery(draft) } }
+            GameFiltersSheet(query: $draft) { Task { await list?.setQuery(draft) } }
                 .presentationDetents([.large])
                 .presentationBackground(Theme.overlay)
         }
@@ -135,8 +132,12 @@ struct GamesView: View {
 
 struct GameFiltersSheet: View {
     @Binding var query: AdminGameQuery
-    let cpuTypes: [String]
     let onApply: () -> Void
+
+    /// The eight setup levels plus the retired CNN, which older games still reference
+    /// (web `games.tsx` CPU filter).
+    static let cpuOptions: [(cpuType: String, title: String)] =
+        CPULevel.selectable.map { ($0.cpuType, "Level \($0.number) · \($0.shortName)") } + [("cnn", "CNN (retired)")]
     @Environment(\.dismiss) private var dismiss
     @State private var range: Range = .any
 
@@ -170,7 +171,7 @@ struct GameFiltersSheet: View {
                 }
                 Picker("CPU", selection: $query.cpuType) {
                     Text("Any").tag(String?.none)
-                    ForEach(cpuTypes, id: \.self) { Text($0).tag(String?.some($0)) }
+                    ForEach(Self.cpuOptions, id: \.cpuType) { Text($0.title).tag(String?.some($0.cpuType)) }
                 }
                 Picker("Board", selection: $query.boardSize) {
                     Text("Any").tag(Int?.none)
