@@ -336,13 +336,10 @@ struct SignInView: View {
 
     // MARK: Apple
 
+    /// Native Sign in with Apple. The server accepts both the store app's bundle id and the
+    /// admin console's (`APPLE_NATIVE_CLIENT_IDS`), so the console offers it too.
     @ViewBuilder
     private var appleButton: some View {
-        #if ADMIN_CONSOLE
-        // The server verifies Apple tokens against the store app's bundle id; admins use a
-        // password, Google or GitHub instead.
-        EmptyView()
-        #else
         if app.backend.isLive {
             SignInWithAppleButton(.continue) { request in
                 let raw = AppleSignIn.randomNonce()
@@ -367,7 +364,6 @@ struct SignInView: View {
             }
             #endif
         }
-        #endif
     }
 
     private func handleApple(_ result: Result<ASAuthorization, Error>) {

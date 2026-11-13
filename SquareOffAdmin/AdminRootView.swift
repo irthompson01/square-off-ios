@@ -28,6 +28,11 @@ struct AdminRootView: View {
                 SignInView()
             }
         }
+        #if DEBUG
+        .safeAreaInset(edge: .bottom) {
+            if !(app.account.isSignedIn && app.account.profile?.appRole == "superadmin") { AdminServerBar() }
+        }
+        #endif
         .preferredColorScheme(.dark)
         .overlay(alignment: .bottom) { ToastOverlay(center: app.toasts) }
         .task {
@@ -210,3 +215,30 @@ struct AdminAccountView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 }
+
+#if DEBUG
+/// Debug builds only: which server the gate talks to, shown under the sign-in card so a phone
+/// install can be pointed at production without signing in to the mock first.
+private struct AdminServerBar: View {
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Picker("Server", selection: Binding(
+                get: { app.backend.configuration.kind },
+                set: { app.switchBackend(to: $0) }
+            )) {
+                ForEach(BackendKind.available) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Text(app.backend.configuration.environment.baseURL.host() ?? "")
+                .font(.caption2).foregroundStyle(Theme.muted)
+        }
+        .padding(12)
+        .frame(maxWidth: 448)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+}
+#endif
