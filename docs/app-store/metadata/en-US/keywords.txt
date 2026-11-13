@@ -1,0 +1,1 @@
+board game,strategy,shapes,tiles,puzzle,multiplayer,online,pass and play,2 player,4 player,grid

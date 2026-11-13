@@ -1,4 +1,5 @@
 import Charts
+import SquareOffCore
 import SquareOffNet
 import SwiftUI
 
@@ -6,6 +7,7 @@ import SwiftUI
 /// donut, tiles and filters) and the Game history panel (W/L/T strip, rows, server paging, replays).
 struct StatsView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
 
     enum Scope: String, CaseIterable, Identifiable {
         case all, humans, cpu
@@ -54,6 +56,7 @@ struct StatsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                BackButton { dismiss() }
                 PageHeading(title: "Game stats", description: "Your record across every game, by opponent type.")
                 if isLoading {
                     skeleton
@@ -80,6 +83,7 @@ struct StatsView: View {
         .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .task(id: app.account) { await loadAll() }
         .task(id: "\(humanBoard ?? 0)-\(humanTimer ?? -1)") { await loadHumans() }
         .task(id: "\(cpuBoard ?? 0)-\(cpuTimer ?? -1)-\(cpuType ?? "")") { await loadCPU() }
@@ -206,16 +210,17 @@ struct StatsView: View {
         }
     }
 
+    /// The web's stats-filter labels; old rows may spell types with underscores.
     static func cpuTypeLabel(_ type: String) -> String {
-        switch type {
-        case "random": "Random"
-        case "max_random", "max-random": "Max-Random"
-        case "cnn": "CNN"
-        case "max-min", "max_min": "Max-Min"
-        case "max-min-optimal": "Max-Min-Optimal"
-        case "max-min-io": "Max-Min-IO"
-        default: type
-        }
+        CPULevel(rawValue: type.replacingOccurrences(of: "_", with: "-"))?.statsLabel ?? type
+    }
+
+    /// The server labels CPU opponents by type ("CPU (max-min)"); show the level name instead.
+    static func opponentLabel(_ label: String) -> String {
+        guard label.hasPrefix("CPU ("), label.hasSuffix(")") else { return label }
+        let type = String(label.dropFirst(5).dropLast())
+        guard let level = CPULevel(rawValue: type.replacingOccurrences(of: "_", with: "-")) else { return label }
+        return "CPU (\(level.statsLabel))"
     }
 
     // MARK: History
@@ -266,17 +271,17 @@ struct StatsView: View {
             Text(row.gameType.uppercased())
                 .font(Theme.display(10, relativeTo: .caption2)).tracking(1).foregroundStyle(Theme.muted)
                 .frame(width: 52, alignment: .leading)
-            Text(row.opponentLabel).font(.subheadline).foregroundStyle(Theme.foreground).lineLimit(1)
+            Text(Self.opponentLabel(row.opponentLabel)).font(.subheadline).foregroundStyle(Theme.foreground).lineLimit(1)
             Spacer()
             Text("\(row.myScore)").font(Theme.display(14, relativeTo: .subheadline)).monospacedDigit().foregroundStyle(Theme.foreground)
             Chip(text: Self.resultWord(row.result), style: row.result == "W" ? .success : row.result == "L" ? .danger : .default)
             Button {
-                replayGame = ReplayTarget(id: row.gameId, opponent: row.opponentLabel)
+                replayGame = ReplayTarget(id: row.gameId, opponent: Self.opponentLabel(row.opponentLabel))
             } label: {
                 Image(systemName: "play").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foregroundSecondary).frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Replay game vs \(row.opponentLabel)")
+            .accessibilityLabel("Replay game vs \(Self.opponentLabel(row.opponentLabel))")
         }
         .padding(.vertical, 10)
     }

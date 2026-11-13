@@ -153,3 +153,57 @@ struct OnlineGameSessionTests {
         #expect(!session.capabilities.canRestart)
     }
 }
+
+/// Session rules from the 2026-11 server: the host's clock skips every seat, and a refused
+/// handshake is recovered once with a fresh guest session.
+@MainActor
+struct OnlineSessionRulesTests {
+    private func waitUntil(_ timeout: Duration = .seconds(3), _ condition: @MainActor () -> Bool) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while !condition() {
+            guard ContinuousClock.now < deadline else { throw OnlineGameSessionTests.TimeoutError() }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    @Test func theHostsClockSkipsEverySeatAndGuestsStayQuiet() async throws {
+        let fixture = OnlineGameSessionTests.Fixture()
+        OnlineSessionRecord.clear()
+        let hostLobby = fixture.coordinator("Host")
+        await hostLobby.host(boardSize: 4, timer: 1, listPublic: false)
+        try await waitUntil { hostLobby.state.roomInfo != nil }
+        let code = try #require(hostLobby.state.roomInfo?.code)
+        let guestLobby = fixture.coordinator("Guest")
+        await guestLobby.join(code: code)
+        try await waitUntil { hostLobby.state.roomInfo?.seats.count == 2 && guestLobby.state.roomInfo != nil }
+        await hostLobby.startGame()
+        try await waitUntil { fixture.sessions.count == 2 }
+        let host = try #require(fixture.sessions.first { $0.capabilities.canRestart })
+        let guest = try #require(fixture.sessions.first { !$0.capabilities.canRestart })
+        await host.start()
+        await guest.start()
+        // Nobody taps: the host's own second expires (move 1), then the guest's (move 2), both
+        // completed by the host's socket. The guest's timer never sends anything.
+        try await waitUntil(.seconds(6)) { host.game.moves.count >= 2 && guest.game.moves.count >= 2 }
+        #expect(host.game.moves[0].playerID == 1 && host.game.moves[1].playerID == 2)
+        // Both sessions save to the same defaults; whichever wrote last, the record names its session.
+        #expect(["id-Host", "id-Guest"].contains(OnlineSessionRecord.load()?.playerID ?? ""))
+        host.stop(); guest.stop()
+    }
+
+    @Test func aRefusedHandshakeIsRecoveredOnceThroughTheIdentityStore() async throws {
+        let fixture = OnlineGameSessionTests.Fixture()
+        OnlineSessionRecord.clear()
+        let transport = fixture.backend.makeOnlineTransport()
+        let socket = try #require(transport.connection.socket as? MockGameSocket)
+        await socket.refuseNextConnect(code: 1008, reason: "session_required")
+        try await transport.connection.connect()   // recovery mints a guest and connects again
+        #expect(transport.connection.isConnected)
+        #expect(fixture.backend.guestTokens.accessToken() != nil)
+
+        let again = fixture.backend.makeOnlineTransport()
+        let blocked = try #require(again.connection.socket as? MockGameSocket)
+        await blocked.refuseNextConnect(code: 1008, reason: "origin_not_allowed")
+        await #expect(throws: SocketError.self) { try await again.connection.connect() }
+    }
+}

@@ -1,4 +1,6 @@
 {
-  "message": "Guest created successfully",
-  "player_id": "34d46800-ce32-4cf8-a6aa-dcdb25ed0357"
+    "message": "Guest session ready",
+    "player_id": "8d9509eb-72be-4b91-9774-652b1899a936",
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJndWVzdDo4ZDk1MDllYi03MmJlLTRiOTEtOTc3NC02NTJiMTg5OWE5MzYiLCJ1aWQiOiI4ZDk1MDllYi03MmJlLTRiOTEtOTc3NC02NTJiMTg5OWE5MzYiLCJraW5kIjoiZ3Vlc3QiLCJzdiI6MCwiZXhwIjoxNzk2Nzg3MDY0fQ.xc69uhQbLAMn0kyStJSqRAQklwfPAHBcNQ3QGYJSX8Y",
+    "token_type": "bearer"
 }

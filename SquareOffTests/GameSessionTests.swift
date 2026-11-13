@@ -124,3 +124,28 @@ struct GameSessionTests {
         session.stop()
     }
 }
+
+@MainActor
+struct CPUThinkingOverlapTests {
+    /// A slow provider that answers a fixed cell after a delay.
+    struct SlowCPU: CPUMoveProvider {
+        let delay: Duration
+        func move(for game: Game, level: CPULevel) async -> Cell {
+            try? await Task.sleep(for: delay)
+            return game.board.emptyCells.first!
+        }
+    }
+
+    @Test func theThinkingPauseRunsAlongsideTheRequest() async throws {
+        let config = GameConfig(mode: .cpu(.maxMin), boardSize: 4, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Me", colorHex: "#0583D2")])
+        let session = GameSession(config: config, cpu: SlowCPU(delay: .milliseconds(300)), thinkDelay: 300...300)
+        await session.start()
+        let started = ContinuousClock.now
+        session.tap(Cell(row: 0, col: 0))
+        let deadline = ContinuousClock.now + .seconds(2)
+        while session.game.moves.count < 2, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(session.game.moves.count == 2)
+        #expect(ContinuousClock.now - started < .milliseconds(520), "300 ms pause + 300 ms request overlap, not add up")
+        session.stop()
+    }
+}

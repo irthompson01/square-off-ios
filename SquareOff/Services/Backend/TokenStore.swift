@@ -70,6 +70,23 @@ nonisolated final class UserDefaultsTokenStore: TokenStore, @unchecked Sendable 
     func clear() { defaults.removeObject(forKey: key) }
 }
 
+/// The token a request should carry: the signed-in user's, else the device's guest session's.
+/// `kind(of:)` lets `RESTClient` tell a dead user token (sign the user out) from a dead guest
+/// token (mint another and retry).
+nonisolated final class SessionTokenProvider: TokenProvider, @unchecked Sendable {
+    let user: any TokenStore
+    let guest: any TokenStore
+
+    init(user: any TokenStore, guest: any TokenStore) {
+        self.user = user
+        self.guest = guest
+    }
+
+    func accessToken() -> String? { user.accessToken() ?? guest.accessToken() }
+
+    func kind(of token: String) -> TokenKind { user.accessToken() == token ? .user : .guest }
+}
+
 nonisolated final class InMemoryTokenStore: TokenStore, @unchecked Sendable {
     private let lock = NSLock()
     private var token: String?

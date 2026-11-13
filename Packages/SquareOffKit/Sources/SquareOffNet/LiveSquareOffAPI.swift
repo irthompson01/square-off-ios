@@ -1,22 +1,21 @@
 import Foundation
 import SquareOffCore
 
-/// URLSession client for the FastAPI server. Authenticated routes get `Authorization: Bearer`
-/// from the `TokenProvider`; the app's session has cookies disabled so nothing else leaks in.
+/// URLSession client for the FastAPI server. Every route gets `Authorization: Bearer` from the
+/// `TokenProvider` (the user's token, else the guest session's); the app's session has cookies
+/// disabled so nothing else leaks in. `sessionRecovery` mints a guest when the server answers
+/// 401 `session_required` and the request is retried once.
 public struct LiveSquareOffAPI: SquareOffAPI {
     private let client: RESTClient
 
     public init(environment: APIEnvironment, session: URLSession = .shared, tokenProvider: (any TokenProvider)? = nil,
-                onSessionEnded: (@Sendable (SessionEndReason) -> Void)? = nil) {
+                onSessionEnded: (@Sendable (SessionEndReason) -> Void)? = nil,
+                sessionRecovery: SessionRecovery? = nil) {
         client = RESTClient(baseURL: environment.baseURL, session: session, tokenProvider: tokenProvider,
-                            onSessionEnded: onSessionEnded)
+                            onSessionEnded: onSessionEnded, sessionRecovery: sessionRecovery)
     }
 
     // MARK: auth
-
-    public func guests() async throws -> GuestsResponse {
-        try await client.send("GET", "guests")
-    }
 
     public func cpuPlayer(_ level: CPULevel) async throws -> CPUPlayerResponse {
         try await client.send("GET", "cpu_player/\(level.cpuType)")
@@ -29,6 +28,14 @@ public struct LiveSquareOffAPI: SquareOffAPI {
 
     public func register(_ request: RegisterRequest) async throws -> RegisterResponse {
         try await client.send("POST", "register", body: request)
+    }
+
+    public func verifyEmail(token: String) async throws -> VerifyEmailResponse {
+        try await client.send("POST", "verify-email", body: VerifyEmailRequest(token: token))
+    }
+
+    public func resendVerification(email: String) async throws -> MessageResponse {
+        try await client.send("POST", "verify-email/resend", body: ResendVerificationRequest(email: email))
     }
 
     public func logout() async throws {
@@ -45,7 +52,9 @@ public struct LiveSquareOffAPI: SquareOffAPI {
     }
 
     public func createGuest(_ request: CreateGuestRequest) async throws -> CreateGuestResponse {
-        try await client.send("POST", "create_guest", body: request)
+        // Sends the current guest token (so the server renews the same id) and never recovers
+        // through itself: this *is* the recovery.
+        try await client.send("POST", "create_guest", body: request, retry: false)
     }
 
     public func profile() async throws -> ProfileResponse {

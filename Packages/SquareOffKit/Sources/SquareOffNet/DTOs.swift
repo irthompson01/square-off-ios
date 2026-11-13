@@ -7,12 +7,6 @@ import SquareOffCore
 
 // MARK: Auth
 
-public struct GuestsResponse: Codable, Sendable, Equatable {
-    public let guests: [String]
-
-    public init(guests: [String]) { self.guests = guests }
-}
-
 public struct CPUPlayerResponse: Codable, Sendable, Equatable {
     public let id: Int
     public let cpuType: String
@@ -48,17 +42,52 @@ public struct LoginRequest: Codable, Sendable, Equatable {
     }
 }
 
-public struct RegisterRequest: Codable, Sendable, Equatable {
+/// What the server enforces on sign-up (`UserRegister` in `routes/auth.py`), checked on device
+/// first so a typo never costs a round trip (or a single-use captcha token).
+public enum AccountRules {
+    public static var usernamePattern: Regex<Substring> { #/^[A-Za-z0-9_.-]{3,32}$/# }
+    public static let passwordLength = 8...128
+    public static let usernameHint = "3–32 letters, numbers, underscores, dots or dashes."
+
+    public static func isValidUsername(_ username: String) -> Bool {
+        username.wholeMatch(of: usernamePattern) != nil
+    }
+
+    public static func isValidPassword(_ password: String) -> Bool {
+        passwordLength.contains(password.count)
+    }
+}
+
+/// `POST /register`. `website` is the honeypot (always empty; a bot that fills it gets a fake
+/// 201), `turnstile_token` the Cloudflare Turnstile proof production requires.
+public struct RegisterRequest: Encodable, Sendable, Equatable {
     public let username: String
     public let email: String
     public let password: String
     public let registered: Bool
+    public let turnstileToken: String?
 
-    public init(username: String, email: String, password: String) {
+    public init(username: String, email: String, password: String, turnstileToken: String? = nil) {
         self.username = username
         self.email = email
         self.password = password
         self.registered = true
+        self.turnstileToken = turnstileToken
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(username, forKey: .username)
+        try c.encode(email, forKey: .email)
+        try c.encode(password, forKey: .password)
+        try c.encode(registered, forKey: .registered)
+        try c.encode("", forKey: .website)
+        try c.encodeIfPresent(turnstileToken, forKey: .turnstileToken)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case username, email, password, registered, website
+        case turnstileToken = "turnstile_token"
     }
 }
 
@@ -248,15 +277,20 @@ public enum GameType: String, Codable, Sendable {
 
 public struct StartGameResponse: Codable, Sendable, Equatable {
     public struct Participant: Codable, Sendable, Equatable {
+        /// The seat's user/guest UUID (a guest the server minted for an id-less seat) or CPU id.
         public let playerId: String
         public let participantId: Int
+        /// Index of the seat in the `players` array that was sent; nil on pre-2026-11 servers.
+        public let slot: Int?
 
-        public init(playerId: String, participantId: Int) {
+        public init(playerId: String, participantId: Int, slot: Int? = nil) {
             self.playerId = playerId
             self.participantId = participantId
+            self.slot = slot
         }
 
         enum CodingKeys: String, CodingKey {
+            case slot
             case playerId = "player_id"
             case participantId = "participant_id"
         }
@@ -442,6 +476,8 @@ public struct CPUMoveRequest: Codable, Sendable, Equatable {
     public let currentPlayer: CPUMovePlayer
     public let gamePlayers: [CPUMovePlayer]
     public let cpuType: String
+    /// The turn timer in seconds, nil without one: the engine tiers keep their search inside it.
+    public let timer: Int?
 
     public init(gameID: Int, game: Game) {
         gameId = gameID
@@ -452,9 +488,21 @@ public struct CPUMoveRequest: Codable, Sendable, Equatable {
         currentPlayer = CPUMovePlayer(game.currentPlayer)
         gamePlayers = game.players.map(CPUMovePlayer.init)
         cpuType = game.currentPlayer.cpuLevel?.cpuType ?? CPULevel.random.cpuType
+        timer = game.timerSeconds > 0 ? game.timerSeconds : nil
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(gameId, forKey: .gameId)
+        try c.encode(boardState, forKey: .boardState)
+        try c.encode(currentPlayer, forKey: .currentPlayer)
+        try c.encode(gamePlayers, forKey: .gamePlayers)
+        try c.encode(cpuType, forKey: .cpuType)
+        try c.encode(timer, forKey: .timer)   // explicit null without a timer, like the web
     }
 
     enum CodingKeys: String, CodingKey {
+        case timer
         case gameId = "game_id"
         case boardState = "board_state"
         case currentPlayer = "current_player"
@@ -463,16 +511,40 @@ public struct CPUMoveRequest: Codable, Sendable, Equatable {
     }
 }
 
+/// What the engine tiers (levels 7–8) report alongside the move. `fallback` means the engine was
+/// down or the board unsupported and the server played `fallbackCpuType` (max-min-io) instead.
+public struct CPUEngineInfo: Codable, Sendable, Equatable {
+    public let mode: String?
+    public let fallback: Bool?
+    public let reason: String?
+    public let fallbackCpuType: String?
+
+    public init(mode: String?, fallback: Bool?, reason: String? = nil, fallbackCpuType: String? = nil) {
+        self.mode = mode
+        self.fallback = fallback
+        self.reason = reason
+        self.fallbackCpuType = fallbackCpuType
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case mode, fallback, reason
+        case fallbackCpuType = "fallback_cpu_type"
+    }
+}
+
 public struct CPUMoveResponse: Codable, Sendable, Equatable {
     public let row: Int
     public let col: Int
+    public let engine: CPUEngineInfo?
 
-    public init(row: Int, col: Int) {
+    public init(row: Int, col: Int, engine: CPUEngineInfo? = nil) {
         self.row = row
         self.col = col
+        self.engine = engine
     }
 
     public var cell: Cell { Cell(row: row, col: col) }
+    public var isEngineFallback: Bool { engine?.fallback == true }
 }
 
 // MARK: Auth (added for the server-integration pass)
@@ -499,16 +571,62 @@ public struct LoginResponse: Codable, Sendable, Equatable {
 public struct RegisterResponse: Codable, Sendable, Equatable {
     public let message: String?
     public let playerId: String
+    /// True since the 2026-11-05 server: the account is pending until the emailed link is opened,
+    /// and no token is issued. False (absent) on older servers, where `/login` follows at once.
+    public let verificationRequired: Bool
 
-    public init(message: String?, playerId: String) {
+    public init(message: String?, playerId: String, verificationRequired: Bool = false) {
         self.message = message
         self.playerId = playerId
+        self.verificationRequired = verificationRequired
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        message = try c.decodeIfPresent(String.self, forKey: .message)
+        playerId = try c.decode(String.self, forKey: .playerId)
+        verificationRequired = try c.decodeIfPresent(Bool.self, forKey: .verificationRequired) ?? false
     }
 
     enum CodingKeys: String, CodingKey {
         case message
         case playerId = "player_id"
+        case verificationRequired = "verification_required"
     }
+}
+
+public struct VerifyEmailRequest: Codable, Sendable, Equatable {
+    public let token: String
+
+    public init(token: String) { self.token = token }
+}
+
+public struct VerifyEmailResponse: Codable, Sendable, Equatable {
+    public let message: String?
+    /// The link was already used, or the account was verified another way; log in works either way.
+    public let alreadyVerified: Bool
+
+    public init(message: String?, alreadyVerified: Bool) {
+        self.message = message
+        self.alreadyVerified = alreadyVerified
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        message = try c.decodeIfPresent(String.self, forKey: .message)
+        alreadyVerified = try c.decodeIfPresent(Bool.self, forKey: .alreadyVerified) ?? false
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case alreadyVerified = "already_verified"
+    }
+}
+
+public struct ResendVerificationRequest: Codable, Sendable, Equatable {
+    public let email: String
+
+    public init(email: String) { self.email = email }
 }
 
 public struct CheckAuthResponse: Codable, Sendable, Equatable {
@@ -612,15 +730,22 @@ public struct CreateGuestRequest: Codable, Sendable, Equatable {
 public struct CreateGuestResponse: Codable, Sendable, Equatable {
     public let message: String?
     public let playerId: String
+    /// The guest session's bearer token (30-day sliding lifetime); nil only on pre-2026-11 servers.
+    public let accessToken: String?
+    public let tokenType: String?
 
-    public init(message: String?, playerId: String) {
+    public init(message: String?, playerId: String, accessToken: String? = nil, tokenType: String? = "bearer") {
         self.message = message
         self.playerId = playerId
+        self.accessToken = accessToken
+        self.tokenType = tokenType
     }
 
     enum CodingKeys: String, CodingKey {
         case message
         case playerId = "player_id"
+        case accessToken = "access_token"
+        case tokenType = "token_type"
     }
 }
 

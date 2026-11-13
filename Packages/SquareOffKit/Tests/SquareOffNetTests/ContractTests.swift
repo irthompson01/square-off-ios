@@ -23,9 +23,48 @@ private func cpuGame() -> Game {
 /// Responses captured from the local docker-compose server (`https://localhost:8002/api`).
 @Suite("Decoding real server responses")
 struct DecodingTests {
-    @Test func guests() throws {
-        let response = try JSONDecoder().decode(GuestsResponse.self, from: fixture("guests"))
-        #expect(response.guests.count == 4)
+    @Test func createGuestCarriesTheSessionToken() throws {
+        let response = try JSONDecoder().decode(CreateGuestResponse.self, from: fixture("create_guest_response"))
+        #expect(response.playerId.count == 36)
+        #expect(response.accessToken?.hasPrefix("eyJ") == true && response.tokenType == "bearer")
+        // Pre-2026-11 servers answered without a token; the fields stay optional for them.
+        let old = try JSONDecoder().decode(CreateGuestResponse.self, from: Data(#"{"message":"Guest created successfully","player_id":"abc"}"#.utf8))
+        #expect(old.accessToken == nil)
+    }
+
+    @Test func newCPUDefinitionsAndSignUpResponses() throws {
+        for (name, type) in [("cpu_player_max_min_plus", "max-min-plus"), ("cpu_player_grandmaster", "grandmaster"), ("cpu_player_impossible", "impossible")] {
+            let cpu = try JSONDecoder().decode(CPUPlayerResponse.self, from: fixture(name))
+            #expect(cpu.cpuType == type)
+        }
+        let registered = try JSONDecoder().decode(RegisterResponse.self, from: fixture("register_response"))
+        #expect(registered.verificationRequired && registered.playerId.count == 36)
+        #expect(try JSONDecoder().decode(MessageResponse.self, from: fixture("verify_email_resend_response")).message.hasPrefix("If that address"))
+        let verified = try JSONDecoder().decode(VerifyEmailResponse.self, from: Data(#"{"message":"Email verified","already_verified":false}"#.utf8))
+        #expect(!verified.alreadyVerified)
+    }
+
+    @Test func engineFallbackMoveDecodes() throws {
+        // Captured from a server without its engine container: level 8 answered by max-min-io.
+        let move = try JSONDecoder().decode(CPUMoveResponse.self, from: fixture("cpu_move_fallback_response"))
+        #expect(move.cell == Cell(row: 3, col: 4))
+        #expect(move.isEngineFallback && move.engine?.mode == "fallback" && move.engine?.fallbackCpuType == "max-min-io")
+        let plain = try JSONDecoder().decode(CPUMoveResponse.self, from: fixture("cpu_move_response"))
+        #expect(!plain.isEngineFallback && plain.engine == nil)
+    }
+
+    @Test func sessionErrorBodies() throws {
+        func error(_ name: String, status: Int) throws -> APIError {
+            .http(status: status, body: String(decoding: try fixture(name), as: UTF8.self))
+        }
+        #expect(try error("error_session_required", status: 401).isSessionRequired)
+        #expect(try error("error_account_required", status: 401).isAccountRequired)
+        #expect(try error("error_already_signed_in", status: 409).detail == APIError.alreadySignedInCode)
+        #expect(try error("error_seat_not_yours", status: 403).detail == "seat_not_yours")
+        #expect(try error("error_not_a_player", status: 403).detail == "not_a_player")
+        #expect(try error("error_email_unverified", status: 403).detail == "email_unverified")
+        #expect(try error("error_verify_token_invalid", status: 400).detail == "verify_token_invalid")
+        #expect(try error("error_session_required", status: 401).sessionEndReason == nil, "not a sign-out")
     }
 
     @Test func cpuPlayer() throws {
@@ -36,8 +75,15 @@ struct DecodingTests {
 
     @Test func startGame() throws {
         let response = try JSONDecoder().decode(StartGameResponse.self, from: fixture("start_game_response"))
-        #expect(response.gameId == 2535)
-        #expect(response.participants.map(\.participantId) == [4677, 4678])
+        #expect(response.gameId > 0)
+        #expect(response.participants.map(\.slot) == [0, 1])
+        let cpuSeatID = response.participants[1].playerId
+        #expect(Int(cpuSeatID) != nil, "the CPU seat echoes the definition id")
+        // Pass & Play: the caller's seat plus two id-less seats, each given a minted guest.
+        let seats = try JSONDecoder().decode(StartGameResponse.self, from: fixture("start_game_pass_and_play"))
+        #expect(seats.participants.map(\.slot) == [0, 1, 2])
+        #expect(Set(seats.participants.map(\.playerId)).count == 3)
+        #expect(seats.participants.allSatisfy { $0.playerId.count == 36 })
     }
 
     @Test func cpuMoveIgnoresExtraDebugFields() throws {
@@ -92,7 +138,11 @@ struct EncodingTests {
             try game.place(at: Cell(row: r, col: c))
         }
         let body = try jsonObject(CPUMoveRequest(gameID: 7, game: game))
-        #expect(Set(body.keys) == ["game_id", "board_state", "current_player", "game_players", "cpu_type"])
+        #expect(Set(body.keys) == ["game_id", "board_state", "current_player", "game_players", "cpu_type", "timer"])
+        #expect(body["timer"] is NSNull, "no turn timer is sent as null, like the web")
+        let timed = Game(boardSize: 8, players: cpuGame().players, timerSeconds: 20)
+        let timedBody = try jsonObject(CPUMoveRequest(gameID: 1, game: timed))
+        #expect(timedBody["timer"] as? Int == 20)
         let board = try #require(body["board_state"] as? [[Any]])
         #expect(board.count == 8)
         #expect((board[0][0] as? [String: Any])?["id"] as? Int == 1)
@@ -113,9 +163,18 @@ struct MockAPITests {
         }
         try game.place(at: Cell(row: 6, col: 5)) // red
         try game.place(at: Cell(row: 0, col: 7)) // blue
-        let move = try await MockSquareOffAPI(latency: .zero).cpuMove(CPUMoveRequest(gameID: 1, game: game))
+        let api = MockSquareOffAPI(latency: .zero)
+        _ = try await api.createGuest(CreateGuestRequest(name: "Guest", color: "#0583D2"))   // /cpu_move needs a session
+        let move = try await api.cpuMove(CPUMoveRequest(gameID: 1, game: game))
         #expect(move.cell == Cell(row: 6, col: 6))
     }
+}
+
+/// A token holder the live tests fill after `create_guest`, standing in for the app's Keychain.
+final class LiveTokenBox: TokenProvider, @unchecked Sendable {
+    var token: String?
+    func accessToken() -> String? { token }
+    func kind(of token: String) -> TokenKind { .guest }
 }
 
 /// Opt-in: runs the real web flow against the local server.
@@ -123,18 +182,28 @@ struct MockAPITests {
 /// `SQUAREOFF_LIVE_API=1 swift test --filter LiveContract`.
 @Suite("Live contract (local server)", .enabled(if: ProcessInfo.processInfo.environment["SQUAREOFF_LIVE_API"] == "1"))
 struct LiveContractTests {
-    let api = LiveSquareOffAPI(environment: .local)
+    let box = LiveTokenBox()
+    var api: LiveSquareOffAPI { LiveSquareOffAPI(environment: .local, tokenProvider: box) }
+
+    /// `POST /create_guest` as the app does it on launch: the token goes in the box, the id is the seat.
+    private func mintGuest() async throws -> String {
+        let guest = try await api.createGuest(CreateGuestRequest(name: "Guest", color: "#0583D2"))
+        box.token = try #require(guest.accessToken)
+        return guest.playerId
+    }
 
     @Test func guestCPUGameFlowMatchesWeb() async throws {
-        let guests = try await api.guests()
+        let guestID = try await mintGuest()
         let cpu = try await api.cpuPlayer(.maxMin)
         var game = Game(boardSize: 8, players: [
-            PlayerState(id: 1, name: "Player 1", colorHex: "#0583D2", serverPlayerID: try #require(guests.guests.first)),
+            PlayerState(id: 1, name: "Player 1", colorHex: "#0583D2", serverPlayerID: guestID),
             PlayerState(id: 2, name: "CPU (max-min)", colorHex: cpu.color ?? "#FF3131", isCPU: true, cpuLevel: .maxMin, serverPlayerID: String(cpu.id)),
         ])
 
         let start = try await api.startGame(StartGameRequest(boardSize: 8, timer: 0, players: game.players, type: .local))
         #expect(start.participants.count == 2)
+        #expect(start.participants.map(\.slot) == [0, 1])
+        #expect(start.participants[0].playerId == guestID)
         game.assignParticipants(Dictionary(uniqueKeysWithValues: zip([1, 2], start.participants.map(\.participantId))))
 
         // Blue threatens a 2×2; Max-Min must block at (1,1).
@@ -147,8 +216,30 @@ struct LiveContractTests {
         #expect(reply.cell == Cell(row: 1, col: 1))
     }
 
-    @Test func guestIsNotAuthenticated() async throws {
-        #expect(try await api.checkAuth() == false)
+    @Test func guestSessionIsRequiredRenewedAndNotAnAccount() async throws {
+        box.token = nil
+        await #expect(throws: APIError.self) { _ = try await api.cpuPlayer(.random) }   // 401 session_required
+        let guestID = try await mintGuest()
+        let renewed = try await api.createGuest(CreateGuestRequest(name: "Guest", color: "#0583D2"))
+        #expect(renewed.playerId == guestID, "a live guest token renews the same session")
+        #expect(try await api.checkAuth() == false, "a guest is not an account (401 account_required)")
+    }
+
+    @Test func startRefusesSomebodyElsesSeatAndMintsIdLessOnes() async throws {
+        _ = try await mintGuest()
+        let foreign = StartPlayer(id: 1, name: "Not me", color: "#0583D2", playerId: UUID().uuidString.lowercased(), isCPU: false, cpuType: nil)
+        let cpu = StartPlayer(id: 2, name: "CPU", color: "#FF3131", playerId: "1", isCPU: true, cpuType: "random")
+        await #expect(throws: APIError.self) {
+            _ = try await api.startGame(StartGameRequest(boardSize: 6, timer: 0, seats: [foreign, cpu], type: .local))
+        }
+        let seats = [
+            StartPlayer(id: 1, name: "Player 1", color: "#0583D2", playerId: nil, isCPU: false, cpuType: nil),
+            StartPlayer(id: 2, name: "Player 2", color: "#FF3131", playerId: nil, isCPU: false, cpuType: nil),
+            StartPlayer(id: 3, name: "Player 3", color: "#50C878", playerId: nil, isCPU: false, cpuType: nil),
+        ]
+        let start = try await api.startGame(StartGameRequest(boardSize: 6, timer: 0, seats: seats, type: .local))
+        #expect(start.participants.map(\.slot) == [0, 1, 2])
+        #expect(Set(start.participants.map(\.playerId)).count == 3, "every id-less seat got its own guest")
     }
 
     @Test func cnnMovePlaysLegallyOn8x8() async throws {
@@ -171,5 +262,23 @@ struct LiveContractTests {
         await #expect(throws: APIError.self) {
             _ = try await api.cpuMove(CPUMoveRequest(gameID: 1, game: game))
         }
+    }
+}
+
+@Suite("Sign-up request body")
+struct RegisterEncodingTests {
+    @Test func registerKeysMatchTheWebForm() throws {
+        let plain = try jsonObject(RegisterRequest(username: "u", email: "e@x.y", password: "p"))
+        #expect(Set(plain.keys) == ["username", "email", "password", "registered", "website"])
+        #expect(plain["website"] as? String == "" && plain["registered"] as? Bool == true)
+        let withCaptcha = try jsonObject(RegisterRequest(username: "u", email: "e@x.y", password: "p", turnstileToken: "tok"))
+        #expect(withCaptcha["turnstile_token"] as? String == "tok")
+    }
+
+    @Test func accountRulesMatchTheServer() {
+        #expect(AccountRules.isValidUsername("ian_t.01-x"))
+        #expect(!AccountRules.isValidUsername("ab") && !AccountRules.isValidUsername("has space") && !AccountRules.isValidUsername(String(repeating: "a", count: 33)))
+        #expect(AccountRules.isValidPassword(String(repeating: "p", count: 8)) && !AccountRules.isValidPassword("short"))
+        #expect(!AccountRules.isValidPassword(String(repeating: "p", count: 129)))
     }
 }

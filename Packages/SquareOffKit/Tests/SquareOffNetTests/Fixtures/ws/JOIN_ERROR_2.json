@@ -1,0 +1,5 @@
+{
+  "type": "JOIN_ERROR",
+  "reason": "seat_taken",
+  "message": "Room full or not found"
+}

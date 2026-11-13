@@ -1,0 +1,19 @@
+Square Off is a fast strategy board game about shapes. Take turns placing tiles on a shared grid; every square or diamond you complete scores, bigger shapes score more, and completing two at once multiplies the lot. The board fills up, the multipliers climb, and the last few moves decide everything.
+
+PLAY YOUR WAY
+• Vs Computer: eight levels, from a friendly random player to Grandmaster and Impossible, the engine-backed tiers that search ahead and never miss an endgame.
+• Pass & Play: two to four people on one device.
+• Online: host a private room and share a code or link, join a friend's room, or let quick match pair you with someone. Rooms are shared with square-off.com, so phone players and web players meet at the same table.
+• Boards from 6×6 to 12×12, optional turn timers, and spectators for finished seats.
+
+MADE TO FEEL GOOD
+• Tiles spin and chime when shapes complete; music and sound are optional.
+• A dark, high-contrast board that is readable on iPhone and iPad.
+• An interactive rulebook with worked examples for every scoring rule.
+
+YOUR GAMES, KEPT
+• Play as a guest with no account at all.
+• Sign in with Apple, Google, GitHub or an email address to keep statistics, replays of every game and your record against each computer level.
+• Delete your account at any time from Profile.
+
+No ads. No purchases. No tracking.

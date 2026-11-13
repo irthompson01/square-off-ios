@@ -61,7 +61,8 @@ fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
 
-# Command-line builds (xcodebuild -derivedDataPath build / build-device / make archive)
+# Command-line builds (xcodebuild -derivedDataPath build / build-device / make archive / screenshots)
 build/
 build-device/
 build-archive/
+build-screenshots/

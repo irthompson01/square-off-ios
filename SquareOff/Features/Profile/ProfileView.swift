@@ -9,7 +9,7 @@ struct ProfileView: View {
     @AppStorage(MusicPlayer.defaultsKey) private var musicEnabled = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("starsEnabled") private var starsEnabled = true
-    @State private var signIn: SignInView.Mode?
+    @State private var signIn: SignInRoute?
     @State private var isEditing = false
     @State private var firstName = ""
     @State private var lastName = ""
@@ -60,7 +60,7 @@ struct ProfileView: View {
         .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $signIn) { mode in SignInView(initialMode: mode) }
+        .sheet(item: $signIn) { route in SignInView(route: route) }
         .sheet(isPresented: $showsFeedback) { FeedbackView() }
         .sheet(isPresented: $showsForgotPassword) { ForgotPasswordView().presentationBackground(Theme.overlay) }
         .alert("Delete your account?", isPresented: $confirmDelete) {
@@ -76,9 +76,9 @@ struct ProfileView: View {
             Text("You'll be signed out on this device and your account can't be recovered.")
         }
         .onAppear {
-            if app.pendingSignIn {
-                app.pendingSignIn = false
-                signIn = .signIn
+            if let route = app.pendingSignIn {
+                app.pendingSignIn = nil
+                signIn = route
             }
             if app.pendingForgotPassword {
                 app.pendingForgotPassword = false
@@ -323,6 +323,13 @@ struct ProfileView: View {
     }
 
     #if DEBUG
+    private var guestTokenLabel: String {
+        let identity = app.backend.identity
+        guard identity.guestToken != nil else { return "—" }
+        guard let expiry = identity.guestTokenExpiry else { return "no expiry (mock)" }
+        return "until " + expiry.formatted(date: .abbreviated, time: .omitted) + (identity.needsRenewal ? " · renews" : "")
+    }
+
     private var developerPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionLabel("Developer")
@@ -344,10 +351,16 @@ struct ProfileView: View {
             ))
             row("API", app.backend.configuration.environment.baseURL.absoluteString)
             row("Guest ID", app.backend.identity.guest.map { String($0.playerID.prefix(13)) + "…" } ?? "—")
-            Button("Reset guest identity") { app.backend.identity.reset() }
-                .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
-            if app.backend.configuration.kind == .mock, app.account.isSignedIn {
-                Button("Simulate revoked session") {
+            row("Guest token", guestTokenLabel)
+            Button("Reset guest identity") {
+                app.backend.identity.reset()
+                Task { await app.accounts.restore() }   // mints a fresh session straight away
+            }
+            .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
+            if app.backend.configuration.kind == .mock {
+                // Signed in: the next request signs the user out with a toast. Guest: the next
+                // game call mints a new session silently and the Guest ID row changes.
+                Button(app.account.isSignedIn ? "Simulate revoked session" : "Simulate dead guest session") {
                     Task { await (app.backend.api as? MockSquareOffAPI)?.revokeSession(); await app.accounts.restore() }
                 }
                 .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))

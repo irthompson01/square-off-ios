@@ -1,0 +1,11 @@
+Thanks for testing Square Off. Everything talks to production (square-off.com).
+
+1. Fresh install: Play > Vs Computer, Level 3, finish a game. Then Level 8 (Impossible) on 8x8: moves should take about a second; if the server is unreachable the app says it fell back to Level 6.
+2. Pass & Play with 3 players: no "Playing offline" banner should appear.
+3. Profile > Log in (or Sign in with Apple / Google / GitHub). Stats and Recent games should list the games you just played on this device.
+4. Online: Create a room, send the invite link to a second phone; the link should open the app straight into the room. Start, play a few turns, let a timer run out on both sides.
+5. Quick match from two devices.
+6. Create a password account with a real address: you should land on "Check your email"; the email link should open the app and verify; then log in.
+7. Profile > Account > Delete account on a throwaway account, then try to log in with it.
+8. iPad: rotate, Split View at one third width, play a game.
+Report anything odd through Profile > Send feedback (it includes the build number).

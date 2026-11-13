@@ -13,7 +13,8 @@ public actor MockSquareOffAPI: SquareOffAPI {
     public static let demoEmail = "demo@squareoff.app"
     public static let demoPassword = "password"
     public static let demoUserID = "11111111-1111-4111-8111-111111111111"
-    public static let guestIDs = [
+    /// The guests the demo account's seeded Pass & Play game was recorded with.
+    static let seedGuestIDs = [
         "00000000-0000-0000-0000-000000000001",
         "00000000-0000-0000-0000-000000000002",
         "00000000-0000-0000-0000-000000000003",
@@ -21,8 +22,19 @@ public actor MockSquareOffAPI: SquareOffAPI {
     ]
 
     public static func token(for username: String) -> String { "mock:\(username)" }
+    /// Guest session tokens: `mock-guest:<player id>`.
+    public static func guestToken(for playerID: String) -> String { "mock-guest:\(playerID)" }
+    /// The player id a mock token stands for: a guest's id, the demo account's id, or nil.
+    public static func playerID(forToken token: String?) -> String? {
+        guard let token else { return nil }
+        if token.hasPrefix("mock-guest:") { return String(token.dropFirst("mock-guest:".count)) }
+        if token == Self.token(for: demoUsername) { return demoUserID }
+        return nil
+    }
     /// The one reset token the mock ever issues (`squareoff://reset-password?token=…` in demos).
     public static let demoResetToken = "mock-reset-token-0123456789"
+    /// The one verification token the mock ever issues: it verifies the newest pending sign-up.
+    public static let demoVerifyToken = "mock-verify-token-0123456789"
 
     struct User: Sendable {
         let id: String
@@ -34,6 +46,8 @@ public actor MockSquareOffAPI: SquareOffAPI {
         var color: String
         let createdAt: String
         var appRole = "standard"
+        /// Password sign-ups start unverified; `/login` refuses them until the emailed link is used.
+        var emailVerified = true
 
         var profile: ProfileResponse {
             ProfileResponse(id: id, username: username, email: email, firstName: firstName,
@@ -81,8 +95,20 @@ public actor MockSquareOffAPI: SquareOffAPI {
         }
     }
 
+    struct GuestSession: Sendable {
+        var name: String
+        var color: String
+    }
+
+    /// Who a token stands for (the server's `get_player_session`).
+    private struct Player: Sendable {
+        let id: String
+        let kind: TokenKind
+    }
+
     private var users: [User] = []
-    private var guests: [String] = []
+    /// Guest sessions by player id (minted by `createGuest`, or by `/start` for id-less seats).
+    private var guestSessions: [String: GuestSession] = [:]
     private var games: [Int: GameRecord] = [:]
     private var nextGameID = 1
     private var nextTurnID = 1
@@ -98,15 +124,19 @@ public actor MockSquareOffAPI: SquareOffAPI {
     private let latency: Duration
     private let tokenProvider: (any TokenProvider)?
     private let onSessionEnded: (@Sendable (SessionEndReason) -> Void)?
+    /// Same role as `RESTClient.sessionRecovery`: player routes mint a guest and retry once.
+    private let sessionRecovery: SessionRecovery?
     /// `app_role` of the seeded demo account (`superadmin` in the admin app's demos).
     private let demoRole: String
 
     public init(latency: Duration = .milliseconds(150), tokenProvider: (any TokenProvider)? = nil, seed: Bool = true,
-                onSessionEnded: (@Sendable (SessionEndReason) -> Void)? = nil, demoRole: String = "standard") {
+                onSessionEnded: (@Sendable (SessionEndReason) -> Void)? = nil, sessionRecovery: SessionRecovery? = nil,
+                demoRole: String = "standard") {
         self.latency = latency
         self.tokenProvider = tokenProvider
         self.shouldSeed = seed
         self.onSessionEnded = onSessionEnded
+        self.sessionRecovery = sessionRecovery
         self.demoRole = demoRole
     }
 
@@ -130,14 +160,9 @@ public actor MockSquareOffAPI: SquareOffAPI {
 
     // MARK: Auth
 
-    public func guests() async throws -> GuestsResponse {
-        try await pause()
-        let newest = Array(guests.suffix(4).reversed())
-        return GuestsResponse(guests: newest.isEmpty ? Self.guestIDs : newest)
-    }
-
     public func cpuPlayer(_ level: CPULevel) async throws -> CPUPlayerResponse {
         try await pause()
+        _ = try await playerSession()
         return CPUPlayerResponse(id: level.number, cpuType: level.cpuType,
                                  displayName: "CPU (\(level.shortName))", color: "#FF3131")
     }
@@ -149,27 +174,40 @@ public actor MockSquareOffAPI: SquareOffAPI {
         guard let user = users.first(where: { $0.username.lowercased() == key || $0.email.lowercased() == key }),
               user.password == request.password
         else { throw APIError.http(status: 401, body: #"{"detail":"Invalid credentials"}"#) }
+        guard user.emailVerified else { throw APIError.http(status: 403, body: #"{"detail":"email_unverified"}"#) }
         let token = Self.token(for: user.username)
         sessionToken = token
         return LoginResponse(message: "Login successful", accessToken: token)
     }
 
+    /// The 2026-11 server: username 3–32 `[A-Za-z0-9_.-]`, password 8–128 (422 like pydantic),
+    /// disposable domains refused, duplicates 409, and the account stays pending until the
+    /// emailed link is used (`demoVerifyToken` here). No token comes back.
     public func register(_ request: RegisterRequest) async throws -> RegisterResponse {
         try await pause()
         ensureSeeded()
         let username = request.username.trimmingCharacters(in: .whitespaces)
-        let email = request.email.trimmingCharacters(in: .whitespaces)
-        guard !username.isEmpty, email.contains("@"), request.password.count >= 1 else {
-            throw APIError.http(status: 422, body: #"{"detail":"Invalid registration"}"#)
+        let email = request.email.trimmingCharacters(in: .whitespaces).lowercased()
+        var problems: [String] = []
+        if !AccountRules.isValidUsername(username) { problems.append("String should match pattern '^[A-Za-z0-9_.-]{3,32}$'") }
+        if !email.contains("@") { problems.append("value is not a valid email address") }
+        if !AccountRules.isValidPassword(request.password) { problems.append("String should have at least 8 characters") }
+        guard problems.isEmpty else {
+            let detail = problems.map { #"{"msg":"\#($0)"}"# }.joined(separator: ",")
+            throw APIError.http(status: 422, body: #"{"detail":[\#(detail)]}"#)
         }
-        guard !users.contains(where: { $0.username.lowercased() == username.lowercased() || $0.email.lowercased() == email.lowercased() }) else {
-            throw APIError.http(status: 400, body: #"{"detail":"Username or email already registered"}"#)
+        guard !email.hasSuffix("@mailinator.com") else {
+            throw APIError.http(status: 400, body: #"{"detail":"email_domain_blocked"}"#)
         }
-        let user = User(id: "mock-user-\(UUID().uuidString.lowercased())", username: username, email: email,
+        guard !users.contains(where: { $0.username.lowercased() == username.lowercased() || $0.email.lowercased() == email }) else {
+            throw APIError.http(status: 409, body: #"{"detail":"already_registered"}"#)
+        }
+        var user = User(id: "mock-user-\(UUID().uuidString.lowercased())", username: username, email: email,
                         password: request.password, firstName: "", lastName: "", color: "#0583D2",
                         createdAt: Self.timestamp(Date()))
+        user.emailVerified = false
         users.append(user)
-        return RegisterResponse(message: "User registered successfully", playerId: user.id)
+        return RegisterResponse(message: "Check your email to verify your account", playerId: user.id, verificationRequired: true)
     }
 
     public func logout() async throws {
@@ -181,11 +219,41 @@ public actor MockSquareOffAPI: SquareOffAPI {
         return (try? currentUser()) != nil
     }
 
+    /// `demoVerifyToken` verifies the newest pending account; used again it answers
+    /// `already_verified`. Anything else is 400 `verify_token_invalid`.
+    public func verifyEmail(token: String) async throws -> VerifyEmailResponse {
+        try await pause()
+        ensureSeeded()
+        guard token == Self.demoVerifyToken else {
+            throw APIError.http(status: 400, body: #"{"detail":"verify_token_invalid"}"#)
+        }
+        if let index = users.lastIndex(where: { !$0.emailVerified }) {
+            users[index].emailVerified = true
+            return VerifyEmailResponse(message: "Email verified", alreadyVerified: false)
+        }
+        return VerifyEmailResponse(message: "Email already verified", alreadyVerified: true)
+    }
+
+    public func resendVerification(email: String) async throws -> MessageResponse {
+        try await pause()
+        return MessageResponse(message: "If that address has an unverified account, a new link has been sent.")
+    }
+
+    /// Like the server: a user token is refused (409), a live guest token gets the same id back
+    /// with a fresh token, anything else mints a new guest session.
     public func createGuest(_ request: CreateGuestRequest) async throws -> CreateGuestResponse {
         try await pause()
+        ensureSeeded()
+        if let player = try? currentPlayer() {
+            if player.kind == .user { throw APIError.http(status: 409, body: #"{"detail":"already_signed_in"}"#) }
+            return CreateGuestResponse(message: "Guest session ready", playerId: player.id,
+                                       accessToken: Self.guestToken(for: player.id))
+        }
         let id = "mock-guest-\(UUID().uuidString.lowercased())"
-        guests.append(id)
-        return CreateGuestResponse(message: "Guest created", playerId: id)
+        guestSessions[id] = GuestSession(name: request.name, color: request.color)
+        let token = Self.guestToken(for: id)
+        sessionToken = token
+        return CreateGuestResponse(message: "Guest session ready", playerId: id, accessToken: token)
     }
 
     public func profile() async throws -> ProfileResponse {
@@ -281,24 +349,46 @@ public actor MockSquareOffAPI: SquareOffAPI {
 
     // MARK: Games
 
+    /// The server's `claim_seats`: the caller takes the seat carrying its own id, else the first
+    /// id-less human seat; every other id-less human seat gets a freshly minted guest; any other
+    /// UUID is somebody else's seat (403 `seat_not_yours`).
     public func startGame(_ request: StartGameRequest) async throws -> StartGameResponse {
         try await pause()
         ensureSeeded()
-        return createGame(request, startedAt: Date())
+        let me = try await playerSession()
+        var seats = request.players
+        var claimed = false
+        for seat in seats where !seat.isCPU {
+            guard let id = seat.playerId, !id.isEmpty else { continue }
+            guard id == me.id else { throw APIError.http(status: 403, body: #"{"detail":"seat_not_yours"}"#) }
+            claimed = true
+        }
+        for index in seats.indices where !seats[index].isCPU && (seats[index].playerId ?? "").isEmpty {
+            let seat = seats[index]
+            let id: String
+            if !claimed {
+                id = me.id
+                claimed = true
+            } else {
+                id = "mock-guest-\(UUID().uuidString.lowercased())"
+                guestSessions[id] = GuestSession(name: seat.name, color: seat.color)
+            }
+            seats[index] = StartPlayer(id: seat.id, name: seat.name, color: seat.color, playerId: id, isCPU: false, cpuType: nil)
+        }
+        guard claimed else { throw APIError.http(status: 400, body: #"{"detail":"caller_not_seated"}"#) }
+        let claimedRequest = StartGameRequest(boardSize: request.boardSize, timer: request.timer, seats: seats,
+                                              type: GameType(rawValue: request.type) ?? .local)
+        return createGame(claimedRequest, startedAt: Date())
     }
 
     public func insertTurn(gameID: Int, _ turn: GameTurnRequest) async throws -> GameTurnResponse {
-        guard games[gameID] != nil else {
-            throw APIError.http(status: 404, body: #"{"detail":"Game not found"}"#)
-        }
+        _ = try await seatedGame(gameID)
         return appendTurn(gameID: gameID, turn)
     }
 
     public func updatePlayers(gameID: Int, players: [PlayerPayload]) async throws {
         try await pause()
-        guard var game = games[gameID] else {
-            throw APIError.http(status: 404, body: #"{"detail":"Game not found"}"#)
-        }
+        var game = try await seatedGame(gameID)
         for payload in players {
             if let index = game.seats.firstIndex(where: { $0.id == payload.id }) {
                 if let name = payload.name { game.seats[index].name = name }
@@ -316,9 +406,7 @@ public actor MockSquareOffAPI: SquareOffAPI {
 
     public func endGame(_ request: GameEndRequest) async throws {
         try await pause()
-        guard games[request.gameId] != nil else {
-            throw APIError.http(status: 404, body: #"{"detail":"Game not found"}"#)
-        }
+        _ = try await seatedGame(request.gameId)
         guard games[request.gameId]?.isEnded == false else {
             throw APIError.http(status: 404, body: #"{"detail":"Game already ended"}"#)
         }
@@ -439,6 +527,7 @@ public actor MockSquareOffAPI: SquareOffAPI {
     /// is the first `isCPU` seat.
     public func cpuMove(_ request: CPUMoveRequest) async throws -> CPUMoveResponse {
         try await Task.sleep(for: .milliseconds(300))
+        _ = try await playerSession()
         guard let game = Self.game(from: request) else {
             throw APIError.http(status: 400, body: #"{"detail":"Invalid board state"}"#)
         }
@@ -479,16 +568,64 @@ public actor MockSquareOffAPI: SquareOffAPI {
         if latency > .zero { try await Task.sleep(for: latency) }
     }
 
-    private func currentUser() throws -> User {
-        let token = tokenProvider?.accessToken() ?? sessionToken
+    private func currentToken() -> String? { tokenProvider?.accessToken() ?? sessionToken }
+
+    /// The server's `get_player_session`: a user or a guest token, else 401 `session_required`.
+    /// A revoked user token tells `onSessionEnded` (a guest's is just a dead session).
+    private func currentPlayer() throws -> Player {
+        let token = currentToken()
         if let token, revokedTokens.contains(token) {
-            onSessionEnded?(.revoked)
+            if token.hasPrefix("mock:") { onSessionEnded?(.revoked) }
             throw APIError.http(status: 401, body: #"{"detail":"session_revoked"}"#)
         }
-        guard let token, token.hasPrefix("mock:"),
-              let user = users.first(where: { $0.username == String(token.dropFirst(5)) })
-        else { throw APIError.http(status: 401, body: #"{"detail":"Not authenticated"}"#) }
+        if let token, token.hasPrefix("mock:"),
+           let user = users.first(where: { $0.username == String(token.dropFirst(5)) }) {
+            return Player(id: user.id, kind: .user)
+        }
+        if let token, token.hasPrefix("mock-guest:") {
+            let id = String(token.dropFirst("mock-guest:".count))
+            if guestSessions[id] != nil { return Player(id: id, kind: .guest) }
+        }
+        throw APIError.http(status: 401, body: #"{"detail":"\#(APIError.sessionRequiredCode)"}"#)
+    }
+
+    /// `currentPlayer()` with the client's recovery: on a missing or dead session, mint a guest
+    /// through `sessionRecovery` and look again (what `RESTClient` does for the live server).
+    private func playerSession() async throws -> Player {
+        do {
+            return try currentPlayer()
+        } catch let error as APIError {
+            let token = currentToken()
+            let isUser = token?.hasPrefix("mock:") == true
+            guard let sessionRecovery, error.isSessionRequired || (!isUser && error.sessionEndReason != nil),
+                  await sessionRecovery()
+            else { throw error }
+            return try currentPlayer()
+        }
+    }
+
+    /// The server's `get_current_session`: signed-in accounts only (guests get `account_required`).
+    private func currentUser() throws -> User {
+        guard currentToken() != nil else {
+            throw APIError.http(status: 401, body: #"{"detail":"No access token provided"}"#)
+        }
+        let player = try currentPlayer()
+        guard player.kind == .user, let user = users.first(where: { $0.id == player.id }) else {
+            throw APIError.http(status: 401, body: #"{"detail":"\#(APIError.accountRequiredCode)"}"#)
+        }
         return user
+    }
+
+    /// A game the current session has a human seat in (`PUT /end`, `/{id}/turns`, `update/players`).
+    private func seatedGame(_ gameID: Int) async throws -> GameRecord {
+        guard let game = games[gameID] else {
+            throw APIError.http(status: 404, body: #"{"detail":"Game not found"}"#)
+        }
+        let me = try await playerSession()
+        guard game.seats.contains(where: { !$0.isCPU && $0.playerID == me.id }) else {
+            throw APIError.http(status: 403, body: #"{"detail":"not_a_player"}"#)
+        }
+        return game
     }
 
     private func createGame(_ request: StartGameRequest, startedAt: Date) -> StartGameResponse {
@@ -501,8 +638,8 @@ public actor MockSquareOffAPI: SquareOffAPI {
         }
         games[id] = GameRecord(id: id, boardSize: request.boardSize, timer: request.timer, type: request.type,
                                seats: seats, startedAt: startedAt)
-        return StartGameResponse(gameId: id, participants: seats.map {
-            StartGameResponse.Participant(playerId: $0.playerID ?? String($0.id), participantId: $0.participantID)
+        return StartGameResponse(gameId: id, participants: seats.enumerated().map { index, seat in
+            StartGameResponse.Participant(playerId: seat.playerID ?? String(seat.id), participantId: seat.participantID, slot: index)
         })
     }
 
@@ -600,8 +737,8 @@ public actor MockSquareOffAPI: SquareOffAPI {
                  rng: &rng)
         seedGame(boardSize: 6, timer: 0, startedAt: now.addingTimeInterval(-86_400), minutes: 4,
                  seats: [(StartPlayer(id: 1, name: "Demo", color: "#0583D2", playerId: demo.id, isCPU: false, cpuType: nil), .maxMin),
-                         (StartPlayer(id: 2, name: "Guest", color: "#FF3131", playerId: Self.guestIDs[1], isCPU: false, cpuType: nil), .random),
-                         (StartPlayer(id: 3, name: "Guest", color: "#50C878", playerId: Self.guestIDs[2], isCPU: false, cpuType: nil), .maxRandom)],
+                         (StartPlayer(id: 2, name: "Guest", color: "#FF3131", playerId: Self.seedGuestIDs[1], isCPU: false, cpuType: nil), .random),
+                         (StartPlayer(id: 3, name: "Guest", color: "#50C878", playerId: Self.seedGuestIDs[2], isCPU: false, cpuType: nil), .maxRandom)],
                  rng: &rng)
     }
 

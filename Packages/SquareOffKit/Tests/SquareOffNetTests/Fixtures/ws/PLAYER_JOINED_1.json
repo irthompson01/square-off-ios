@@ -6,6 +6,7 @@
     "fillStyle": "#FF3131",
     "isCPU": false,
     "currentScore": 0,
-    "currentMultiplier": 1
+    "currentMultiplier": 1,
+    "playerId": "1af424a8-9c04-4ff1-8149-e8e3c3bee748"
   }
 }

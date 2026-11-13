@@ -354,15 +354,52 @@ struct MaxMinIOTests {
 
 @Suite("Levels")
 struct CPULevelMappingTests {
-    @Test func everyOfflineLevelHasAStrategyAndCNNDoesNot() {
-        #expect(CPUStrategy(level: .cnn) == nil)
-        #expect(!CPULevel.cnn.isAvailableOffline)
-        #expect(CPULevel.cnn.offlineFallback == .maxMinOptimal)
-        for level in CPULevel.allCases where level != .cnn {
+    @Test func heuristicLevelsHaveAStrategyAndTheEngineTiersFallBack() {
+        for level in CPULevel.selectable where !level.isServerOnly {
             #expect(level.isAvailableOffline)
             #expect(level.offlineFallback == level)
             #expect(CPUStrategy(level: level)?.level == level)
         }
-        #expect(Set(CPUStrategy.allCases.map(\.level)).count == 5)
+        for level in [CPULevel.grandmaster, .impossible] {
+            #expect(CPUStrategy(level: level) == nil)
+            #expect(!level.isAvailableOffline && level.isServerOnly)
+            #expect(level.offlineFallback == .maxMinIO)
+            #expect(level.supportedBoardSizes == 6...12)
+        }
+        #expect(CPUStrategy(level: .cnn) == nil)
+        #expect(CPULevel.cnn.isRetired && CPULevel.cnn.offlineFallback == .maxMin)
+        #expect(!CPULevel.selectable.contains(.cnn))
+        #expect(Set(CPUStrategy.allCases.map(\.level)).count == 6)
+    }
+
+    @Test func maxMinPlusCandidatesAreTheUnionOfBothPoolsInRowMajorOrder() throws {
+        // Blue (mover) can score at (1,1) (max-min: scoring beats blocking); max-min-optimal weighs
+        // max(own, opponent) and may add the block at (6,5) when it ties.
+        var game = Game(boardSize: 8, players: [
+            PlayerState(id: 1, name: "Blue", colorHex: "#0583D2"),
+            PlayerState(id: 2, name: "Red", colorHex: "#FF3131"),
+        ])
+        for (r, c) in [(0, 0), (5, 5), (0, 1), (5, 6), (1, 0), (6, 6)] { try game.place(at: Cell(row: r, col: c)) }
+        let union = CPUStrategy.maxMinPlus.candidates(in: game)
+        let expected = Set(CPUStrategy.maxMinOptimal.candidates(in: game)).union(CPUStrategy.maxMin.candidates(in: game))
+        #expect(Set(union) == expected)
+        #expect(union == union.sorted { ($0.row, $0.col) < ($1.row, $1.col) })
+        #expect(union.allSatisfy { game.board[$0] == nil })
+    }
+
+    @Test func maxMinPlusIsSeedDeterministicAndAlwaysPlaysFromOneOfItsPools() throws {
+        var game = Game(boardSize: 6, players: [
+            PlayerState(id: 1, name: "Blue", colorHex: "#0583D2"),
+            PlayerState(id: 2, name: "Red", colorHex: "#FF3131"),
+        ])
+        for (r, c) in [(0, 0), (5, 5), (0, 1), (5, 4), (1, 0)] { try game.place(at: Cell(row: r, col: c)) }
+        var a = SplitMix64(seed: 7), b = SplitMix64(seed: 7)
+        #expect(CPUStrategy.maxMinPlus.chooseMove(in: game, using: &a) == CPUStrategy.maxMinPlus.chooseMove(in: game, using: &b))
+        let union = Set(CPUStrategy.maxMinPlus.candidates(in: game))
+        for seed in 0..<50 {
+            var rng = SplitMix64(seed: UInt64(seed))
+            #expect(union.contains(CPUStrategy.maxMinPlus.chooseMove(in: game, using: &rng)))
+        }
+        #expect(CPUStrategy.maxMinPlusProbability == 0.65, "MAX_MIN_PLUS_P on the server")
     }
 }

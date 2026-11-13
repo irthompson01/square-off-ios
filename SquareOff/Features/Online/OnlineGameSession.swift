@@ -276,10 +276,15 @@ final class OnlineGameSession: @MainActor GamePresenting {
             default: break
             }
         case .rejoinFailed(let reason):
-            phase = .roomClosed(reason == "room_not_found" ? "The room has closed" : "Couldn't rejoin (\(reason))")
+            switch reason {
+            case "room_not_found": phase = .roomClosed("The room has closed")
+            case "not_your_seat": phase = .roomClosed("Your seat in this room belongs to another player.")
+            default: phase = .roomClosed("Couldn't rejoin (\(reason))")
+            }
             OnlineSessionRecord.clear()
-        case .joinError(let message):
-            phase = .roomClosed(message)
+        case .joinError(let reason, let message):
+            phase = .roomClosed(reason == "already_seated" ? "Your seat in this room belongs to another player." : message)
+            OnlineSessionRecord.clear()
         case .roomCreated, .playerSlotAssigned, .spectatorAssigned, .unknown:
             break
         }
@@ -445,8 +450,13 @@ final class OnlineGameSession: @MainActor GamePresenting {
         }
     }
 
+    /// The host is the room's clock: the server only accepts `TURN_COMPLETE` from the host's
+    /// socket, so the host reports every seat's expiry (its own included) and the server plays a
+    /// random tile for whoever is on turn. Sent at once: the server advances the current turn
+    /// when it hears it, so a delayed send could skip the wrong player. Guests' timers are
+    /// display only.
     private func timerExpired() {
-        guard case .playing = phase, !game.isOver, game.currentPlayer.id == mySeat, onlineRole != .spectator else { return }
+        guard case .playing = phase, !game.isOver, onlineRole == .host else { return }
         Task { try? await transport.connection.send(.turnComplete) }
     }
 
@@ -479,6 +489,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
 
     private func saveRecord(started: Bool) {
         OnlineSessionRecord(roomCode: roomCode, seat: mySeat, role: onlineRole, gameID: gameID, boardSize: boardSize,
-                            timerSeconds: timerSeconds, started: started, savedAt: Date(), backendID: transport.backendID).save()
+                            timerSeconds: timerSeconds, started: started, savedAt: Date(), backendID: transport.backendID,
+                            playerID: me.playerID).save()
     }
 }

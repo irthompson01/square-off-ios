@@ -21,6 +21,15 @@ struct DeepLinkTests {
         #expect(parse("https://square-off.com/reset-password?token=") == nil)
     }
 
+    @Test func emailVerificationLinks() {
+        #expect(parse("squareoff://verify-email?token=abc-123") == .verifyEmail(token: "abc-123"))
+        #expect(parse("https://square-off.com/verify-email?token=abc-123") == .verifyEmail(token: "abc-123"))
+        #expect(parse("https://www.square-off.com/verify-email?token=abc-123") == .verifyEmail(token: "abc-123"))
+        #expect(parse("https://square-off.com/verify-email/abc-123") == .verifyEmail(token: "abc-123"))
+        #expect(parse("https://square-off.com/verify-email") == nil)
+        #expect(parse("https://square-off.com/verify-email?email=a%40b.c") == nil, "the resend form stays on the web")
+    }
+
     @Test func authCallbackAndStrangers() {
         #expect(parse("squareoff://auth?token=x") == .authCallback(URL(string: "squareoff://auth?token=x")!))
         #expect(parse("squareoff://nope/1") == nil)

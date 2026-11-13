@@ -13,7 +13,8 @@ struct GameHeader<Session: GamePresenting>: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            GhostIconButton(symbol: "arrow.left", label: session.capabilities.isOnline && !session.isOver ? "Leave room" : "Back to menu", action: onLeave)
+            let leaving = session.capabilities.isOnline && !session.isOver
+            BackButton(title: leaving ? "Leave" : "Back", accessibilityLabel: leaving ? "Leave room" : "Back to menu", action: onLeave)
             Spacer(minLength: 0)
             HStack(spacing: 8) {
                 if let code = session.capabilities.roomCode {
@@ -35,7 +36,8 @@ struct GameHeader<Session: GamePresenting>: View {
             }
             GhostIconButton(symbol: "slider.horizontal.3", label: "Game menu", action: onMenu)
         }
-        .padding(.horizontal, 4)
+        .padding(.leading, 12)
+        .padding(.trailing, 4)
         .frame(height: 48)
         .background(Theme.overlay.opacity(0.85))
         .background(.ultraThinMaterial)

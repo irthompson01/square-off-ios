@@ -46,6 +46,10 @@ struct ServerMessageTests {
         #expect(try ServerMessage.decode(##"{"type":"PLAYER_SLOT_ASSIGNED","id":"3","color":"#50C878"}"##) == .playerSlotAssigned(id: 3, color: "#50C878"))
         #expect(try ServerMessage.decode(#"{"type":"GUEST_AWAY","playerId":2}"#) == .guestAway(playerId: 2))
         #expect(try ServerMessage.decode(#"{"type":"REJOIN_FAILED","reason":"room_not_found"}"#) == .rejoinFailed(reason: "room_not_found"))
+        #expect(try ServerMessage.decode(#"{"type":"REJOIN_FAILED","reason":"not_your_seat"}"#) == .rejoinFailed(reason: "not_your_seat"))
+        #expect(try ServerMessage.decode(#"{"type":"JOIN_ERROR","reason":"already_seated","message":"You already have a seat in this room"}"#)
+                == .joinError(reason: "already_seated", message: "You already have a seat in this room"))
+        #expect(try ServerMessage.decode(#"{"type":"JOIN_ERROR","message":"Room not found"}"#) == .joinError(reason: nil, message: "Room not found"))
         #expect(try ServerMessage.decode(#"{"type":"GAME_START","spectatorCount":1}"#) == .gameStart(spectatorCount: 1))
     }
 
