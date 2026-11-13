@@ -27,8 +27,10 @@ nonisolated enum BackendKind: String, CaseIterable, Sendable, Codable, Identifia
         #endif
     }
 
+    /// Debug builds default to the mock on the simulator; on a device (`make phone`) they talk
+    /// to production, since nothing on the phone can reach the in-app mock's purpose anyway.
     static var `default`: BackendKind {
-        #if DEBUG
+        #if DEBUG && targetEnvironment(simulator)
         .mock
         #else
         .production

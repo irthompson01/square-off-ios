@@ -32,14 +32,14 @@ Debug shortcuts (Product › Scheme › Edit Scheme… › Run › Arguments):
 
 ## Admin console (separate app)
 
-`SquareOffAdmin` is a second target that reuses the player app's code plus `SquareOffAdmin/`: the web console's seven sections (Overview, Live, Users, Games, CPUs, Audit log, Feedback) and search, over `/api/admin/*` (`Packages/SquareOffKit/Sources/SquareOffNet/Admin/`). It has its own bundle id (`com.novastrada.squareoff.admin`), icon and scheme, no URL scheme and no Sign in with Apple (admins use a password, Google or GitHub), and is never submitted to the store: it only ever carries the `ADMIN_CONSOLE` compile condition. Signing in with an account whose role isn't `superadmin` shows a gate instead of the console; any 403 drops back to it.
+`SquareOffAdmin` is a second target that reuses the player app's code plus `SquareOffAdmin/`: the web console's seven sections (Overview, Live, Users, Games, CPUs, Audit log, Feedback) and search, over `/api/admin/*` (`Packages/SquareOffKit/Sources/SquareOffNet/Admin/`). It has its own bundle id (`com.novastrada.squareoff.admin`), icon and scheme, no URL scheme (Sign in with Apple works: the server accepts the admin bundle id as a native audience), and is never submitted to the store: it only ever carries the `ADMIN_CONSOLE` compile condition. Signing in with an account whose role isn't `superadmin` shows a gate instead of the console; any 403 drops back to it.
 
 ```bash
 make build-admin | make test-admin | make phone-admin        # simulator build, its tests, install on the iPhone
 xcrun simctl launch booted com.novastrada.squareoff.admin -backend mock -demoSignedIn YES [-adminSection live|users|games|cpus] [-adminUser <id>] [-adminReplay <game id>] [-adminUsersSuspects YES]
 xcrun simctl launch booted com.novastrada.squareoff.admin -backend mock -demoSignedIn YES -demoRole standard   # the gate
 ```
-The mock console (`MockAdminAPI`) carries 42 users (every 11th a suspected sign-up bot, every 5th password account unverified), 120 games, the eight setup levels plus the retired CNN, feedback and an audit log; writes mutate it and append audit rows, and bulk deactivation (the Users tab's Select mode or "Deactivate all suspected bots" under the Bots filter) skips you, superadmins and inactive accounts like the server. The Overview's health strip has five tiles (Database, Neural model, Engine, Mail, App); the Engine tile reads "Unknown" against a server without the probe. Against production, promote your account through `SUPERADMIN_EMAILS` on the server first.
+The mock console (`MockAdminAPI`) carries 42 users (every 11th a suspected sign-up bot, every 5th password account unverified), 120 games, the eight setup levels plus the retired CNN, feedback and an audit log; writes mutate it and append audit rows, and bulk deactivation (the Users tab's Select mode or "Deactivate all suspected bots" under the Bots filter) skips you, superadmins and inactive accounts like the server. The Overview's health strip has five tiles (Database, Neural model, Engine, Mail, App); the Engine tile reads "Unknown" against a server without the probe. Against production, promote your account through `SUPERADMIN_EMAILS` on the server first. On a phone (`make phone-admin`) the console talks to production unless the gate's server picker (debug builds) says otherwise.
 
 ## Fonts, music, sounds
 
@@ -47,7 +47,7 @@ The mock console (`MockAdminAPI`) carries 42 users (every 11th a suspected sign-
 
 ## Backends
 
-`production` is square-off.com and the only backend a Release build knows. Debug builds default to the in-app **mock** and can switch to **Local docker** or **Production** under Profile › Developer (or `-backend`). Shared invite links point at square-off.com except on local docker. When the server ends a session (`session_revoked`, `account_disabled`, an expired token) the app drops the token, falls back to the device guest and shows a toast; the mock's Developer panel has "Simulate revoked session".
+`production` is square-off.com and the only backend a Release build knows. Debug builds default to the in-app **mock** on the simulator and to **production** on a device, and can switch to **Local docker** / **Production** / **Mock** under Profile › Developer (the admin console: the picker under its sign-in card) or with `-backend`. Shared invite links point at square-off.com except on local docker. When the server ends a session (`session_revoked`, `account_disabled`, an expired token) the app drops the token, falls back to the device guest and shows a toast; the mock's Developer panel has "Simulate revoked session".
 
 ## Local server
 
