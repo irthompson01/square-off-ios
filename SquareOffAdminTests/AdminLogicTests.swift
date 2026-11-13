@@ -185,4 +185,16 @@ struct AdminParityCopyTests {
         #expect(AuditDetail.bulkSummary(.object(["other": .bool(true)])) == nil)
         #expect(AuditDetail.bulkSummary(nil) == nil)
     }
+
+    @Test func suspectedBotsAreHiddenByDefault() {
+        #expect(UsersFilters.default.suspect == false)
+        #expect(!UsersFilters.isCustomised(UsersFilters.default))
+        #expect(UsersFilters.isCustomised(AdminUserQuery()))                    // "Shown" counts as a filter
+        #expect(UsersFilters.isCustomised(AdminUserQuery(suspect: true)))
+        var query = AdminUserQuery(q: "ian", role: .superadmin, suspect: true)
+        query.sort = .lastLoginAt
+        let cleared = UsersFilters.cleared(query)
+        #expect(cleared.q == "ian" && cleared.sort == .lastLoginAt && cleared.role == nil && cleared.suspect == false)
+        #expect(UsersFilters.default.queryItems.contains(URLQueryItem(name: "suspect", value: "false")))
+    }
 }
