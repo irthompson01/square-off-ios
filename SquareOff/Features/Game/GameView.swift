@@ -41,7 +41,8 @@ struct GameView<Session: GamePresenting>: View {
                         TurnBanner(session: session)
                         PlayerStrip(session: session)
                         BoardView(session: session)
-                            .padding(8)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }

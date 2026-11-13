@@ -6,6 +6,7 @@ import SwiftUI
 struct PlayView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dismiss) private var dismiss
     @State private var setup: PlaySetupModel
 
     init(mode: PlaySetupModel.Mode = .cpu, onlineTab: PlaySetupModel.OnlineTab = .create) {
@@ -21,6 +22,7 @@ struct PlayView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                BackButton(title: "Home") { dismiss() }
                 PageHeading(title: "Play", description: "Pick a mode, set the board, go.")
                 if let session = app.activeGame, !session.isOver {
                     ContinueGameCard(session: session)
@@ -33,7 +35,7 @@ struct PlayView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.top, 12)
             .padding(.bottom, 24)
             .frame(maxWidth: 760)
             .frame(maxWidth: .infinity)
@@ -41,6 +43,7 @@ struct PlayView: View {
         .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .bottom) { stickyBar }
         .navigationDestination(isPresented: $showRoom) { WaitingRoomView() }
         .task(id: app.account) { setup.prefill(from: app.account) }
@@ -73,23 +76,25 @@ struct PlayView: View {
     private var settings: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Game settings")
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    settingPicker("Board", selection: $setup.boardSize, options: PlaySetupModel.boardSizes) { "\($0) × \($0)" }
-                    settingPicker("Timer", selection: $setup.timer, options: PlaySetupModel.timers, label: PlaySetupModel.timerLabel)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    SettingStepper(title: "Board", selection: $setup.boardSize, options: PlaySetupModel.boardSizes) { "\($0) × \($0)" }
+                    SettingStepper(title: "Timer", selection: $setup.timer, options: PlaySetupModel.timers) { $0 == 0 ? "No timer" : "\($0) sec" }
                 }
                 if setup.mode == .cpu {
-                    settingPicker("CPU level", selection: $setup.level, options: CPULevel.selectable,
-                                  disabled: CPUAvailability.unavailableLevels(boardSize: setup.boardSize)) { "Level \($0.number) · \($0.shortName)" }
-                    if let description = setup.level.description {
-                        Text(description).font(.caption).foregroundStyle(Theme.foregroundSecondary)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("CPU level").font(.subheadline.weight(.medium)).foregroundStyle(Theme.foreground)
+                        LevelPicker(selection: $setup.level, unavailable: CPUAvailability.unavailableLevels(boardSize: setup.boardSize))
+                        if let description = setup.level.description {
+                            Text(description).font(.caption).foregroundStyle(Theme.foregroundSecondary)
+                        }
+                        Label(CPUAvailability.footnote(kind: app.backend.configuration.kind, level: setup.level), systemImage: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(Theme.muted)
                     }
-                    Label(CPUAvailability.footnote(kind: app.backend.configuration.kind, level: setup.level), systemImage: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(Theme.muted)
                 }
                 if setup.mode == .local {
-                    settingPicker("Players", selection: $setup.playerCount, options: [2, 3, 4]) { "\($0) players" }
+                    SettingSegments(title: "Players", selection: $setup.playerCount, options: [2, 3, 4]) { "\($0) players" }
                 }
             }
             .padding(14)
@@ -98,39 +103,6 @@ struct PlayView: View {
         .onChange(of: setup.boardSize) { _, _ in
             if !CPUAvailability.isSelectable(setup.level, boardSize: setup.boardSize) { setup.level = .random }
         }
-    }
-
-    private func settingPicker<Option: Hashable>(_ title: String, selection: Binding<Option>, options: [Option],
-                                                  disabled: Set<Option> = [], label: @escaping (Option) -> String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.foreground)
-            Menu {
-                ForEach(options, id: \.self) { option in
-                    Button {
-                        selection.wrappedValue = option
-                    } label: {
-                        if option == selection.wrappedValue {
-                            Label(label(option), systemImage: "checkmark")
-                        } else {
-                            Text(label(option))
-                        }
-                    }
-                    .disabled(disabled.contains(option))
-                }
-            } label: {
-                HStack {
-                    Text(label(selection.wrappedValue)).foregroundStyle(Theme.foreground).lineLimit(1)
-                    Spacer()
-                    Image(systemName: "chevron.down").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
-                }
-                .padding(.horizontal, 12)
-                .frame(height: 44)
-                .background(Theme.field, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.fieldBorder))
-            }
-            .accessibilityLabel(title)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private var playersEditor: some View {

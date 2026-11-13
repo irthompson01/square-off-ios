@@ -2,7 +2,7 @@
 
 iOS / iPadOS app for Square Off. SwiftUI, iOS 18+, dark-only.
 
-Status: **design-refresh pass** on top of the server integration. The app follows the web client's design system (`square-off-react/square-off-app/docs/FRONTEND_DESIGN_SYSTEM.md`): the same tokens, Grapple + Chakra Petch Bold, the claim flip and corner spins (empty tiles stay dark on iOS), two-stroke shape draw-on, the GameScreen chrome, merged Play page, accordion rulebook, auth card, profile and stats. Every flow works against two backends, picked under Profile › Developer (debug builds) or with `-backend mock|live`:
+Status: **design-refresh pass** on top of the server integration. The app follows the web client's design system (`square-off-react/square-off-app/docs/FRONTEND_DESIGN_SYSTEM.md`): the same tokens, Grapple + Chakra Petch Bold, the claim flip and corner spins on the web's white tiles, two-stroke shape draw-on, the GameScreen chrome, merged Play page, accordion rulebook, auth card, profile and stats. Every flow works against two backends, picked under Profile › Developer (debug builds) or with `-backend mock|live`:
 
 - **Mock (default):** an in-app simulated server. Stateful REST mock (accounts, guests, games, turns, stats, replays; `demo` / `password`), an in-process room server with bot opponents for online play, and simulated engine tiers (levels 7–8). Nothing to run.
 - **Live:** the docker stack from `square-off-react` (`main`), or production at square-off.com. Real sign-in (password, Sign in with Apple, Google/GitHub), games recorded to Postgres, levels 7–8 (Grandmaster, Impossible) from the server's engine, real rooms against the web client.

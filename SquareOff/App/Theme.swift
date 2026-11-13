@@ -32,10 +32,10 @@ enum Theme {
     static let success = Color(hex: "#17C964")
     static let warning = Color(hex: "#F7B750")
 
-    // Board. iOS keeps the dark empty tiles from v1 (the web switched to white); the faint
-    // white edge keeps the grid readable on the starfield.
-    static let tileEmpty = Color(hex: "#262634")
-    static let tileBorder = Color.white.opacity(0.05)
+    // Board. White empty tiles with a grey edge, as on the web (`EMPTY_FILL`, `border-[#ABABAB]`);
+    // the dark v1 tiles were hard to read on a phone.
+    static let tileEmpty = Color.white
+    static let tileBorder = Color(hex: "#ABABAB")
 
     /// Default seat colours (`--player-1..4`, also the server's `DEFAULT_COLORS`).
     static let playerColors = ["#4C8BF5", "#DD5144", "#1DA462", "#FFCD46"]
@@ -221,6 +221,27 @@ struct GhostButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? Theme.controlFill : .clear, in: Circle())
     }
 }
+
+/// The back control on pushed screens (which hide the navigation bar and place it above the
+/// heading) and in the game header: a small secondary pill with a chevron, matching the chrome
+/// instead of the system bar button.
+struct BackButton: View {
+    var title = "Back"
+    var accessibilityLabel: String? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: "chevron.left").font(.system(size: 12, weight: .bold))
+                Text(title)
+            }
+        }
+        .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
+        .accessibilityLabel(accessibilityLabel ?? title)
+    }
+}
+
 
 /// A button whose label is swapped for a spinner and alternate text while a request runs
 /// (web `isDisabled` + `Spinner` pattern for actions that navigate away).

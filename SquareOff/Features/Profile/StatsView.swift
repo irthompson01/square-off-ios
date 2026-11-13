@@ -7,6 +7,7 @@ import SwiftUI
 /// donut, tiles and filters) and the Game history panel (W/L/T strip, rows, server paging, replays).
 struct StatsView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
 
     enum Scope: String, CaseIterable, Identifiable {
         case all, humans, cpu
@@ -55,6 +56,7 @@ struct StatsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                BackButton { dismiss() }
                 PageHeading(title: "Game stats", description: "Your record across every game, by opponent type.")
                 if isLoading {
                     skeleton
@@ -81,6 +83,7 @@ struct StatsView: View {
         .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .task(id: app.account) { await loadAll() }
         .task(id: "\(humanBoard ?? 0)-\(humanTimer ?? -1)") { await loadHumans() }
         .task(id: "\(cpuBoard ?? 0)-\(cpuTimer ?? -1)-\(cpuType ?? "")") { await loadCPU() }
