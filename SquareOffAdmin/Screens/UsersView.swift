@@ -1,14 +1,15 @@
 import SquareOffNet
 import SwiftUI
 
-/// The user directory: search, sort, filters (role, status, provider, played, verified, bots),
-/// 50 a page, with a select mode for bulk deactivation (web `pages/admin/users.tsx`).
+/// The user directory: search, sort, filters (role, status, provider, played, verified, bots;
+/// suspected bots are hidden by default), 50 a page, with a select mode for bulk deactivation
+/// (web `pages/admin/users.tsx`).
 struct UsersView: View {
     @Environment(AppModel.self) private var app
     @Environment(AdminAppModel.self) private var console
     @State private var list: PagedQuery<AdminUserRow, AdminUserQuery>?
     @State private var search = ""
-    @State private var draft = AdminUserQuery()
+    @State private var draft = UsersFilters.default
     @State private var showsFilters = false
     @State private var selecting = false
     @State private var selected: Set<String> = []
@@ -26,7 +27,7 @@ struct UsersView: View {
                     Button {
                         showsFilters = true
                     } label: {
-                        Label(draft.hasFilters ? "Filters · on" : "Filters", systemImage: "line.3.horizontal.decrease.circle")
+                        Label(UsersFilters.isCustomised(draft) ? "Filters · on" : "Filters", systemImage: "line.3.horizontal.decrease.circle")
                     }
                     .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
                     if selecting, let list, !list.items.isEmpty {
@@ -48,8 +49,8 @@ struct UsersView: View {
                         SkeletonRows().padding(.horizontal, 16).card()
                     } else if list.items.isEmpty {
                         EmptyState(symbol: "person.2", title: "No users match", text: "Try another search or clear the filters.") {
-                            if draft.hasFilters || !search.isEmpty {
-                                Button("Clear") { search = ""; draft = AdminUserQuery(); Task { await list.setQuery(draft) } }
+                            if UsersFilters.isCustomised(draft) || !search.isEmpty {
+                                Button("Clear") { search = ""; draft = UsersFilters.default; Task { await list.setQuery(draft) } }
                                     .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
                             }
                         }
@@ -211,12 +212,16 @@ struct UsersView: View {
                     .foregroundStyle(checked ? Theme.link : Theme.muted)
             }
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(user.username).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foreground)
-                    if user.appRole == .superadmin { AdminChips.role(user.appRole) }
-                    if !user.isActive { AdminChips.active(false) }
-                    if !user.isEmailVerified { AdminChips.verified(nil) }
-                    if user.isSuspect { AdminChips.suspect() }
+                Text(user.username).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foreground)
+                    .lineLimit(1).truncationMode(.middle)
+                if user.appRole == .superadmin || !user.isActive || !user.isEmailVerified || user.isSuspect {
+                    WrapLayout(spacing: 6) {
+                        if user.appRole == .superadmin { AdminChips.role(user.appRole) }
+                        if !user.isActive { AdminChips.active(false) }
+                        if !user.isEmailVerified { AdminChips.verified(nil) }
+                        if user.isSuspect { AdminChips.suspect() }
+                    }
+                    .padding(.vertical, 2)
                 }
                 Text(user.email).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
                 Text("\(user.gamesPlayed) games · joined \(AdminFormat.absolute(user.createdAt, time: false)) · last sign-in \(AdminFormat.relative(user.lastLoginAt))")
@@ -263,14 +268,13 @@ struct UserFiltersSheet: View {
                     Text("Verified").tag(Bool?.some(true))
                     Text("Unverified").tag(Bool?.some(false))
                 }
-                Picker("Bots", selection: $query.suspect) {
-                    Text("Any").tag(Bool?.none)
-                    Text("Suspected").tag(Bool?.some(true))
+                Picker("Suspected bots", selection: $query.suspect) {
+                    Text("Hidden").tag(Bool?.some(false))
+                    Text("Shown").tag(Bool?.none)
+                    Text("Only bots").tag(Bool?.some(true))
                 }
-                Button("Clear filters") {
-                    query.role = nil; query.active = nil; query.provider = nil; query.hasPlayed = nil; query.verified = nil; query.suspect = nil
-                }
-                .disabled(!query.hasFilters)
+                Button("Reset filters") { query = UsersFilters.cleared(query) }
+                    .disabled(!UsersFilters.isCustomised(query))
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Filters")

@@ -1,6 +1,27 @@
 import Foundation
 import SquareOffNet
 
+/// The directory's default filters: suspected bots stay out of the list until the Bots filter
+/// asks for them ("Any" or "Only suspected").
+nonisolated enum UsersFilters {
+    static let `default` = AdminUserQuery(suspect: false)
+
+    /// Whether the sheet's filters differ from the default (the "Filters · on" label and "Clear").
+    static func isCustomised(_ query: AdminUserQuery) -> Bool {
+        query.role != nil || query.active != nil || query.provider != nil || query.hasPlayed != nil
+            || query.verified != nil || query.suspect != false
+    }
+
+    /// Back to the default, keeping the search text.
+    static func cleared(_ query: AdminUserQuery) -> AdminUserQuery {
+        var cleared = `default`
+        cleared.q = query.q
+        cleared.sort = query.sort
+        cleared.dir = query.dir
+        return cleared
+    }
+}
+
 /// The copy around bulk deactivation (web `bulk-deactivate-bar.tsx`), kept pure for tests.
 nonisolated enum UsersBulk {
     static func accounts(_ n: Int) -> String { n == 1 ? "1 account" : "\(n) accounts" }

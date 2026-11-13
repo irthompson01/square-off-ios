@@ -37,11 +37,12 @@ struct AdminSearchView: View {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(user.username).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foreground)
-                                        Text(user.email).font(.caption).foregroundStyle(Theme.muted)
+                                            .lineLimit(1).truncationMode(.middle)
+                                        Text(user.email).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
                                     }
-                                    Spacer()
-                                    if user.isSuspect { AdminChips.suspect() }
-                                    AdminChips.role(user.appRole)
+                                    Spacer(minLength: 8)
+                                    if user.isSuspect { AdminChips.suspect().fixedSize() }
+                                    AdminChips.role(user.appRole).fixedSize()
                                     Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.muted)
                                 }
                                 .padding(.vertical, 10)
