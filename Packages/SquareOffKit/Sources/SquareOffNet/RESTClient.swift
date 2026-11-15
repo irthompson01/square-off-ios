@@ -56,6 +56,8 @@ struct RESTClient: Sendable {
             url = components.url!
         }
         var request = URLRequest(url: url)
+        // The request's own timeout wins over the session's; without this the default is 60 s.
+        request.timeoutInterval = 15
         request.httpMethod = method
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

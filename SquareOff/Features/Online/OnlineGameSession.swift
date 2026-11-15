@@ -305,11 +305,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
             default: break
             }
         case .rejoinFailed(let reason):
-            switch reason {
-            case "room_not_found": phase = .roomClosed("The room has closed")
-            case "not_your_seat": phase = .roomClosed("Your seat in this room belongs to another player.")
-            default: phase = .roomClosed("Couldn't rejoin (\(reason))")
-            }
+            phase = .roomClosed(Self.rejoinFailureText(reason: reason, recovered: transport.connection.didRecoverSession))
             OnlineSessionRecord.clear()
         case .joinError(let reason, let message):
             phase = .roomClosed(reason == "already_seated" ? "Your seat in this room belongs to another player." : message)
@@ -436,6 +432,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
     private func beginReconnect(immediately: Bool) {
         if case .roomClosed = phase { return }
         reconnectTask?.cancel()
+        transport.connection.clearRecoveryFlag()
         connection = .reconnecting(attempt: 1)
         timerTask?.cancel()
         let window: Duration = reconnectWindowOverride ?? .seconds(onlineRole == .host ? 60 : 30)
@@ -504,6 +501,17 @@ final class OnlineGameSession: @MainActor GamePresenting {
     }
 
     // MARK: Helpers
+
+    /// What a `REJOIN_FAILED` means to the player. `recovered` is true when this reconnect had
+    /// to mint a new guest session, so the old seat is gone rather than taken by someone else.
+    static func rejoinFailureText(reason: String, recovered: Bool) -> String {
+        switch reason {
+        case "room_not_found": return "The room has closed"
+        case "player_not_found", "slot_in_use": return "You were away too long and your seat was released."
+        case "not_your_seat": return recovered ? "You were away too long and your seat was released." : "Your seat in this room belongs to another player."
+        default: return "Couldn't rejoin (\(reason))"
+        }
+    }
 
     /// The underlying socket (tests simulate drops on it).
     var debugSocket: any GameSocket { transport.connection.socket }

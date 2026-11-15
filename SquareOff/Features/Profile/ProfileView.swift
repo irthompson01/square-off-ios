@@ -28,6 +28,9 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 20) {
                 PageHeading(title: "Profile", description: "Your account, and how you appear in games.")
                 if app.account.isSignedIn {
+                    if app.accounts.lastRestoreFailed {
+                        AlertBox(.warning, message: "Couldn't reach the server. Showing your last known profile.")
+                    }
                     accountPanel
                     NavigationLink { StatsView() } label: {
                         HStack {

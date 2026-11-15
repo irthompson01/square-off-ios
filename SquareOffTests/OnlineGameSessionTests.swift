@@ -222,6 +222,16 @@ struct OnlineGameSessionTests {
         try await waitUntil { host.rematchState == .hostCanStart && guest.rematchState == .waitingForHost }
     }
 
+    @Test func rejoinFailuresReadAsSentences() {
+        #expect(OnlineGameSession.rejoinFailureText(reason: "room_not_found", recovered: false) == "The room has closed")
+        #expect(OnlineGameSession.rejoinFailureText(reason: "player_not_found", recovered: false) == "You were away too long and your seat was released.")
+        #expect(OnlineGameSession.rejoinFailureText(reason: "slot_in_use", recovered: true) == "You were away too long and your seat was released.")
+        #expect(OnlineGameSession.rejoinFailureText(reason: "not_your_seat", recovered: false) == "Your seat in this room belongs to another player.")
+        #expect(OnlineGameSession.rejoinFailureText(reason: "not_your_seat", recovered: true) == "You were away too long and your seat was released.")
+        #expect(OnlineGameSession.rejoinFailureText(reason: "odd", recovered: false) == "Couldn't rejoin (odd)")
+        #expect(RoomCoordinator.OnlineError.rejoinFailed("slot_in_use").message == "You were away too long and your seat was released.")
+    }
+
     @Test func quickMatchLandsInABotRoomThatStartsItself() async throws {
         var configuration = MockRoomServer.Configuration.instant
         configuration.botHostStartDelay = .milliseconds(50)

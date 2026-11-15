@@ -15,6 +15,8 @@ actor SpyAPI: SquareOffAPI {
     private(set) var resetRequests: [(token: String, password: String)] = []
     private(set) var guestsMinted = 0
     var failing: Set<String> = []
+    /// Methods that fail like a dead network (`URLError`), not an HTTP status.
+    var networkFailing: Set<String> = []
     /// Per-method HTTP failures with a specific status and body (beats `failing`).
     var failures: [String: APIError] = [:]
     var delays: [String: Duration] = [:]
@@ -24,6 +26,7 @@ actor SpyAPI: SquareOffAPI {
     var oauthURL = URL(string: "squareoff://auth?token=spy-token")!
 
     func setFailing(_ names: Set<String>) { failing = names }
+    func setNetworkFailing(_ names: Set<String>) { networkFailing = names }
     func setFailure(_ name: String, status: Int, detail: String) { failures[name] = .http(status: status, body: #"{"detail":"\#(detail)"}"#) }
     func setDelay(_ name: String, _ duration: Duration) { delays[name] = duration }
     func setAuthenticated(_ value: Bool) { authenticated = value }
@@ -34,6 +37,7 @@ actor SpyAPI: SquareOffAPI {
         calls.append(name)
         if let delay = delays[name] { try await Task.sleep(for: delay) }
         if let failure = failures[name] { throw failure }
+        if networkFailing.contains(name) { throw URLError(.notConnectedToInternet) }
         if failing.contains(name) { throw APIError.http(status: 500, body: #"{"detail":"spy failure"}"#) }
     }
 

@@ -32,6 +32,8 @@ public actor LiveGameSocket: GameSocket {
         if isOpen, task != nil { return }
         teardown()
         var request = URLRequest(url: url)
+        // Bounds the handshake (and the first ping) on a server that accepts TCP but never answers.
+        request.timeoutInterval = 10
         if let token = tokenProvider?.accessToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

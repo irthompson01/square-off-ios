@@ -112,6 +112,9 @@ enum AuthError: LocalizedError, Equatable {
 final class AccountStore {
     private(set) var account: Account = .guest(nil)
     private(set) var isRestoring = false
+    /// The last restore could not reach the server (offline, 5xx): `account` is whatever was
+    /// known before, and the stored user token is kept for the next try.
+    private(set) var lastRestoreFailed = false
     private var backend: Backend
     /// Told once per token when the server ends the session (revoked, disabled, expired).
     var onSessionEnded: ((SessionEndReason) -> Void)?
@@ -174,14 +177,22 @@ final class AccountStore {
         do {
             guard try await backend.api.checkAuth() else {
                 backend.tokenStore.clear()
+                lastRestoreFailed = false
                 await becomeGuest()
                 return
             }
             account = .signedIn(try await backend.api.profile())
+            lastRestoreFailed = false
         } catch {
-            if let api = error as? APIError, api.isUnauthorized { backend.tokenStore.clear() }
-            account = .guest(backend.identity.guest)
-            if backend.tokenStore.accessToken() == nil { await becomeGuest() }
+            if let api = error as? APIError, api.isUnauthorized {
+                backend.tokenStore.clear()
+                lastRestoreFailed = false
+                await becomeGuest()
+                return
+            }
+            // Offline or a server error: keep what was known (a signed-in profile stays signed
+            // in), keep the token, and don't mint a guest while a user token exists.
+            lastRestoreFailed = true
         }
     }
 
@@ -319,6 +330,8 @@ final class AccountStore {
     func ensureIdentity() async throws -> Identity {
         if let restoreTask { await restoreTask.value }
         if let identity = account.identity { return identity }
+        // A user token we couldn't confirm: minting a guest now would get 409 from the server.
+        if lastRestoreFailed, backend.tokenStore.accessToken() != nil { throw AuthError.unreachable }
         let guest = try await backend.identity.ensureGuest(name: "Guest", colorHex: Theme.playerColors[0])
         account = .guest(guest)
         return Identity(playerID: guest.playerID, displayName: guest.name, colorHex: guest.colorHex)

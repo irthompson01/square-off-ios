@@ -42,7 +42,11 @@ final class RoomCoordinator {
             case .roomFull: "That room is full or doesn't exist."
             case .hostLeft: "The host ended the room."
             case .rejoinFailed(let reason):
-                reason == "not_your_seat" ? "Couldn't rejoin: that seat belongs to another player." : "Couldn't rejoin the room."
+                switch reason {
+                case "not_your_seat": "Couldn't rejoin: that seat belongs to another player."
+                case "player_not_found", "slot_in_use": "You were away too long and your seat was released."
+                default: "Couldn't rejoin the room."
+                }
             case .alreadySeated: "You already have a seat in this room on another device. Leave it there first."
             case .seatTaken: "That seat was just taken. Try joining again."
             case .network(let text): text

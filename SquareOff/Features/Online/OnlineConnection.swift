@@ -9,6 +9,9 @@ final class OnlineConnection {
     let socket: any GameSocket
     var onEvent: ((SocketEvent) -> Void)?
     private(set) var isConnected = false
+    /// True once `connect()` had to mint a new guest session: the old seat now belongs to a
+    /// session this device no longer has, so a `not_your_seat` is really "seat released".
+    private(set) var didRecoverSession = false
     private var pump: Task<Void, Never>?
     /// Mints a new guest session when the server refuses the handshake for a missing or dead
     /// token (`IdentityStore.recoverSession`); nil means refusals are final.
@@ -39,11 +42,14 @@ final class OnlineConnection {
                 try await Task.sleep(for: .seconds(2))
             } else {
                 guard let recovery, await recovery() else { throw error }
+                didRecoverSession = true
             }
             try await socket.connect()
         }
         isConnected = true
     }
+
+    func clearRecoveryFlag() { didRecoverSession = false }
 
     func send(_ message: ClientMessage) async throws {
         try await socket.send(message)
