@@ -1,20 +1,28 @@
 import SwiftUI
 
-/// The app's backdrop: a faint vertical gradient with slowly drifting stars, a lighter take on
-/// the web's `StarsAnimation`. Off via the "Stars" setting or when Reduce Motion is on (static).
+/// The app's backdrop: the web's radial vignette (`body::before`) with the `StarsAnimation`
+/// canvas over it. Off via the "Starfield" setting; a single static frame under Reduce Motion;
+/// paused while the app is in the background.
 struct StarfieldBackground: View {
     @AppStorage("starsEnabled") private var starsEnabled = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(hex: "#151B26"), Theme.background, Color(hex: "#0D0D13")],
-                startPoint: .top,
-                endPoint: .bottom
+            Theme.background
+            RadialGradient(
+                stops: [
+                    .init(color: Color(hex: "#18222E"), location: 0),
+                    .init(color: Theme.background, location: 0.55),
+                    .init(color: Color(hex: "#08090D"), location: 1),
+                ],
+                center: UnitPoint(x: 0.5, y: 0.42),
+                startRadius: 0,
+                endRadius: 900
             )
             if starsEnabled {
-                StarfieldView(animated: !reduceMotion)
+                StarfieldView(animated: !reduceMotion && scenePhase == .active)
             }
         }
         .ignoresSafeArea()
@@ -27,40 +35,31 @@ struct StarfieldView: View {
     private struct Star {
         let x: Double
         let y: Double
-        let size: Double
-        let alpha: Double
-        let speed: Double
-        let twinkle: Double
-        let phase: Double
+        let radius: Double
     }
 
-    /// Fixed layout so the field looks the same on every screen and launch.
+    /// 200 stars, radius 0.1–2, like the web. Fixed layout so the field looks the same on every launch.
     private static let stars: [Star] = {
         var rng = SeededRandom(seed: 0x5157_4152_4546_4F46)
-        return (0..<140).map { _ in
-            let depth = rng.next()
-            return Star(
-                x: rng.next(),
-                y: rng.next(),
-                size: 0.8 + depth * 1.4,
-                alpha: 0.12 + depth * 0.22,
-                speed: 0.004 + depth * 0.010,
-                twinkle: 0.4 + rng.next() * 1.2,
-                phase: rng.next() * .pi * 2
-            )
+        return (0..<200).map { _ in
+            Star(x: rng.next(), y: rng.next(), radius: 0.1 + rng.next() * 1.9)
         }
     }()
 
+    /// Upward drift in points per second.
+    private static let drift = 3.0
+
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: !animated)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
+            let t = animated ? context.date.timeIntervalSinceReferenceDate : 0
             Canvas(rendersAsynchronously: true) { ctx, size in
+                let offset = (t * Self.drift).truncatingRemainder(dividingBy: size.height)
                 for star in Self.stars {
-                    var y = star.y - (animated ? (t * star.speed).truncatingRemainder(dividingBy: 1) : 0)
-                    if y < 0 { y += 1 }
-                    let glow = animated ? 0.8 + 0.2 * sin(t * star.twinkle + star.phase) : 1
-                    let rect = CGRect(x: star.x * size.width, y: y * size.height, width: star.size, height: star.size)
-                    ctx.fill(Path(ellipseIn: rect), with: .color(.white.opacity(star.alpha * glow)))
+                    var y = star.y * size.height - offset
+                    if y < -2 { y += size.height }
+                    let rect = CGRect(x: star.x * size.width - star.radius, y: y - star.radius,
+                                      width: star.radius * 2, height: star.radius * 2)
+                    ctx.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.4)))
                 }
             }
         }
@@ -85,7 +84,7 @@ private struct SeededRandom {
 }
 
 extension View {
-    /// Full-screen app backdrop (gradient + stars). Replaces a flat `Theme.background`.
+    /// Full-screen app backdrop (vignette + stars). Replaces a flat `Theme.background`.
     func appBackground() -> some View {
         background(StarfieldBackground())
     }

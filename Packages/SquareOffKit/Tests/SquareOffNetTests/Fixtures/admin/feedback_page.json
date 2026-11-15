@@ -1,0 +1,27 @@
+{
+  "total": 1,
+  "counts": {
+    "new": 1,
+    "handled": 4
+  },
+  "items": [
+    {
+      "id": 3,
+      "created_at": "2026-10-25T19:00:00+00:00",
+      "subject": "Board doesn't load",
+      "message": "Steps\u2026",
+      "contact_email": "pat@example.com",
+      "display_name": "Pat",
+      "status": "new",
+      "handled_at": null,
+      "notes": null,
+      "email_sent": true,
+      "user": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "username": "pat",
+        "email": "pat@example.com"
+      },
+      "handled_by": null
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "type": "MOVE_REJECTED",
+  "reason": "not_your_turn"
+}

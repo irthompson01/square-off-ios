@@ -1,0 +1,31 @@
+{
+  "type": "GAME_RESET",
+  "boardSize": 6,
+  "timer": 20,
+  "players": [
+    {
+      "id": 1,
+      "name": "Host",
+      "fillStyle": "#0583D2",
+      "isCPU": false,
+      "currentScore": 0,
+      "currentMultiplier": 1
+    },
+    {
+      "id": 2,
+      "name": "Guest",
+      "fillStyle": "#FF3131",
+      "isCPU": false,
+      "currentScore": 0,
+      "currentMultiplier": 1
+    },
+    {
+      "id": 3,
+      "name": "Player 3",
+      "fillStyle": "#DD5144",
+      "currentScore": 0,
+      "currentMultiplier": 1
+    }
+  ],
+  "spectatorCount": 0
+}

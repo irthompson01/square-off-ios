@@ -1,13 +1,37 @@
 import SquareOffCore
+import SquareOffNet
 import SwiftUI
 
 @main
 struct SquareOffApp: App {
-    @State private var app = AppModel()
+    @State private var app: AppModel
+
+    init() {
+        #if DEBUG
+        // `-demoSignedIn`: the mock backend restores the demo account from this token at launch.
+        if UserDefaults.standard.bool(forKey: "demoSignedIn") {
+            UserDefaults.standard.set("mock:\(MockSquareOffAPI.demoUsername)", forKey: "mockAccessToken")
+        }
+        #if ADMIN_CONSOLE
+        // The console's demos sign in as a superadmin unless `-demoRole standard` asks for the gate.
+        Backend.mockDemoRole = UserDefaults.standard.string(forKey: "demoRole") ?? "superadmin"
+        #endif
+        // `-demoOnline host|guest|spectator|quickmatch` forces the mock backend with quick bots.
+        if UserDefaults.standard.string(forKey: "demoOnline") != nil {
+            var rooms = MockRoomServer.Configuration()
+            rooms.botJoinDelay = .seconds(1.5)
+            rooms.botHostStartDelay = .seconds(1)
+            Backend.mockRoomConfiguration = rooms
+            _app = State(initialValue: AppModel(configuration: .mock))
+            return
+        }
+        #endif
+        _app = State(initialValue: AppModel())
+    }
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            root
                 .environment(app)
                 .preferredColorScheme(.dark)
                 .tint(Theme.link)
@@ -15,8 +39,22 @@ struct SquareOffApp: App {
         }
     }
 
+    @ViewBuilder
+    private var root: some View {
+        #if ADMIN_CONSOLE
+        AdminRootView()
+        #else
+        RootView()
+        #endif
+    }
+
+    #if DEBUG
+    private static var didOpenDemoGame = false
+    #endif
+
     /// Debug launch arguments for screenshots / quick iteration:
-    /// `-demoGame cpu|local4|busy|over` and `-demoScreen rules|setup|color|signin` (`-rulesSection <id>` with rules).
+    /// `-demoGame cpu|cnn|local4|busy|over`, `-demoScreen rules|setup|stats|profile|color|signin|forgot|feedback`
+    /// (`-rulesSection <id>` with rules), `-demoResetToken <token>`, `-demoOnline host|guest|spectator|quickmatch` and `-backend production|local|mock`.
     private func openDemoGameIfRequested() {
         #if DEBUG
         let players = (1...4).map { SetupPlayer(id: $0, name: "Player \($0)", colorHex: Theme.playerColors[$0 - 1]) }
@@ -24,16 +62,51 @@ struct SquareOffApp: App {
         case "rules":
             app.selectedTab = .learn
             app.pendingRulesSection = UserDefaults.standard.string(forKey: "rulesSection")
-        case "setup": app.pendingPlayRoute = .cpu
+        case "setup": app.pendingPlayRoute = .play
+        case "stats": app.pendingPlayRoute = .stats
+        case "profile": app.selectedTab = .profile
         case "color":
-            app.pendingPlayRoute = .cpu
+            app.pendingPlayRoute = .play
             app.pendingColorPicker = true
         case "signin":
             app.selectedTab = .profile
             app.pendingSignIn = true
+        case "forgot":
+            app.selectedTab = .profile
+            app.pendingForgotPassword = true
+        case "feedback":
+            app.selectedTab = .profile
+            app.pendingFeedback = true
         default: break
         }
-        guard let kind = UserDefaults.standard.string(forKey: "demoGame"), app.activeGame == nil else { return }
+        // `-demoResetToken <token>`: the reset sheet as a universal link would open it.
+        if let token = UserDefaults.standard.string(forKey: "demoResetToken") {
+            app.pendingPasswordReset = ResetToken(token: token)
+        }
+        if let online = UserDefaults.standard.string(forKey: "demoOnline") {
+            app.pendingPlayRoute = .play
+            app.pendingOnlineRoom = true
+            let roomServer = app.backend.roomServer
+            Task {
+                switch online {
+                case "guest":
+                    await roomServer?.seedBotRoom(code: 42424, boardSize: 8, timer: 20, hostLevel: .maxMin)
+                    await app.online.join(code: 42424)
+                case "spectator":
+                    await roomServer?.seedBotMatchInProgress(code: 31313, boardSize: 8, moves: 20)
+                    await app.online.join(code: 31313)
+                case "quickmatch":
+                    await app.online.quickMatch(boardSize: 8, timer: 20)
+                default:
+                    await app.online.host(boardSize: 8, timer: 20, listPublic: true)
+                }
+            }
+            return
+        }
+        guard let kind = UserDefaults.standard.string(forKey: "demoGame"), !Self.didOpenDemoGame else { return }
+        Self.didOpenDemoGame = true
+        // A demo replaces any saved "Continue" game.
+        app.discardGame()
         switch kind {
         case "local4":
             app.start(GameConfig(mode: .passAndPlay, boardSize: 8, timerSeconds: 20, players: players))
@@ -51,8 +124,12 @@ struct SquareOffApp: App {
             for cell in [Cell(row: 0, col: 0), Cell(row: 1, col: 1), Cell(row: 0, col: 1), Cell(row: 1, col: 0)] {
                 app.activeGame?.tap(cell)
             }
+        case "cnn":
+            // Level 3 against the server's model (needs `-backend local` and the docker stack, or production).
+            app.start(GameConfig(mode: .cpu(.cnn), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Player 1", colorHex: Theme.playerColors[0])]))
+            app.activeGame?.tap(Cell(row: 3, col: 3))
         default:
-            app.start(GameConfig(mode: .cpu(.maxMin), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "You", colorHex: Theme.playerColors[0])]))
+            app.start(GameConfig(mode: .cpu(.maxMin), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Player 1", colorHex: Theme.playerColors[0])]))
         }
         #endif
     }
@@ -61,6 +138,7 @@ struct SquareOffApp: App {
 /// Play · Learn · Profile. On iPad the tab bar sits at the top and can expand into a sidebar.
 struct RootView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
     @State private var playPath = NavigationPath()
 
     var body: some View {
@@ -69,11 +147,11 @@ struct RootView: View {
             Tab("Play", systemImage: "square.grid.2x2", value: AppTab.play) {
                 NavigationStack(path: $playPath) {
                     HomeView()
-                        .navigationDestination(for: PlayMode.self) { mode in
-                            switch mode {
-                            case .cpu: SetupForm(kind: .cpu)
-                            case .passAndPlay: SetupForm(kind: .passAndPlay)
-                            case .online: OnlineHubView()
+                        .navigationDestination(for: PlayRoute.self) { route in
+                            switch route {
+                            case .play: PlayView()
+                            case .online: PlayView(mode: .online, onlineTab: .quick)
+                            case .stats: StatsView()
                             }
                         }
                 }
@@ -87,16 +165,45 @@ struct RootView: View {
         }
         .onChange(of: app.pendingPlayRoute, initial: true) { _, route in
             guard let route else { return }
-            playPath.append(route)
+            if playPath.isEmpty { playPath.append(route) }
             app.pendingPlayRoute = nil
+        }
+        .onChange(of: app.pendingPopToRoot) { _, pop in
+            guard pop else { return }
+            playPath = NavigationPath()
+            app.pendingPopToRoot = false
         }
         .tabViewStyle(.sidebarAdaptable)
         .appBackground()
-        .fullScreenCover(isPresented: $app.isGamePresented) {
-            if let session = app.activeGame {
-                GameView(session: session)
-                    .environment(app)
+        .overlay(alignment: .bottom) { ToastOverlay(center: app.toasts) }
+        .syncsMusic()
+        .task { await app.accounts.restore() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { app.activeGame?.saveNow() }
+            guard phase == .active else { return }
+            Task { await app.accounts.restore() }
+            app.activeOnlineGame?.sceneDidBecomeActive()
+            app.online.sceneDidBecomeActive()
+        }
+        .onOpenURL { url in app.open(url) }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            if let url = activity.webpageURL { app.open(url) }
+        }
+        .sheet(item: $app.pendingPasswordReset) { reset in
+            ResetPasswordView(token: reset.token)
+                .environment(app)
+                .presentationBackground(Theme.overlay)
+        }
+        .fullScreenCover(isPresented: $app.isGamePresented, onDismiss: app.gameDismissed) {
+            Group {
+                if let online = app.activeOnlineGame {
+                    GameView(session: online)
+                } else if let session = app.activeGame {
+                    GameView(session: session)
+                }
             }
+            .environment(app)
+            .overlay(alignment: .bottom) { ToastOverlay(center: app.toasts) }
         }
     }
 }

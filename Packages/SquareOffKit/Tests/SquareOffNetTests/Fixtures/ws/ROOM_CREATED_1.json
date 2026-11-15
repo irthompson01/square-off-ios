@@ -1,0 +1,8 @@
+{
+  "type": "ROOM_CREATED",
+  "roomCode": 43994,
+  "timer": 20,
+  "boardSize": 6,
+  "currentPlayerIndex": 0,
+  "gameId": null
+}

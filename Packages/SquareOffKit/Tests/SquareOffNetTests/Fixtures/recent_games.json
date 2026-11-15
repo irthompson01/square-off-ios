@@ -1,0 +1,12 @@
+{
+  "games": [
+    {
+      "game_id": 2576,
+      "game_type": "local",
+      "opponent_label": "CPU (max-min)",
+      "my_score": 21,
+      "result": "W"
+    }
+  ],
+  "total": 1
+}

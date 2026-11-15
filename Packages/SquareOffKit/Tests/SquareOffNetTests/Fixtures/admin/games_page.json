@@ -1,0 +1,73 @@
+{
+  "total": 2,
+  "items": [
+    {
+      "id": 1180,
+      "type": "online",
+      "start_time": "2026-10-25T19:40:00",
+      "end_time": "2026-10-25T19:52:10",
+      "board_size": 8,
+      "timer": 20,
+      "winner_id": "00000000-0000-4000-8000-000000000002",
+      "winner_participant_id": 7001,
+      "winner_display": "pat",
+      "scores": {
+        "1": 36,
+        "2": 28
+      },
+      "is_cpu": false,
+      "cpu_type": null,
+      "participant_count": 2,
+      "duration_sec": 730,
+      "winner_type": "user",
+      "participants": [
+        {
+          "participant_id": 7001,
+          "participant_type": "user",
+          "display_name": "pat",
+          "color": "#4C8BF5",
+          "user_id": "00000000-0000-4000-8000-000000000002",
+          "username": "pat",
+          "guest_id": null,
+          "cpu_definition_id": null,
+          "cpu_type": null,
+          "final_score": 36,
+          "participant_order": 0,
+          "is_winner": true
+        },
+        {
+          "participant_id": 7002,
+          "participant_type": "guest",
+          "display_name": "Guest",
+          "color": "#DD5144",
+          "user_id": null,
+          "username": null,
+          "guest_id": "g-1",
+          "cpu_definition_id": null,
+          "cpu_type": null,
+          "final_score": 28,
+          "participant_order": 1,
+          "is_winner": false
+        }
+      ]
+    },
+    {
+      "id": 1181,
+      "type": "local",
+      "start_time": "2026-10-25T20:00:00",
+      "end_time": null,
+      "board_size": 6,
+      "timer": 0,
+      "winner_id": null,
+      "winner_participant_id": null,
+      "winner_display": null,
+      "scores": null,
+      "is_cpu": true,
+      "cpu_type": "cnn",
+      "participant_count": 2,
+      "duration_sec": null,
+      "winner_type": null,
+      "participants": []
+    }
+  ]
+}

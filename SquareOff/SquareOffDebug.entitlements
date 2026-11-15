@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Debug entitlements (project.yml: configs.Debug.CODE_SIGN_ENTITLEMENTS). Same list as
+	     SquareOff.entitlements; `?mode=developer` lets a device with Settings › Developer ›
+	     Associated Domains Development on fetch the AASA straight from the site instead of
+	     Apple's CDN. `make release-check` fails if this file ever reaches a Release archive. -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:square-off.com?mode=developer</string>
+		<string>applinks:www.square-off.com?mode=developer</string>
+		<string>webcredentials:square-off.com</string>
+		<string>webcredentials:www.square-off.com</string>
+	</array>
+</dict>
+</plist>

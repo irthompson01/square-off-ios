@@ -23,6 +23,7 @@ actor RecordingRecorder: GameRecorder {
     func record(_ move: MoveResult, by player: PlayerState) async {
         events.append("move \(player.id) \(move.cell.row),\(move.cell.col)")
     }
+    func gameEnded(_ game: Game) async { events.append("ended") }
 }
 
 @MainActor
@@ -64,7 +65,7 @@ struct GameSessionTests {
         session.stop()
     }
 
-    @Test func placementSpinsTheTileOnce() async throws {
+    @Test func plainPlacementFlipsWithoutSpinning() async throws {
         let config = GameConfig(mode: .passAndPlay, boardSize: 6, players: [
             SetupPlayer(id: 1, name: "A", colorHex: Theme.playerColors[0]),
             SetupPlayer(id: 2, name: "B", colorHex: Theme.playerColors[1]),
@@ -72,7 +73,8 @@ struct GameSessionTests {
         let session = GameSession(config: config)
         await session.start()
         session.tap(Cell(row: 2, col: 3))
-        #expect(session.spins[Cell(row: 2, col: 3)]?.turns == 1)
+        #expect(session.spins[Cell(row: 2, col: 3)] == nil)
+        #expect(session.lastMove?.cell == Cell(row: 2, col: 3))
         #expect(session.placeCount == 1)
     }
 
@@ -86,6 +88,26 @@ struct GameSessionTests {
         #expect(session.game.moves[1].playerID == 2)
         #expect(session.game.currentPlayer.id == 1)
         #expect(session.canTap)
+    }
+
+    @Test func occupiedCPUReplyPlaysARandomEmptyCell() async throws {
+        // The human takes (0,0); the scripted CPU answers with the same tile.
+        let session = GameSession(config: cpuConfig(), cpu: ScriptedCPU([Cell(row: 0, col: 0)]), thinkDelay: 0...0)
+        await session.start()
+        session.tap(Cell(row: 0, col: 0))
+        try await waitForMoves(2, in: session)
+        #expect(session.game.moves.count == 2)
+        #expect(session.game.board[Cell(row: 0, col: 0)] == 1)
+        #expect(session.game.moves.last?.playerID == 2)
+    }
+
+    @Test func outOfRangeCPUReplyDoesNotTrap() async throws {
+        let session = GameSession(config: cpuConfig(), cpu: ScriptedCPU([Cell(row: 99, col: 0)]), thinkDelay: 0...0)
+        await session.start()
+        session.tap(Cell(row: 2, col: 2))
+        try await waitForMoves(2, in: session)
+        #expect(session.game.moves.count == 2)
+        #expect(session.game.board.contains(session.game.moves.last!.cell))
     }
 
     @Test func restartWhileCPUIsThinkingDiscardsTheStaleMove() async throws {

@@ -1,0 +1,38 @@
+{
+  "db": {
+    "ok": true,
+    "latency_ms": 2.4,
+    "pool": {
+      "min": 1,
+      "max": 10,
+      "in_use": 1,
+      "idle": 2
+    },
+    "error": null
+  },
+  "model": {
+    "ok": true,
+    "latency_ms": 41.0,
+    "cached": true,
+    "checked_at": "2026-10-25T20:11:03.412771+00:00",
+    "move": {
+      "row": 3,
+      "col": 4
+    },
+    "error": null
+  },
+  "mail": {
+    "configured": true,
+    "server": "smtp.example.com"
+  },
+  "app": {
+    "version": "1.4.0",
+    "build_sha": "17f5c51",
+    "env": "production",
+    "started_at": "2026-10-25T14:00:00+00:00",
+    "uptime_s": 22263.5,
+    "python": "3.12.6",
+    "fastapi": "0.115.0",
+    "rate_limit_storage": "memory"
+  }
+}

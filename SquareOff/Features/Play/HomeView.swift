@@ -1,190 +1,125 @@
+import SquareOffCore
 import SwiftUI
 
-enum PlayMode: String, CaseIterable, Identifiable {
-    case cpu, passAndPlay, online
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .cpu: "Vs Computer"
-        case .passAndPlay: "Pass & Play"
-        case .online: "Online"
-        }
-    }
-
-    var subtitle: String {
-        switch self {
-        case .cpu: "Five AI levels, from Random to Max-Min-IO"
-        case .passAndPlay: "2–4 friends sharing this device"
-        case .online: "Quick match, room code or open lobby"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .cpu: "cpu"
-        case .passAndPlay: "iphone"
-        case .online: "globe"
-        }
-    }
-
-    var tint: Color { Color(hex: Theme.playerColors[PlayMode.allCases.firstIndex(of: self) ?? 0]) }
+/// Navigation targets pushed on the Play tab.
+enum PlayRoute: Hashable {
+    /// The Play page in Vs Computer mode.
+    case play
+    /// The Play page opened on Online › Quick match.
+    case online
+    case stats
 }
 
+/// Home: the logo and title, Start Game / Online Match, the Continue card when a local game is
+/// saved, and a board that plays itself underneath.
 struct HomeView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var selectedMode: PlayMode = .cpu
 
     var body: some View {
-        Group {
-            if sizeClass == .regular {
-                regularLayout
-            } else {
-                compactLayout
-            }
-        }
-        .appBackground()
-    }
-
-    // MARK: iPhone
-
-    private var compactLayout: some View {
         ScrollView {
             VStack(spacing: 14) {
-                hero.padding(.vertical, 28)
-                NavigationLink { PlayModeView() } label: {
-                    Label("Play", systemImage: "play.fill")
+                hero.padding(.top, sizeClass == .regular ? 48 : 28).padding(.bottom, 14)
+                Button { app.pendingPlayRoute = .play } label: {
+                    Label("Start Game", systemImage: "play.fill")
                 }
-                .buttonStyle(PrimaryButtonStyle())
-                NavigationLink { OnlineHubView() } label: {
-                    Label("Quick Match Online", systemImage: "globe")
+                .buttonStyle(PrimaryButtonStyle(large: true))
+                Button { app.pendingPlayRoute = .online } label: {
+                    Label("Online Match", systemImage: "globe")
                 }
                 .buttonStyle(SecondaryButtonStyle())
-                continueCard.padding(.top, 10)
+                if let session = app.activeGame, !session.isOver {
+                    ContinueGameCard(session: session).padding(.top, 6)
+                }
+                BoardShowcase()
+                    .frame(maxWidth: sizeClass == .regular ? 420 : 320)
+                    .padding(.top, 18)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
+            .frame(maxWidth: 480)
+            .frame(maxWidth: .infinity)
         }
+        .appBackground()
         .toolbar(.hidden, for: .navigationBar)
     }
-
-    // MARK: iPad
-
-    private var regularLayout: some View {
-        HStack(alignment: .top, spacing: 28) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Play").font(.largeTitle.bold())
-                ForEach(PlayMode.allCases) { mode in
-                    Button { selectedMode = mode } label: {
-                        ModeCard(mode: mode, isSelected: selectedMode == mode, showsChevron: false)
-                    }
-                    .buttonStyle(.plain)
-                }
-                continueCard.padding(.top, 8)
-                Spacer()
-            }
-            .frame(width: 380)
-
-            Group {
-                switch selectedMode {
-                case .cpu: SetupForm(kind: .cpu)
-                case .passAndPlay: SetupForm(kind: .passAndPlay)
-                case .online: OnlineHubView()
-                }
-            }
-            .id(selectedMode)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-        .padding(28)
-        .navigationTitle("")
-        .toolbar(.hidden, for: .navigationBar)
-    }
-
-    // MARK: Shared pieces
 
     private var hero: some View {
         VStack(spacing: 14) {
             LogoMark().frame(width: 72, height: 72)
-            Text("SQUARE OFF").font(Theme.display(40)).minimumScaleFactor(0.7).lineLimit(1)
-            Text("A Strategic Battle of Shapes").font(.subheadline).foregroundStyle(Theme.textSecondary)
-        }
-    }
-
-    @ViewBuilder
-    private var continueCard: some View {
-        if let session = app.activeGame, !session.isOver {
-            Button { app.isGamePresented = true } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "square.grid.3x3.fill")
-                        .font(.title2)
-                        .foregroundStyle(Color(hex: session.currentPlayer.colorHex))
-                        .frame(width: 44, height: 44)
-                        .background(Theme.tileEmpty, in: RoundedRectangle(cornerRadius: 12))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("CONTINUE GAME").font(.caption.weight(.semibold)).foregroundStyle(Theme.link)
-                        Text(session.config.title).font(.headline).lineLimit(1)
-                        Text("\(session.turnLabel) · Move \(session.game.moves.count + 1)").font(.footnote).foregroundStyle(Theme.textSecondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").foregroundStyle(Theme.textSecondary)
-                }
-                .padding(14)
-                .card()
-            }
-            .buttonStyle(.plain)
+            Text("SQUARE OFF")
+                .font(.system(size: 40, weight: .black).width(.expanded))
+                .foregroundStyle(Theme.foreground)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+                .accessibilityAddTraits(.isHeader)
+            Text("A Strategic Battle of Shapes")
+                .font(.subheadline)
+                .foregroundStyle(Theme.foregroundSecondary)
         }
     }
 }
 
-struct PlayModeView: View {
+/// A 6×6 game between two CPUs that plays itself under the Home buttons, with the real flips,
+/// spins and shape draw-on, then starts over. Decorative: no taps, hidden from VoiceOver, and
+/// paused whenever Home is covered or the app is in the background.
+struct BoardShowcase: View {
+    static let size = 6
+    private static let players = [
+        PlayerState(id: 1, name: "Blue", colorHex: Theme.playerColors[0]),
+        PlayerState(id: 2, name: "Red", colorHex: Theme.playerColors[1]),
+    ]
+
+    @Environment(AppModel.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var game = Game(boardSize: BoardShowcase.size, players: BoardShowcase.players)
+    @State private var spins: [Cell: SpinEvent] = [:]
+    @State private var lastMove: MoveResult?
+    @State private var sequence = 0
+    @State private var isVisible = false
+
+    private var isRunning: Bool { isVisible && scenePhase == .active && !app.isGamePresented }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("2–4 players. Fill the grid, form squares and diamonds, and score the most points.")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.bottom, 8)
-                NavigationLink { SetupForm(kind: .cpu) } label: { ModeCard(mode: .cpu) }
-                NavigationLink { SetupForm(kind: .passAndPlay) } label: { ModeCard(mode: .passAndPlay) }
-                NavigationLink { OnlineHubView() } label: { ModeCard(mode: .online) }
+        PlaybackBoardView(game: game, spins: spins, lastMove: lastMove)
+            .onAppear { isVisible = true }
+            .onDisappear { isVisible = false }
+            .task(id: isRunning) {
+                guard isRunning else { return }
+                await play()
             }
-            .buttonStyle(.plain)
-            .padding(20)
-        }
-        .appBackground()
-        .navigationTitle("Play")
+            .accessibilityHidden(true)
     }
-}
 
-struct ModeCard: View {
-    let mode: PlayMode
-    var isSelected = true
-    var showsChevron = true
-
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: mode.symbol)
-                .font(.title2)
-                .foregroundStyle(mode.tint.mix(with: .white, by: 0.4))
-                .frame(width: 56, height: 56)
-                .background(mode.tint.opacity(0.2), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(mode.title).font(.headline)
-                Text(mode.subtitle).font(.subheadline).foregroundStyle(Theme.textSecondary)
+    private func play() async {
+        while !Task.isCancelled {
+            if game.isOver {
+                try? await Task.sleep(for: .seconds(2.5))
+                guard !Task.isCancelled else { return }
+                reset()
             }
-            Spacer(minLength: 0)
-            if showsChevron { Image(systemName: "chevron.right").foregroundStyle(Theme.textSecondary) }
+            try? await Task.sleep(for: .milliseconds(lastMove?.newShapeCount ?? 0 > 0 ? 1600 : 800))
+            guard !Task.isCancelled else { return }
+            step()
         }
-        .padding(18)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(isSelected && !showsChevron ? mode.tint.opacity(0.14) : Theme.surface))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(isSelected ? mode.tint.opacity(0.5) : Theme.hairline, lineWidth: isSelected && !showsChevron ? 2 : 1)
-        )
-        .contentShape(Rectangle())
+    }
+
+    private func step() {
+        // A sharp player against a looser one keeps the board lively and full of shapes.
+        let strategy: CPUStrategy = game.currentPlayer.id == 1 ? .maxMinOptimal : .maxRandom
+        let cell = strategy.chooseMove(in: game)
+        guard let result = try? game.place(at: cell) else { return }
+        sequence += 1
+        for (tile, event) in SpinSchedule.events(for: result, sequence: sequence, continuousIndex: false) {
+            spins[tile] = event
+        }
+        lastMove = result
+    }
+
+    private func reset() {
+        game = Game(boardSize: Self.size, players: Self.players)
+        spins = [:]
+        lastMove = nil
     }
 }
 

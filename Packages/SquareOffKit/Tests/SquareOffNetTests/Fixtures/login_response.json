@@ -1,0 +1,5 @@
+{
+  "message": "Login successful",
+  "access_token": "<jwt>",
+  "token_type": "bearer"
+}

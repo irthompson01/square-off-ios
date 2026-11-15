@@ -1,0 +1,11 @@
+{
+  "type": "PLAYER_JOINED",
+  "player": {
+    "id": 2,
+    "name": "Guest",
+    "fillStyle": "#FF3131",
+    "isCPU": false,
+    "currentScore": 0,
+    "currentMultiplier": 1
+  }
+}

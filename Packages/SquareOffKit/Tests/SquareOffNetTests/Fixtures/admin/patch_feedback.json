@@ -1,0 +1,20 @@
+{
+  "message": "Feedback updated",
+  "item": {
+    "id": 3,
+    "created_at": "2026-10-25T19:00:00+00:00",
+    "subject": "Board doesn't load",
+    "message": "Steps\u2026",
+    "contact_email": null,
+    "display_name": null,
+    "status": "handled",
+    "handled_at": "2026-10-25T20:10:00+00:00",
+    "notes": "Fixed",
+    "email_sent": false,
+    "user": null,
+    "handled_by": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "username": "ian"
+    }
+  }
+}

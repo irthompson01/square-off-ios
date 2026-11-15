@@ -1,0 +1,52 @@
+{
+  "user": {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "email": "pat@example.com",
+    "username": "pat",
+    "first_name": "Pat",
+    "last_name": "",
+    "color": "#DD5144",
+    "app_role": "standard",
+    "is_active": true,
+    "created_at": "2025-03-02T08:30:00",
+    "registered": true,
+    "is_cpu": false,
+    "last_login_at": "2026-10-20T10:00:00+00:00",
+    "session_version": 1,
+    "updated_at": "2026-10-20T10:00:00",
+    "oauth_provider": "google",
+    "profile_picture_url": null
+  },
+  "stats": {
+    "player_id": "00000000-0000-4000-8000-000000000002",
+    "username": "pat",
+    "email": "pat@example.com",
+    "first_name": "Pat",
+    "last_name": "",
+    "color": "#DD5144",
+    "created_at": "2025-03-02T08:30:00",
+    "total_games_played": 12,
+    "games_won": 7,
+    "games_lost": 5,
+    "win_percentage": 58.3,
+    "avg_game_duration": 300,
+    "highest_score": 90,
+    "avg_final_score": 44.5,
+    "local_games_played": 10
+  },
+  "games_played": 12,
+  "last_played_at": "2026-10-24T18:00:00",
+  "games_abandoned": 1,
+  "identities": [
+    {
+      "id": 4,
+      "provider": "google",
+      "provider_sub": "1049",
+      "provider_email": "pat@example.com",
+      "created_at": "2025-03-02T08:30:00+00:00"
+    }
+  ],
+  "entitlements": [],
+  "audit_count": 2,
+  "feedback_count": 1
+}

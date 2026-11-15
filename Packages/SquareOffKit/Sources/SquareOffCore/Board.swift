@@ -21,6 +21,11 @@ public struct Board: Hashable, Sendable {
 
     public var isFull: Bool { !cells.contains(where: { $0 == nil }) }
 
+    /// Whether `cell` lies on the board (the subscripts trap on an out-of-range index).
+    public func contains(_ cell: Cell) -> Bool {
+        (0..<size).contains(cell.row) && (0..<size).contains(cell.col)
+    }
+
     public var emptyCells: [Cell] {
         cells.indices.compactMap { i in
             cells[i] == nil ? Cell(row: i / size, col: i % size) : nil
