@@ -10,7 +10,7 @@ struct PlayView: View {
     @State private var setup: PlaySetupModel
 
     init(mode: PlaySetupModel.Mode = .cpu, onlineTab: PlaySetupModel.OnlineTab = .create) {
-        let setup = PlaySetupModel()
+        let setup = PlaySetupModel(remembering: .standard)
         setup.mode = mode
         setup.onlineTab = onlineTab
         _setup = State(initialValue: setup)
@@ -31,7 +31,7 @@ struct PlayView: View {
                 settings
                 playersEditor
                 if setup.mode == .online {
-                    OnlinePanel(setup: setup, onJoinRoom: { openRoom() })
+                    OnlinePanel(setup: setup, onJoinRoom: { openRoom() }, onSubmitJoin: { Task { await primaryAction() } })
                 }
             }
             .padding(.horizontal, 16)
@@ -66,7 +66,8 @@ struct PlayView: View {
         .onAppear(perform: handlePendingRoutes)
         .sheet(isPresented: $debugColorSheet) {
             ColorSwatchSheet(selection: $setup.players[0].colorHex)
-                .presentationDetents([.height(260)])
+                .presentationDetents([.height(272)])
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
     }
@@ -103,6 +104,7 @@ struct PlayView: View {
         .onChange(of: setup.boardSize) { _, _ in
             if !CPUAvailability.isSelectable(setup.level, boardSize: setup.boardSize) { setup.level = .random }
         }
+        .onChange(of: setup.memory) { _, _ in setup.persist() }
     }
 
     private var playersEditor: some View {
@@ -219,6 +221,7 @@ struct PlayView: View {
 struct ContinueGameCard: View {
     @Environment(AppModel.self) private var app
     let session: GameSession
+    @State private var confirmDiscard = false
 
     var body: some View {
         let players = session.game.players
@@ -246,7 +249,7 @@ struct ContinueGameCard: View {
             HStack(spacing: 8) {
                 Button { app.resumeGame() } label: { Label("Resume", systemImage: "play.fill") }
                     .buttonStyle(PrimaryButtonStyle(fullWidth: false))
-                Button { app.discardGame() } label: { Label("Discard", systemImage: "trash") }
+                Button { confirmDiscard = true } label: { Label("Discard", systemImage: "trash") }
                     .buttonStyle(TertiaryButtonStyle(fullWidth: false))
             }
         }
@@ -255,5 +258,11 @@ struct ContinueGameCard: View {
         .card()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Continue game")
+        .alert("Discard saved game?", isPresented: $confirmDiscard) {
+            Button("Discard", role: .destructive) { app.discardGame() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your unfinished \(session.game.board.size)×\(session.game.board.size) game will be lost.")
+        }
     }
 }

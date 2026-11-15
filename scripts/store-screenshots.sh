@@ -40,15 +40,16 @@ udid_for() {   # device name → UDID in that runtime (empty when absent; `set -
   { xcrun simctl list devices available "$RUNTIME" | grep -E "^\s+$escaped \([0-9A-F-]{36}\)" || true; } | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/'
 }
 
+# The first two shots decide most installs: a readable mid-game with scores, then Pass & Play.
 shots=(
-  "01-home|"
-  "02-game|-demoGame busy"
-  "03-pass-and-play|-demoGame local4"
+  "01-game|-demoGame scoring"
+  "02-pass-and-play|-demoGame local4"
+  "03-online-room|-demoOnline host"
   "04-game-over|-demoGame over"
   "05-setup|-demoScreen setup"
-  "06-online-room|-demoOnline host"
-  "07-rules|-demoScreen rules"
-  "08-stats|-demoScreen stats"
+  "06-rules|-demoScreen rules"
+  "07-stats|-demoScreen stats"
+  "08-home|"
 )
 
 capture() {   # family dir, device name
@@ -77,7 +78,7 @@ capture() {   # family dir, device name
     if [ -n "${ONLY:-}" ] && [[ $file != ${ONLY}* ]]; then continue; fi
     xcrun simctl terminate "$udid" $BUNDLE 2>/dev/null || true
     sleep 5                                     # a relaunch under ~5 s shows stale state
-    xcrun simctl launch "$udid" $BUNDLE -backend mock -demoSignedIn YES ${=args} >/dev/null
+    xcrun simctl launch "$udid" $BUNDLE -backend mock -demoSignedIn YES -hasPlayedGame YES ${=args} >/dev/null
     if [[ $args == *busy* ]]; then sleep 12; else sleep 10; fi
     xcrun simctl io "$udid" screenshot --type png "$OUT/$dir/$file.png" >/dev/null 2>&1
     echo "   $file.png  $(sips -g pixelWidth -g pixelHeight "$OUT/$dir/$file.png" | awk '/pixel/ {printf "%s ", $2}')"

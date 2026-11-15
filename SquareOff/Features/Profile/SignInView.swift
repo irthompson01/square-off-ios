@@ -46,6 +46,9 @@ struct SignInView: View {
     @State private var turnstileToken: String?
     @State private var turnstileFailed = false
     @State private var turnstileReload = 0
+    @FocusState private var focus: Field?
+
+    enum Field { case identifier, username, email, password }
 
     static let emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     static let registerURL = URL(string: "https://square-off.com/register")!
@@ -91,13 +94,22 @@ struct SignInView: View {
         .onChange(of: mode) { _, _ in
             error = nil
             fieldErrors = [:]
+            focus = nil
+        }
+        .task {
+            // Focus the first field once the sheet has settled.
+            try? await Task.sleep(for: .milliseconds(350))
+            guard sentTo == nil, focus == nil else { return }
+            focus = mode == .signIn ? .identifier : .username
         }
         .sheet(isPresented: $showsForgotPassword) {
             ForgotPasswordView(prefill: identifier.contains("@") ? identifier.trimmingCharacters(in: .whitespaces) : "")
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
         .sheet(isPresented: $showsResend) {
             ResendVerificationView(prefill: "")
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
     }
@@ -132,6 +144,9 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .foregroundStyle(Theme.foreground)
+                        .focused($focus, equals: .identifier)
+                        .submitLabel(.next)
+                        .onSubmit { focus = .password }
                 }
             } else {
                 LabeledField(label: "Username", help: AccountRules.usernameHint, error: fieldErrors["username"]) {
@@ -140,6 +155,9 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .foregroundStyle(Theme.foreground)
+                        .focused($focus, equals: .username)
+                        .submitLabel(.next)
+                        .onSubmit { focus = .email }
                 }
                 LabeledField(label: "Email", help: "We'll send a verification link. Only used for account functions such as login and password reset.", error: fieldErrors["email"]) {
                     TextField("you@example.com", text: $email)
@@ -148,6 +166,9 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .foregroundStyle(Theme.foreground)
+                        .focused($focus, equals: .email)
+                        .submitLabel(.next)
+                        .onSubmit { focus = .password }
                 }
             }
             LabeledField(label: "Password", help: mode == .register ? "At least \(AccountRules.passwordLength.lowerBound) characters." : nil,
@@ -155,6 +176,12 @@ struct SignInView: View {
                 SecureField("••••••••", text: $password)
                     .textContentType(mode == .signIn ? .password : .newPassword)
                     .foregroundStyle(Theme.foreground)
+                    .focused($focus, equals: .password)
+                    .submitLabel(mode == .signIn ? .go : .join)
+                    .onSubmit {
+                        focus = nil
+                        if !(needsTurnstile && turnstileToken == nil) { submit() }
+                    }
             }
             if mode == .signIn {
                 Button("Forgot password?") { showsForgotPassword = true }
@@ -310,7 +337,7 @@ struct SignInView: View {
         case .signIn:
             run {
                 try await app.accounts.signIn(emailOrUsername: identifier.trimmingCharacters(in: .whitespaces), password: password)
-                app.toasts.success("Logged in", description: "Welcome back.")
+                app.toasts.success("Logged in", description: app.accounts.signInToastDescription)
             }
         case .register:
             let address = email.trimmingCharacters(in: .whitespaces)
@@ -359,7 +386,7 @@ struct SignInView: View {
             } action: {
                 run {
                     try await app.accounts.signInWithApple(.mock)
-                    app.toasts.success("Logged in", description: "Welcome back.")
+                    app.toasts.success("Logged in", description: app.accounts.signInToastDescription)
                 }
             }
             #endif
@@ -381,7 +408,7 @@ struct SignInView: View {
             run {
                 try await app.accounts.signInWithApple(AppleNativeCredential(
                     identityToken: token, authorizationCode: code, fullName: name.isEmpty ? nil : name, rawNonce: nonce))
-                app.toasts.success("Logged in", description: "Welcome back.")
+                app.toasts.success("Logged in", description: app.accounts.signInToastDescription)
             }
         case .failure(let failure):
             if (failure as? ASAuthorizationError)?.code == .canceled { return }
@@ -397,7 +424,7 @@ struct SignInView: View {
                 try await app.accounts.signInWithProvider(provider) { url, scheme in
                     try await webAuth.authenticate(using: url, callbackURLScheme: scheme, preferredBrowserSession: .shared)
                 }
-                app.toasts.success("Logged in", description: "Welcome back.")
+                app.toasts.success("Logged in", description: app.accounts.signInToastDescription)
             } catch let failure as ASWebAuthenticationSessionError where failure.code == .canceledLogin {
                 throw AuthError.cancelled
             }

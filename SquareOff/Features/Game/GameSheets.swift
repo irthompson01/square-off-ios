@@ -19,20 +19,8 @@ struct GameMenuSheet<Session: GamePresenting>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Image(systemName: "slider.horizontal.3").foregroundStyle(Theme.muted)
-                Text("Game menu").font(Theme.display(18, relativeTo: .headline)).foregroundStyle(Theme.foreground)
-                Spacer()
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 32, height: 32)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close menu")
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 14)
-            .padding(.bottom, 12)
-            Theme.separator.frame(height: 1)
+            SheetHeader(title: "Game menu", symbol: "slider.horizontal.3", closeLabel: "Close menu") { dismiss() }
+                .padding(.top, 8)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
@@ -70,11 +58,19 @@ struct GameMenuSheet<Session: GamePresenting>: View {
                     .card()
 
                     VStack(spacing: 8) {
-                        Button { onRules() } label: { Label("How to play", systemImage: "book") }
-                            .buttonStyle(TertiaryButtonStyle())
+                        // Like Reset and Leave: the menu goes first, the owner presents the next sheet
+                        // once it has gone (a sheet over a sheet is dropped on some OS versions).
+                        Button {
+                            dismiss()
+                            onRules()
+                        } label: { Label("How to play", systemImage: "book") }
+                        .buttonStyle(TertiaryButtonStyle())
                         if let onFeedback {
-                            Button { onFeedback() } label: { Label("Send feedback", systemImage: "bubble.left.and.text.bubble.right") }
-                                .buttonStyle(TertiaryButtonStyle())
+                            Button {
+                                dismiss()
+                                onFeedback()
+                            } label: { Label("Send feedback", systemImage: "bubble.left.and.text.bubble.right") }
+                            .buttonStyle(TertiaryButtonStyle())
                         }
                         if session.capabilities.canReset {
                             Button {
@@ -116,21 +112,11 @@ struct GameOverSheet<Session: GamePresenting>: View {
     var body: some View {
         let standings = session.game.standings
         let isOver = session.isOver
-        ScrollView {
+        VStack(spacing: 0) {
+            SheetHeader(title: isOver ? "Game over" : "Scores so far", symbol: "trophy", symbolColor: Theme.warning, closeLabel: "Close results") { dismiss() }
+                .padding(.top, 8)
+            ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                HStack(spacing: 10) {
-                    Image(systemName: "trophy").foregroundStyle(Theme.warning)
-                    Text(isOver ? "GAME OVER" : "SCORES SO FAR")
-                        .font(Theme.display(20, relativeTo: .title3)).tracking(1.5).foregroundStyle(Theme.foreground)
-                    Spacer()
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 32, height: 32)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Close results")
-                }
-                .padding(.top, 16)
-
                 if isOver {
                     summary(standings)
                 }
@@ -170,7 +156,9 @@ struct GameOverSheet<Session: GamePresenting>: View {
                 footer
             }
             .padding(.horizontal, 20)
+            .padding(.top, 16)
             .padding(.bottom, 24)
+            }
         }
     }
 
@@ -249,7 +237,7 @@ struct GameOverSheet<Session: GamePresenting>: View {
 
     private var shareText: String {
         let lines = session.game.standings.map { "\($0.name) \($0.score)" }.joined(separator: " · ")
-        return "\(lines) — Square Off"
+        return "\(lines) — Square Off\nhttps://square-off.com"
     }
 }
 

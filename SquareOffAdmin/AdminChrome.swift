@@ -204,10 +204,9 @@ struct AdminReplaySheet: View {
     let gameID: Int
 
     var body: some View {
-        NavigationStack {
-            ReplayView(gameID: gameID, load: { try await app.admin.replay(gameID: $0) })
-        }
-        .presentationBackground(Theme.overlay)
+        ReplayView(gameID: gameID, load: { try await app.admin.replay(gameID: $0) })
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Theme.overlay)
     }
 }
 

@@ -28,6 +28,9 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 20) {
                 PageHeading(title: "Profile", description: "Your account, and how you appear in games.")
                 if app.account.isSignedIn {
+                    if app.accounts.lastRestoreFailed {
+                        AlertBox(.warning, message: "Couldn't reach the server. Showing your last known profile.")
+                    }
                     accountPanel
                     NavigationLink { StatsView() } label: {
                         HStack {
@@ -60,9 +63,10 @@ struct ProfileView: View {
         .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $signIn) { route in SignInView(route: route) }
-        .sheet(isPresented: $showsFeedback) { FeedbackView() }
-        .sheet(isPresented: $showsForgotPassword) { ForgotPasswordView().presentationBackground(Theme.overlay) }
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $signIn) { route in SignInView(route: route).presentationDragIndicator(.visible) }
+        .sheet(isPresented: $showsFeedback) { FeedbackView().presentationDragIndicator(.visible) }
+        .sheet(isPresented: $showsForgotPassword) { ForgotPasswordView().presentationDragIndicator(.visible).presentationBackground(Theme.overlay) }
         .alert("Delete your account?", isPresented: $confirmDelete) {
             Button("Continue", role: .destructive) { confirmDeleteFinal = true }
             Button("Cancel", role: .cancel) {}
@@ -73,7 +77,7 @@ struct ProfileView: View {
             Button("Delete account", role: .destructive) { deleteAccount() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("You'll be signed out on this device and your account can't be recovered.")
+            Text("You'll be logged out on this device and your account can't be recovered.")
         }
         .onAppear {
             if let route = app.pendingSignIn {
@@ -89,10 +93,22 @@ struct ProfileView: View {
                 showsFeedback = true
             }
         }
+        // The pending flags are also consumed here: "Log in" from the verify-email and reset sheets
+        // sets them while Profile is already on screen, so `onAppear` alone never fires.
+        .onChange(of: app.pendingSignIn) { _, route in
+            guard let route else { return }
+            app.pendingSignIn = nil
+            signIn = route
+        }
         .onChange(of: app.pendingForgotPassword) { _, pending in
             guard pending else { return }
             app.pendingForgotPassword = false
             showsForgotPassword = true
+        }
+        .onChange(of: app.pendingFeedback) { _, pending in
+            guard pending else { return }
+            app.pendingFeedback = false
+            showsFeedback = true
         }
         .onChange(of: app.account) { _, _ in
             isEditing = false
@@ -237,7 +253,7 @@ struct ProfileView: View {
                     Text("Playing as a guest on this device").font(.footnote).foregroundStyle(Theme.foregroundSecondary)
                 }
             }
-            Text("Sign in to keep stats and replays.").font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
+            Text("Log in or create an account and the games you've played on this device come with you.").font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
             HStack(spacing: 10) {
                 Button { signIn = .signIn } label: { Label("Log in", systemImage: "arrow.right.to.line") }
                     .buttonStyle(PrimaryButtonStyle(fullWidth: false))
@@ -271,7 +287,10 @@ struct ProfileView: View {
     /// Account deletion (App Store 5.1.1(v)): two confirmations, then `POST /account/delete`.
     private var accountActionsPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionLabel("Account")
+            SectionLabel("Manage account")
+            Button { Task { await app.accounts.signOut() } } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
+                .buttonStyle(SecondaryButtonStyle())
+            Theme.separator.frame(height: 1).padding(.vertical, 4)
             Text("Deleting removes your profile, stats and replays from Square Off.")
                 .font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
             if let deleteError {
@@ -312,11 +331,6 @@ struct ProfileView: View {
             SettingsToggle(title: "Music", description: "Music by Missy Cundiff", isOn: $musicEnabled)
             SettingsToggle(title: "Haptics", isOn: $hapticsEnabled)
             SettingsToggle(title: "Starfield", isOn: $starsEnabled)
-            if app.account.isSignedIn {
-                Theme.separator.frame(height: 1).padding(.vertical, 4)
-                Button { Task { await app.accounts.signOut() } } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
-                    .buttonStyle(DangerButtonStyle(soft: true))
-            }
         }
         .padding(20)
         .card()

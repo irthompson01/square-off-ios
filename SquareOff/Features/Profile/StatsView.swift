@@ -6,6 +6,8 @@ import SwiftUI
 /// Game stats (web `/profile/stats`): the Statistics panel (All / Humans / CPU with a win-rate
 /// donut, tiles and filters) and the Game history panel (W/L/T strip, rows, server paging, replays).
 struct StatsView: View {
+    /// Where the pill goes back to: Profile pushes it; the Play tab's debug route says "Home".
+    var backTitle = "Profile"
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
@@ -56,7 +58,7 @@ struct StatsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                BackButton { dismiss() }
+                BackButton(title: backTitle) { dismiss() }
                 PageHeading(title: "Game stats", description: "Your record across every game, by opponent type.")
                 if isLoading {
                     skeleton
@@ -89,7 +91,8 @@ struct StatsView: View {
         .task(id: "\(cpuBoard ?? 0)-\(cpuTimer ?? -1)-\(cpuType ?? "")") { await loadCPU() }
         .task(id: page) { await loadHistory() }
         .sheet(item: $replayGame) { target in
-            NavigationStack { ReplayView(gameID: target.id) }
+            ReplayView(gameID: target.id)
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
     }
@@ -278,7 +281,7 @@ struct StatsView: View {
             Button {
                 replayGame = ReplayTarget(id: row.gameId, opponent: Self.opponentLabel(row.opponentLabel))
             } label: {
-                Image(systemName: "play").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foregroundSecondary).frame(width: 32, height: 32)
+                Image(systemName: "play").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foregroundSecondary).frame(width: 44, height: 44).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Replay game vs \(Self.opponentLabel(row.opponentLabel))")
@@ -302,6 +305,8 @@ struct StatsView: View {
                                 .foregroundStyle(slot == page ? Theme.foreground : Theme.muted)
                                 .frame(width: 32, height: 32)
                                 .background(slot == page ? Theme.controlFill : .clear, in: Circle())
+                                .frame(minWidth: 40, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Page \(slot + 1)")
@@ -317,7 +322,7 @@ struct StatsView: View {
 
     private func pageButton(symbol: String, label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.caption.weight(.bold)).foregroundStyle(enabled ? Theme.foreground : Theme.muted.opacity(0.5)).frame(width: 32, height: 32)
+            Image(systemName: symbol).font(.caption.weight(.bold)).foregroundStyle(enabled ? Theme.foreground : Theme.muted.opacity(0.5)).frame(width: 44, height: 44).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!enabled)

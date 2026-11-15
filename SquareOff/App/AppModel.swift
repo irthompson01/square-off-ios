@@ -38,7 +38,7 @@ nonisolated struct GameConfig: Equatable, Codable, Sendable {
 
     var title: String {
         switch mode {
-        case .cpu(let level): "vs CPU · Level \(level.number) · \(boardSize)×\(boardSize)"
+        case .cpu(let level): "vs Computer · Level \(level.number) · \(boardSize)×\(boardSize)"
         case .passAndPlay: "Pass & Play · \(players.count) players · \(boardSize)×\(boardSize)"
         }
     }
@@ -112,7 +112,7 @@ final class AppModel {
             case .disabled:
                 toasts.danger("Account disabled", description: AuthError.accountDisabled.errorDescription)
             default:
-                toasts.show("You've been signed out", description: "Your session ended. Log in again to continue.", style: .warning)
+                toasts.show("You've been logged out", description: "Your session ended. Log in again to continue.", style: .warning)
             }
         }
         if let snapshot = localGames.load(),
@@ -183,6 +183,7 @@ final class AppModel {
         activeGame?.stop()
         activeGame = nil
         activeOnlineGame = session
+        UserDefaults.standard.set(true, forKey: Self.hasPlayedGameKey)
         isGamePresented = true
     }
 
@@ -194,6 +195,11 @@ final class AppModel {
             online.gameEnded()
         }
     }
+
+    /// Set after the first game ever started on this device: Home stops nudging towards the rules.
+    static let hasPlayedGameKey = "hasPlayedGame"
+    /// Shown over the board during the very first game.
+    static let coachLine = "Tap any tile. Complete a square or diamond to score."
 
     func start(_ config: GameConfig) {
         activeGame?.stop()
@@ -210,6 +216,10 @@ final class AppModel {
             store: localGames
         )
         notices.session = session
+        if !UserDefaults.standard.bool(forKey: Self.hasPlayedGameKey) {
+            UserDefaults.standard.set(true, forKey: Self.hasPlayedGameKey)
+            if session.game.moves.isEmpty { session.notice = Self.coachLine }
+        }
         activeGame = session
         isGamePresented = true
     }

@@ -82,7 +82,7 @@ private struct ToastView: View {
                 .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
             }
             Button(action: dismiss) {
-                Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 28, height: 28)
+                Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 44, height: 44).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Dismiss")

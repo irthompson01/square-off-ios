@@ -73,6 +73,12 @@ struct TurnBanner<Session: GamePresenting>: View {
                     .controlSize(.small)
                     .frame(height: 32)
             }
+            if session.statusBanner == .lost {
+                Button("Reconnect") { session.reconnect() }
+                    .buttonStyle(PrimaryButtonStyle(fullWidth: false))
+                    .controlSize(.small)
+                    .frame(height: 32)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -98,6 +104,9 @@ struct TurnBannerState {
         switch session.statusBanner {
         case .error(let message):
             self.init(text: message, background: Theme.danger.opacity(0.15), foreground: Theme.dangerText)
+            return
+        case .lost:
+            self.init(text: "Connection lost", background: Theme.danger.opacity(0.15), foreground: Theme.dangerText)
             return
         case .hostAway:
             self.init(text: "Host disconnected — waiting for them to reconnect…", background: Theme.warning.opacity(0.15), foreground: Theme.warning)
@@ -152,6 +161,8 @@ struct StatusBannerView: View {
             AlertBox(.default, message: "Connecting to the game server…")
         case .hostAway:
             AlertBox(.warning, title: "Host disconnected", message: "Waiting a moment for them to reconnect…")
+        case .lost:
+            AlertBox(.danger, title: "Connection lost", message: "The room couldn't be reached. Reconnect, or leave the room.")
         case .error(let message):
             AlertBox(.danger, message: message)
         case nil:
@@ -215,10 +226,10 @@ private struct SeatTag: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.caption2.weight(.semibold))
             .foregroundStyle(color)
             .padding(.horizontal, 7)
-            .frame(height: 18)
+            .frame(minHeight: 18)
             .background(color.opacity(0.14), in: Capsule())
             .fixedSize()
     }
@@ -230,7 +241,7 @@ struct PlayerIdentity: View {
     var size: CGFloat = 10
     var isMine = false
     var isHost = false
-    var nameFont: Font = .system(size: 12, weight: .semibold)
+    var nameFont: Font = .caption.weight(.semibold)
 
     var body: some View {
         HStack(spacing: 6) {
@@ -387,9 +398,10 @@ struct PlayerCard<Trailing: View>: View {
                 HStack(spacing: 8) {
                     PlayerAvatar(player: player, size: dense ? 22 : 26)
                     Text(player.name.isEmpty ? "Player \(player.id)" : player.name)
-                        .font(.system(size: dense ? 13 : 14, weight: .semibold))
+                        .font(dense ? .footnote.weight(.semibold) : .subheadline.weight(.semibold))
                         .foregroundStyle(Theme.foreground)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .truncationMode(.tail)
                     Spacer(minLength: 4)
                     if isActive { turnPill }
@@ -419,7 +431,7 @@ struct PlayerCard<Trailing: View>: View {
         case .sidebar:
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    PlayerIdentity(player: player, size: 14, isMine: isMine, isHost: isHost, nameFont: .system(size: 15, weight: .semibold))
+                    PlayerIdentity(player: player, size: 14, isMine: isMine, isHost: isHost, nameFont: .callout.weight(.semibold))
                     if isActive { Chip(text: isMine ? "Your turn" : "Turn", style: isMine ? .accentFilled : .default) }
                     Spacer(minLength: 0)
                     trailing
@@ -441,7 +453,7 @@ struct PlayerCard<Trailing: View>: View {
                         .frame(width: 24, height: 24)
                         .background(Theme.controlFill, in: Circle())
                 }
-                PlayerIdentity(player: player, size: 12, isMine: isMine, isHost: isHost, nameFont: .system(size: 14, weight: .semibold))
+                PlayerIdentity(player: player, size: 12, isMine: isMine, isHost: isHost, nameFont: .subheadline.weight(.semibold))
                 Spacer(minLength: 0)
                 if showsScore {
                     Text("\(player.score)").font(Theme.display(17, relativeTo: .headline)).monospacedDigit().foregroundStyle(Theme.foreground)
@@ -463,7 +475,7 @@ struct PlayerCard<Trailing: View>: View {
                 }
                 .frame(width: 28, height: 28)
                 .background(Theme.controlFill, in: Circle())
-                PlayerIdentity(player: player, size: 12, isMine: isMine, isHost: isHost, nameFont: .system(size: 14, weight: .semibold))
+                PlayerIdentity(player: player, size: 12, isMine: isMine, isHost: isHost, nameFont: .subheadline.weight(.semibold))
                 Spacer(minLength: 0)
                 ShapeCounts(player: player)
                 Text("×\(player.multiplier)").font(.caption).foregroundStyle(Theme.muted)

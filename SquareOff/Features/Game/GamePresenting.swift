@@ -24,6 +24,8 @@ enum RematchState: Equatable {
 enum StatusBanner: Equatable {
     case connecting
     case hostAway
+    /// The reconnect window closed; the user can try once more or leave.
+    case lost
     case error(String)
 }
 
@@ -76,4 +78,10 @@ protocol GamePresenting: AnyObject, Observable, Identifiable {
     func stop()
     /// The player is done with this game.
     func leave()
+    /// Retry after `StatusBanner.lost`; local games have nothing to do.
+    func reconnect()
+}
+
+extension GamePresenting {
+    func reconnect() {}
 }

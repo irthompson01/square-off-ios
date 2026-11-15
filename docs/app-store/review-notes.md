@@ -4,7 +4,7 @@ Square Off is a turn-based strategy board game. Everything below can be tried wi
 
 **Demo account (production):** email `DEMO_EMAIL`, password `DEMO_PASSWORD`. Log in under Profile › Log in. It has played games, so Stats, Replays and Recent games are populated.
 
-**Guest play needs no account.** Play › Vs Computer, Pass & Play and Online all work signed out; guest games are recorded under an anonymous device session; stats and replays in the Profile tab start with the games played after signing in.
+**Guest play needs no account.** Play › vs Computer, Pass & Play and Online all work signed out; guest games are recorded under an anonymous device session and move to the account the first time that device logs in, so Stats and Replays include them.
 
 **Computer opponents.** Levels 1–6 run on the device. Levels 7 (Grandmaster) and 8 (Impossible) ask our own server at square-off.com for each move and need a network connection; if the server cannot be reached the app falls back to Level 6 on the device and tells the player. No third-party AI service is involved.
 

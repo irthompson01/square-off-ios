@@ -128,28 +128,47 @@ struct ServerCPUMoveProviderTests {
         #expect(await api.calls.isEmpty)
     }
 
+    /// A fresh provider per case: the breaker in one case must not short-circuit the next.
+    private func provider(_ api: SpyAPI, session: GameSession) -> ServerCPUMoveProvider {
+        let notices = SessionNoticeRelay()
+        notices.session = session
+        return ServerCPUMoveProvider(api: api, serverLevels: [.cnn], notices: notices, timeout: .milliseconds(150))
+    }
+
     @Test func failuresOccupiedAndTimeoutsFallBackWithANotice() async throws {
         let api = SpyAPI()
-        let notices = SessionNoticeRelay()
         let session = GameSession(config: GameConfig(mode: .cpu(.cnn), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Me", colorHex: "#0583D2")]))
-        notices.session = session
-        let provider = ServerCPUMoveProvider(api: api, serverLevels: [.cnn], notices: notices, timeout: .milliseconds(150))
 
         await api.setFailing(["cpuMove"])
-        var cell = await provider.move(for: game(), level: .cnn)
+        var cell = await provider(api, session: session).move(for: game(), level: .cnn)
         #expect(game().board[cell] == nil)
         #expect(session.notice?.contains("Level 3 unavailable") == true)
 
         await api.setFailing([])
         await api.setCPUMoveReply(CPUMoveResponse(row: 0, col: 0))   // occupied
-        cell = await provider.move(for: game(), level: .cnn)
+        cell = await provider(api, session: session).move(for: game(), level: .cnn)
         #expect(game().board[cell] == nil)
 
         await api.setDelay("cpuMove", .seconds(2))
         let started = ContinuousClock.now
-        cell = await provider.move(for: game(), level: .cnn)
+        cell = await provider(api, session: session).move(for: game(), level: .cnn)
         #expect(game().board[cell] == nil)
         #expect(ContinuousClock.now - started < .seconds(1))
+    }
+
+    @Test func twoFailuresOpenTheBreakerAndTheNoticeShowsOnce() async throws {
+        let api = SpyAPI()
+        let session = GameSession(config: GameConfig(mode: .cpu(.cnn), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Me", colorHex: "#0583D2")]))
+        let provider = provider(api, session: session)
+        await api.setFailing(["cpuMove"])
+        _ = await provider.move(for: game(), level: .cnn)
+        #expect(session.notice?.contains("Level 3 unavailable") == true)
+        session.notice = nil
+        _ = await provider.move(for: game(), level: .cnn)
+        #expect(session.notice == nil, "the fallback is mentioned once per game")
+        _ = await provider.move(for: game(), level: .cnn)
+        _ = await provider.move(for: game(), level: .cnn)
+        #expect(await api.calls.filter { $0 == "cpuMove" }.count == 2, "after two failures the game stays on device")
     }
 }
 
@@ -202,6 +221,43 @@ struct AccountStoreTests {
         await accounts.restore()
         #expect(!accounts.account.isSignedIn)
         #expect(backend.tokenStore.accessToken() == nil)
+        #expect(!accounts.lastRestoreFailed)
+    }
+
+    @Test func aNetworkFailureKeepsTheSignedInProfile() async throws {
+        let api = SpyAPI()
+        await api.setAuthenticated(true)
+        let token = fakeJWT(expiringAt: Date().addingTimeInterval(3600))
+        let backend = Backend.test(api: api, token: token)
+        let accounts = AccountStore(backend: backend)
+        await accounts.restore()
+        #expect(accounts.account.isSignedIn)
+
+        await api.setNetworkFailing(["checkAuth"])
+        await accounts.restore()
+        #expect(accounts.account.isSignedIn, "offline at foreground: still the same person")
+        #expect(accounts.lastRestoreFailed)
+        #expect(backend.tokenStore.accessToken() == token)
+
+        await api.setNetworkFailing([])
+        await accounts.restore()
+        #expect(!accounts.lastRestoreFailed)
+    }
+
+    @Test func firstRestoreOfflineDoesNotMintAGuest() async throws {
+        for failing in ["network", "server"] {
+            let api = SpyAPI()
+            if failing == "network" { await api.setNetworkFailing(["checkAuth"]) } else { await api.setFailing(["checkAuth"]) }
+            let token = fakeJWT(expiringAt: Date().addingTimeInterval(3600))
+            let backend = Backend.test(api: api, token: token)
+            let accounts = AccountStore(backend: backend)
+            await accounts.restore()
+            #expect(!accounts.account.isSignedIn)
+            #expect(accounts.lastRestoreFailed)
+            #expect(backend.tokenStore.accessToken() == token, "the token is kept for the next try")
+            #expect(await api.calls == ["checkAuth"], "no create_guest while a user token exists")
+            await #expect(throws: AuthError.unreachable) { _ = try await accounts.ensureIdentity() }
+        }
     }
 
     @Test func signInStoresTheTokenAndSignOutClearsIt() async throws {
@@ -231,6 +287,63 @@ struct AccountStoreTests {
         #expect(reasons == [.revoked])
         #expect(backend.tokenStore.accessToken() == nil)
         #expect(!accounts.account.isSignedIn)
+    }
+
+    @Test func signInClaimsTheDeviceGuestsGames() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api, guestToken: "guest-token")
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(await api.calls == ["login", "profile", "claimGuest"])
+        #expect(await api.claimRequests.map(\.guestToken) == ["guest-token"])
+        #expect(accounts.lastClaimedGames == 2)
+        #expect(accounts.signInToastDescription == "2 games you played here as a guest are now in your account.")
+        #expect(backend.guestTokens.accessToken() == nil, "the server retired that guest")
+        #expect(backend.identity.guest == nil)
+    }
+
+    @Test func signInWithoutAGuestClaimsNothing() async throws {
+        let api = SpyAPI()
+        let accounts = AccountStore(backend: Backend.test(api: api))
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(await api.calls == ["login", "profile"])
+        #expect(accounts.lastClaimedGames == nil)
+        #expect(accounts.signInToastDescription == "Welcome back.")
+    }
+
+    @Test func aLoginThatClaimedInlineSkipsTheExplicitCall() async throws {
+        let api = SpyAPI()
+        await api.setLoginClaimedGames(1)
+        let backend = Backend.test(api: api, guestToken: "guest-token")
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(await api.calls == ["login", "profile"])
+        #expect(accounts.lastClaimedGames == 1)
+        #expect(accounts.signInToastDescription == "The game you played here as a guest is now in your account.")
+        #expect(backend.guestTokens.accessToken() == nil)
+    }
+
+    @Test func aFailedClaimKeepsTheGuestForLater() async throws {
+        let api = SpyAPI()
+        await api.setFailure("claimGuest", status: 404, detail: "Not Found")   // a server without the route
+        let backend = Backend.test(api: api, guestToken: "guest-token")
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(accounts.account.isSignedIn)
+        #expect(accounts.lastClaimedGames == nil)
+        #expect(backend.guestTokens.accessToken() == "guest-token")
+    }
+
+    @Test func providerCallbacksCarryTheClaimCount() async throws {
+        let api = SpyAPI()
+        await api.setOAuthURL(URL(string: "squareoff://auth?token=spy-token&claimed_games=3")!)
+        let backend = Backend.test(api: api, guestToken: "guest-token")
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signInWithProvider(.google) { url, _ in url }
+        #expect(await api.calls == ["oauthLoginURL", "profile"])
+        #expect(accounts.lastClaimedGames == 3)
+        #expect(backend.guestTokens.accessToken() == nil)
+        #expect(OAuthCallback.claimedGames(from: URL(string: "squareoff://auth?token=t")!) == nil)
     }
 
     @Test func disabledAccountsAreToldApart() async throws {
@@ -450,12 +563,17 @@ struct GuestSessionTests {
         #expect(accounts.account.serverPlayerID == "guest-uuid")
         #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
 
+        // Signing in again claims that guest's games (the server retires the guest), so the
+        // next fall-back mints a fresh one instead of reusing a revoked token.
         try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(await api.calls.filter { $0 == "claimGuest" }.count == 1)
+        #expect(backend.guestTokens.accessToken() == nil)
         backend.sessions.post(.revoked)
         try await Task.sleep(for: .milliseconds(100))
         #expect(!accounts.account.isSignedIn)
-        #expect(accounts.account.serverPlayerID == "guest-uuid")   // the fresh guest token was reused
-        #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
+        #expect(accounts.account.serverPlayerID == "guest-uuid")
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 2)
+        #expect(backend.guestTokens.accessToken() == "spy-guest-token-2")
     }
 
     @Test func legacySeatIDsAreDroppedAndTheGuestIdentityKept() async throws {

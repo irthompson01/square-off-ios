@@ -46,6 +46,7 @@
 		389A9D529349ED5667090852 /* Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0172B922493BECDC43DE9382 /* Backend.swift */; };
 		3ADF378008DBD042FCC64518 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = ECF7D6634D3C1094C1472C27 /* PrivacyInfo.xcprivacy */; };
 		3B7F64A5C168F961ED752E2B /* TokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2359DCD5F2870A09B8942D /* TokenStore.swift */; };
+		3DEE9726A7E20D3E6AE1FCB1 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF66CF30F817DC51F426844B /* Haptics.swift */; };
 		4192170F32275D85D76A887B /* PlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB16F9F098D5EFC49DF83A2 /* PlayView.swift */; };
 		42EA42919E7E139CE487DB50 /* RoomCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 336B4CC0CDDD237CB9E76B9B /* RoomCoordinator.swift */; };
 		434173EAC2EE3D74B4AE4039 /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B838FCE08AF16CD75A5164 /* BoardView.swift */; };
@@ -123,6 +124,7 @@
 		BF5E0BCE5701341F6478854F /* AppleReauthorizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7BB7858AEA7FBAB1EFC9FE4 /* AppleReauthorizer.swift */; };
 		C1BDDEBABF237A25BBE0EF01 /* ColorPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F84E11CEF6C47CC19EB43136 /* ColorPicker.swift */; };
 		C267D71A1CFDA34E0AA63DD3 /* AdminAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B22B74C1839C43FB7C42629D /* AdminAssets.xcassets */; };
+		C3F19D6A507E155A4D1D1791 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF66CF30F817DC51F426844B /* Haptics.swift */; };
 		C5B3299E9A1BC1DD9420474F /* BoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B838FCE08AF16CD75A5164 /* BoardView.swift */; };
 		CA1F6B6F039FCDEE470FD82B /* ColorPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F84E11CEF6C47CC19EB43136 /* ColorPicker.swift */; };
 		CC253A742378FF3DCC2B87EE /* SetupControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494F1EA3ECEBE5381F496230 /* SetupControls.swift */; };
@@ -242,6 +244,7 @@
 		BE69ABA9011BBE77ED79CC73 /* button.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = button.mp3; sourceTree = "<group>"; };
 		BEC0686E85FE0439808597F5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		BF00B0576C46BE465D8E6C21 /* Grapple.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Grapple.ttf; sourceTree = "<group>"; };
+		BF66CF30F817DC51F426844B /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		BF6D7E66472DC336B993FFC2 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
 		C7BB7858AEA7FBAB1EFC9FE4 /* AppleReauthorizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleReauthorizer.swift; sourceTree = "<group>"; };
 		C87803714D621485DA8BFA65 /* SpyAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpyAPI.swift; sourceTree = "<group>"; };
@@ -381,6 +384,7 @@
 		3B716BA078CC150106AB21B7 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				BF66CF30F817DC51F426844B /* Haptics.swift */,
 				A5E1F9648DB98A479D1671E5 /* LocalGameStore.swift */,
 				8D81277C819AB3FD520ACF5C /* MusicPlayer.swift */,
 				E793749AEA5BB3CF0300FE29 /* SoundPlayer.swift */,
@@ -798,6 +802,7 @@
 				457F5EA9CDBFC4E5B9A947BD /* GameSheets.swift in Sources */,
 				97E0AF89C1E2DB828439B384 /* GameView.swift in Sources */,
 				74B9406E43F0C52EF2BF1484 /* GamesView.swift in Sources */,
+				C3F19D6A507E155A4D1D1791 /* Haptics.swift in Sources */,
 				6E3B34C781268CBCEE5A6CDF /* HomeView.swift in Sources */,
 				F6D81A86AD02BC905D901CFD /* Identity.swift in Sources */,
 				7655FB655D2C7ADD9F1D2A9D /* IdentityStore.swift in Sources */,
@@ -859,6 +864,7 @@
 				4465A51D5918EC4A957D17F6 /* GameSession.swift in Sources */,
 				312D360DF6E2C4E950F3334F /* GameSheets.swift in Sources */,
 				B551473D8B2F0442F71CE721 /* GameView.swift in Sources */,
+				3DEE9726A7E20D3E6AE1FCB1 /* Haptics.swift in Sources */,
 				08477A5A7B1E58504CABC758 /* HomeView.swift in Sources */,
 				F0A67B8B58B6ED41BD4080F6 /* Identity.swift in Sources */,
 				47C7EE3F90FA57B5FF0657C3 /* IdentityStore.swift in Sources */,

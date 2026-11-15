@@ -109,6 +109,8 @@ public actor MockSquareOffAPI: SquareOffAPI {
     private var users: [User] = []
     /// Guest sessions by player id (minted by `createGuest`, or by `/start` for id-less seats).
     private var guestSessions: [String: GuestSession] = [:]
+    /// Guest id → the account that absorbed its games (`claimGuest`).
+    private var claimedGuests: [String: String] = [:]
     private var games: [Int: GameRecord] = [:]
     private var nextGameID = 1
     private var nextTurnID = 1
@@ -308,6 +310,42 @@ public actor MockSquareOffAPI: SquareOffAPI {
         if let token = tokenProvider?.accessToken() ?? sessionToken { revokedTokens.insert(token) }
         sessionToken = nil
         return MessageResponse(message: "Account deleted")
+    }
+
+    /// Like the server: the guest's seats (and its score/winner entries) move to the account in
+    /// every game where the account has no seat of its own; the guest session is retired.
+    public func claimGuest(_ request: ClaimGuestRequest) async throws -> ClaimGuestResponse {
+        try await pause()
+        let user = try currentUser()
+        guard request.guestToken.hasPrefix("mock-guest:"), let guestID = Self.playerID(forToken: request.guestToken) else {
+            throw APIError.http(status: 400, body: #"{"detail":"guest_token_invalid"}"#)
+        }
+        if let owner = claimedGuests[guestID] {
+            if owner == user.id { return ClaimGuestResponse(claimedGames: 0, claimedSeats: 0, alreadyClaimed: true) }
+            throw APIError.http(status: 409, body: #"{"detail":"guest_already_claimed"}"#)
+        }
+        guard guestSessions[guestID] != nil else {
+            throw APIError.http(status: 404, body: #"{"detail":"guest_not_found"}"#)
+        }
+        var seats = 0
+        var touched: Set<Int> = []
+        for (id, var game) in games where !game.seats.contains(where: { $0.playerID == user.id }) {
+            var moved = false
+            for index in game.seats.indices where game.seats[index].playerID == guestID {
+                game.seats[index].playerID = user.id
+                seats += 1
+                moved = true
+            }
+            guard moved else { continue }
+            game.scores = game.scores.map { $0.playerId == guestID ? ScoreEntry(playerId: user.id, score: $0.score) : $0 }
+            if game.winnerID == guestID { game.winnerID = user.id }
+            games[id] = game
+            touched.insert(id)
+        }
+        claimedGuests[guestID] = user.id
+        guestSessions[guestID] = nil
+        revokedTokens.insert(request.guestToken)
+        return ClaimGuestResponse(claimedGames: touched.count, claimedSeats: seats, alreadyClaimed: false)
     }
 
     public func requestPasswordReset(email: String) async throws -> MessageResponse {

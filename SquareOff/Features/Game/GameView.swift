@@ -14,6 +14,10 @@ struct GameView<Session: GamePresenting>: View {
     /// Set when "leave" is tapped inside a sheet: the cover is dismissed only after the sheet
     /// has gone, because dismissing both in one transaction drops the outer one.
     @State private var pendingExit: AppModel.GameExit?
+    /// Same idea for How to play / Send feedback from the menu: presented once the menu has gone.
+    @State private var pendingSheet: PendingSheet?
+
+    enum PendingSheet { case rules, feedback }
 
     var body: some View {
         GeometryReader { proxy in
@@ -54,6 +58,7 @@ struct GameView<Session: GamePresenting>: View {
             }
         }
         .appBackground()
+        .sensoryFeedback(.success, trigger: session.isOver) { _, over in over && Haptics.isEnabled }
         .overlay(alignment: .top) { noticeBanner }
         .task { await session.start() }
         .onDisappear { session.stop() }
@@ -62,7 +67,7 @@ struct GameView<Session: GamePresenting>: View {
         }
         .sheet(isPresented: $isMenuPresented, onDismiss: finishExitIfPending) {
             GameMenuSheet(session: session, onReset: { confirmReset = true }, onLeave: { confirmLeave = true },
-                          onRules: { isRulesPresented = true }, onFeedback: { isFeedbackPresented = true })
+                          onRules: { pendingSheet = .rules }, onFeedback: { pendingSheet = .feedback })
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
@@ -70,14 +75,21 @@ struct GameView<Session: GamePresenting>: View {
         .sheet(isPresented: $session.isGameOverPresented, onDismiss: finishExitIfPending) {
             GameOverSheet(session: session, onExit: exit)
                 .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
         .sheet(isPresented: $isRulesPresented) {
-            NavigationStack { RulesView() }
-                .presentationBackground(Theme.background)
+            VStack(spacing: 0) {
+                SheetHeader(title: "How to play", symbol: "book") { isRulesPresented = false }
+                    .padding(.top, 8)
+                RulesView(embedded: true)
+            }
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Theme.background)
         }
         .sheet(isPresented: $isFeedbackPresented) {
             FeedbackView(context: session.title)
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
         .alert(session.capabilities.isOnline ? "Leave this room?" : "Leave this game?", isPresented: $confirmLeave) {
@@ -109,6 +121,13 @@ struct GameView<Session: GamePresenting>: View {
     }
 
     private func finishExitIfPending() {
+        if let sheet = pendingSheet {
+            pendingSheet = nil
+            switch sheet {
+            case .rules: isRulesPresented = true
+            case .feedback: isFeedbackPresented = true
+            }
+        }
         guard let destination = pendingExit else { return }
         pendingExit = nil
         app.exitGame(to: destination)
@@ -117,7 +136,7 @@ struct GameView<Session: GamePresenting>: View {
     /// Header arrow: a local game goes back to the menu and stays available on the Continue
     /// card; an online room asks before leaving (the seat is lost).
     private func closeTapped() {
-        if session.isOver || session.capabilities.isSpectator || session.statusBanner.isFatal {
+        if session.isOver || session.capabilities.isSpectator || session.statusBanner.allowsImmediateExit {
             exit(.setup)
         } else if session.capabilities.isOnline {
             isMenuPresented = false
@@ -144,6 +163,14 @@ struct GameView<Session: GamePresenting>: View {
                         .card()
                     }
                     StatusBannerView(state: session.statusBanner)
+                    if session.statusBanner == .lost {
+                        HStack(spacing: 8) {
+                            Button("Reconnect") { session.reconnect() }
+                                .buttonStyle(PrimaryButtonStyle(fullWidth: false))
+                            Button("Leave") { exit(.setup) }
+                                .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
+                        }
+                    }
                     if session.capabilities.isSpectator {
                         AlertBox(.accent, title: "Watching live game", message: "You'll join the next round when the host restarts.")
                     }
@@ -214,7 +241,8 @@ struct GameView<Session: GamePresenting>: View {
                 .padding(.top, 56)
                 .onTapGesture { session.notice = nil }
                 .task {
-                    try? await Task.sleep(for: .seconds(4))
+                    // The first-game coach line stays long enough to read; everything else 4 s.
+                    try? await Task.sleep(for: .seconds(notice == AppModel.coachLine ? 10 : 4))
                     session.notice = nil
                 }
         }
@@ -222,8 +250,12 @@ struct GameView<Session: GamePresenting>: View {
 }
 
 private extension Optional where Wrapped == StatusBanner {
-    var isFatal: Bool {
-        if case .error = self { return true }
-        return false
+    /// The seat is already gone (room closed, or the reconnect window passed): the X leaves
+    /// without asking.
+    var allowsImmediateExit: Bool {
+        switch self {
+        case .error, .lost: true
+        default: false
+        }
     }
 }

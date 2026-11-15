@@ -63,7 +63,7 @@ enum AuthError: LocalizedError, Equatable {
         case .emailDomainUnreachable: "We can't deliver email to that domain."
         case .verifyLinkExpired: "This verification link has expired. Request a new one below."
         case .verifyLinkInvalid: "This verification link is invalid or was already used. Request a new one below."
-        case .signInRequired: "Sign in to continue."
+        case .signInRequired: "Log in to continue."
         case .invalidInput(let reason): reason
         case .server(let status): "Sign-in failed (HTTP \(status))."
         }
@@ -112,6 +112,20 @@ enum AuthError: LocalizedError, Equatable {
 final class AccountStore {
     private(set) var account: Account = .guest(nil)
     private(set) var isRestoring = false
+    /// The last restore could not reach the server (offline, 5xx): `account` is whatever was
+    /// known before, and the stored user token is kept for the next try.
+    private(set) var lastRestoreFailed = false
+    /// Games the device's guest session had played that the last sign-in brought onto the
+    /// account; nil when there was no guest, the server predates the claim, or the claim failed.
+    private(set) var lastClaimedGames: Int?
+
+    /// The "Logged in" toast's second line.
+    var signInToastDescription: String {
+        guard let claimed = lastClaimedGames, claimed > 0 else { return "Welcome back." }
+        return claimed == 1
+            ? "The game you played here as a guest is now in your account."
+            : "\(claimed) games you played here as a guest are now in your account."
+    }
     private var backend: Backend
     /// Told once per token when the server ends the session (revoked, disabled, expired).
     var onSessionEnded: ((SessionEndReason) -> Void)?
@@ -174,14 +188,22 @@ final class AccountStore {
         do {
             guard try await backend.api.checkAuth() else {
                 backend.tokenStore.clear()
+                lastRestoreFailed = false
                 await becomeGuest()
                 return
             }
             account = .signedIn(try await backend.api.profile())
+            lastRestoreFailed = false
         } catch {
-            if let api = error as? APIError, api.isUnauthorized { backend.tokenStore.clear() }
-            account = .guest(backend.identity.guest)
-            if backend.tokenStore.accessToken() == nil { await becomeGuest() }
+            if let api = error as? APIError, api.isUnauthorized {
+                backend.tokenStore.clear()
+                lastRestoreFailed = false
+                await becomeGuest()
+                return
+            }
+            // Offline or a server error: keep what was known (a signed-in profile stays signed
+            // in), keep the token, and don't mint a guest while a user token exists.
+            lastRestoreFailed = true
         }
     }
 
@@ -195,7 +217,7 @@ final class AccountStore {
     func signIn(emailOrUsername: String, password: String) async throws {
         do {
             let login = try await backend.api.login(LoginRequest(emailOrUsername: emailOrUsername, password: password))
-            try await adopt(token: login.accessToken)
+            try await adopt(token: login.accessToken, claimedGames: login.claimedGames)
         } catch {
             throw AuthError.wrap(error)
         }
@@ -236,7 +258,7 @@ final class AccountStore {
             let login = try await backend.api.appleNativeLogin(AppleNativeLoginRequest(
                 identityToken: credential.identityToken, nonce: credential.rawNonce,
                 authorizationCode: credential.authorizationCode, fullName: credential.fullName))
-            try await adopt(token: login.accessToken)
+            try await adopt(token: login.accessToken, claimedGames: login.claimedGames)
             defaults.set(true, forKey: Self.signedInWithAppleKey)
         } catch {
             throw AuthError.wrap(error)
@@ -294,7 +316,7 @@ final class AccountStore {
             throw AuthError.oauth(OAuthCallback.message(for: code))
         }
         guard let token = OAuthCallback.token(from: callback) else { throw AuthError.server(status: 0) }
-        try await adopt(token: token)
+        try await adopt(token: token, claimedGames: OAuthCallback.claimedGames(from: callback))
     }
 
     func updateProfile(firstName: String?, lastName: String?, colorHex: String?) async throws {
@@ -319,12 +341,19 @@ final class AccountStore {
     func ensureIdentity() async throws -> Identity {
         if let restoreTask { await restoreTask.value }
         if let identity = account.identity { return identity }
+        // A user token we couldn't confirm: minting a guest now would get 409 from the server.
+        if lastRestoreFailed, backend.tokenStore.accessToken() != nil { throw AuthError.unreachable }
         let guest = try await backend.identity.ensureGuest(name: "Guest", colorHex: Theme.playerColors[0])
         account = .guest(guest)
         return Identity(playerID: guest.playerID, displayName: guest.name, colorHex: guest.colorHex)
     }
 
-    private func adopt(token: String?) async throws {
+    /// Stores the user token and loads the profile; then the device's guest history follows
+    /// the account. `claimedGames` is what the sign-in route itself claimed (it saw the guest
+    /// Bearer); without it the explicit `POST /account/claim-guest` runs. Best effort either
+    /// way: an older server (404), an expired guest token or a guest claimed elsewhere leaves
+    /// the guest in place for a later try and never fails the sign-in.
+    private func adopt(token: String?, claimedGames inline: Int? = nil) async throws {
         guard let token, !token.isEmpty else { throw AuthError.server(status: 0) }
         try backend.tokenStore.store(token)
         do {
@@ -332,6 +361,31 @@ final class AccountStore {
         } catch {
             backend.tokenStore.clear()
             throw AuthError.wrap(error)
+        }
+        await claimGuestHistory(inline: inline)
+    }
+
+    private func claimGuestHistory(inline: Int?) async {
+        lastClaimedGames = nil
+        guard let guestToken = backend.identity.guestToken else {
+            lastClaimedGames = inline
+            return
+        }
+        if let inline {
+            // The server already moved the games and retired the guest; forget it here too so
+            // signing out later mints a fresh one instead of tripping over a revoked token.
+            lastClaimedGames = inline
+            backend.identity.reset()
+            return
+        }
+        do {
+            let result = try await backend.api.claimGuest(ClaimGuestRequest(guestToken: guestToken))
+            lastClaimedGames = result.claimedGames
+            backend.identity.reset()
+        } catch {
+            #if DEBUG
+            print("[AccountStore] guest claim skipped: \((error as? APIError)?.detail ?? error.localizedDescription)")
+            #endif
         }
     }
 }
@@ -345,6 +399,14 @@ nonisolated enum OAuthCallback {
         guard url.scheme == scheme, url.host() == "auth" else { return nil }
         return URLComponents(url: url, resolvingAgainstBaseURL: false)?
             .queryItems?.first { $0.name == "token" }?.value
+    }
+
+    /// `&claimed_games=<n>` on a success callback: the server claimed the guest kept in its
+    /// OAuth state (the browser session carried no Bearer, so the app cannot do it afterwards).
+    static func claimedGames(from url: URL) -> Int? {
+        guard url.scheme == scheme, url.host() == "auth" else { return nil }
+        return URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "claimed_games" }?.value.flatMap(Int.init)
     }
 
     /// `squareoff://auth?error=<code>` (the web receives `?oauth_error=<code>`).

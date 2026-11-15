@@ -95,13 +95,14 @@ struct Chip: View {
     var body: some View {
         HStack(spacing: 5) {
             if dot { Circle().fill(foreground).frame(width: 6, height: 6) }
-            if let symbol { Image(systemName: symbol).font(.system(size: 11, weight: .semibold)) }
+            if let symbol { Image(systemName: symbol).font(.caption2.weight(.semibold)) }
             Text(text)
         }
-        .font(.system(size: 12, weight: .semibold))
+        .font(.caption.weight(.semibold))
         .foregroundStyle(foreground)
         .padding(.horizontal, 9)
-        .frame(height: 24)
+        .padding(.vertical, 3)
+        .frame(minHeight: 24)
         .background(background, in: Capsule())
         .fixedSize()
         .layoutPriority(1)
@@ -360,6 +361,52 @@ struct SegmentedPills<Option: Hashable>: View {
         }
         .padding(4)
         .background(Theme.controlFill, in: Capsule())
+        .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
+    }
+}
+
+/// 44pt X for sheets and cards.
+struct CloseButton: View {
+    var label = "Close"
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .padding(8)
+    }
+}
+
+/// Title row every custom sheet shares: optional symbol, display title, 44pt X, hairline.
+struct SheetHeader: View {
+    let title: String
+    var symbol: String? = nil
+    var symbolColor: Color = Theme.muted
+    var closeLabel = "Close"
+    var isCloseDisabled = false
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                if let symbol { Image(systemName: symbol).foregroundStyle(symbolColor) }
+                Text(title)
+                    .font(Theme.display(18, relativeTo: .headline))
+                    .foregroundStyle(Theme.foreground)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                CloseButton(label: closeLabel, action: onClose)
+                    .disabled(isCloseDisabled)
+                    .opacity(isCloseDisabled ? 0.4 : 1)
+            }
+            .padding(.leading, 20)
+            .padding(.trailing, 4)
+            .padding(.vertical, 4)
+            Theme.separator.frame(height: 1)
+        }
     }
 }
 

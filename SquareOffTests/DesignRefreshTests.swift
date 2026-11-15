@@ -69,18 +69,47 @@ struct DesignRefreshTests {
 
     @Test func setupPrimaryActionFollowsModeAndTab() {
         let setup = PlaySetupModel()
-        #expect(setup.primaryTitle == "Start Game")
+        #expect(setup.primaryTitle == "Start game")
         setup.mode = .local
-        #expect(setup.primaryTitle == "Start Local Game")
+        #expect(setup.primaryTitle == "Start local game")
         setup.mode = .online
-        #expect(setup.primaryTitle == "Create Room")
+        #expect(setup.primaryTitle == "Create room")
         setup.onlineTab = .quick
-        #expect(setup.primaryTitle == "Find a Match")
+        #expect(setup.primaryTitle == "Find a match")
         setup.onlineTab = .join
-        #expect(setup.primaryTitle == "Join Room")
+        #expect(setup.primaryTitle == "Join room")
         setup.onlineTab = .rooms
         #expect(setup.primaryTitle == nil)
         #expect(setup.timer == 0 && setup.boardSize == 8 && setup.level == .random && setup.listPublic == false)
+    }
+
+    @Test func setupIsRememberedBetweenVisits() throws {
+        let defaults = try #require(UserDefaults(suiteName: "SquareOffTests.setup.\(UUID().uuidString)"))
+        let first = PlaySetupModel(remembering: defaults)
+        first.boardSize = 10
+        first.timer = 20
+        first.level = .maxMinIO
+        first.playerCount = 3
+        first.players[0].name = "Ada"
+        first.players[0].colorHex = "#8B5CF6"
+        first.listPublic = true
+        first.mode = .online
+        first.joinCode = "123"
+        first.persist()
+
+        let second = PlaySetupModel(remembering: defaults)
+        #expect(second.boardSize == 10 && second.timer == 20 && second.level == .maxMinIO && second.playerCount == 3)
+        #expect(second.players[0].name == "Ada" && second.players[0].colorHex == "#8B5CF6")
+        #expect(second.listPublic)
+        #expect(second.mode == .cpu && second.joinCode.isEmpty, "the route decides mode and code")
+
+        // Values outside today's options fall back; a corrupt blob is ignored.
+        defaults.set(try JSONEncoder().encode(PlaySetupModel.Memory(boardSize: 20, timer: 7, level: .cnn, playerCount: 9, players: [], listPublic: false)), forKey: PlaySetupModel.memoryKey)
+        let third = PlaySetupModel(remembering: defaults)
+        #expect(third.boardSize == 8 && third.timer == 0 && third.level == .random && third.playerCount == 2 && third.players.count == 4)
+        defaults.set(Data("junk".utf8), forKey: PlaySetupModel.memoryKey)
+        #expect(PlaySetupModel(remembering: defaults).boardSize == 8)
+        #expect(PlaySetupModel().defaultsAreOff)
     }
 
     @Test func joinCodeAcceptsOnlyOneToSixDigits() {

@@ -9,7 +9,7 @@ Status: **design-refresh pass** on top of the server integration. The app follow
 
 Every game, CPU, matchmaking and socket call needs a session (server release 2026-11-05): the app mints a 30-day guest session on first launch (`POST /create_guest`, token in the Keychain next to the user's, renewed when it gets old, replaced silently after a 401 `session_required`) and sends the user's token instead once signed in. Password sign-up creates a pending account: the emailed link (`/verify-email`, a universal link) opens the app's verification sheet, then the user logs in. On production the sign-up form carries a Cloudflare Turnstile token rendered by `square-off.com/turnstile` in a small web view (`TurnstileView`); the mock and the docker stack need none.
 
-Local games (Vs Computer, Pass & Play) always play with the on-device rules and heuristics (levels 1–6 in `SquareOffCore/CPU`); the backend only records them and answers levels 7–8 (6×6 to 12×12), which fall back to Level 6 on device when it cannot be reached. An unfinished local game is saved on device and offered on Home and Play as "Continue game" (the header arrow keeps it; Leave / Home / New game discard it).
+Local games (vs Computer, Pass & Play) always play with the on-device rules and heuristics (levels 1–6 in `SquareOffCore/CPU`); the backend only records them and answers levels 7–8 (6×6 to 12×12), which fall back to Level 6 on device when it cannot be reached. An unfinished local game is saved on device and offered on Home and Play as "Continue game" (the header arrow keeps it; Leave / Home / New game discard it).
 
 ## Run it
 
@@ -22,7 +22,7 @@ Debug shortcuts (Product › Scheme › Edit Scheme… › Run › Arguments):
 
 | Argument | Effect |
 |---|---|
-| `-demoGame cpu\|server\|local4\|busy\|over` | jump into a game (Level 3, Level 8 on the live server, 4-player, a busy 12×12, a finished one) |
+| `-demoGame cpu\|server\|local4\|busy\|scoring\|over` | jump into a game (Level 3, Level 8 on the live server, 4-player, a busy 12×12, a seeded 8×8 with scores, a finished one) |
 | `-demoScreen setup\|rules\|signin\|register\|checkEmail\|verify\|resend\|profile\|stats\|color\|forgot\|feedback` | open a screen or sheet (`-rulesSection <id>` with rules) |
 | `-demoSignedIn YES` | restore the mock `demo` account at launch (pair with `-demoScreen profile\|stats`) |
 | `-demoResetToken mock-reset-token-0123456789` | the reset-password sheet, as a universal link would open it |
@@ -48,6 +48,8 @@ The user directory hides suspected bots unless its Bots filter says otherwise. T
 ## Backends
 
 `production` is square-off.com and the only backend a Release build knows. Debug builds default to the in-app **mock** on the simulator and to **production** on a device, and can switch to **Local docker** / **Production** / **Mock** under Profile › Developer (the admin console: the picker under its sign-in card) or with `-backend`. Shared invite links point at square-off.com except on local docker. When the server ends a session (`session_revoked`, `account_disabled`, an expired token) the app drops the token, falls back to the device guest and shows a toast; the mock's Developer panel has "Simulate revoked session".
+
+Signing in brings the device's guest history along: `/login` and `/apple/native` claim the games when the request carries the guest Bearer (the 2026-11-15 server answers `claimed_games`), and after a browser-based provider sign-in the app calls `POST /account/claim-guest` with the stored guest token. On success the guest is forgotten (the server retired it); a server without the route (404) or any other failure leaves the guest in place and the sign-in succeeds. The mock implements the same rules.
 
 ## Local server
 
@@ -108,7 +110,7 @@ SquareOff/                App target (SwiftUI)
   App/                    Entry point, AppModel, theme tokens + primitives, toasts, starfield
   Services/Backend        BackendConfiguration + Backend (mock | live), token stores, identities,
                           AccountStore, ServerGameRecorder, ServerCPUMoveProvider
-  Features/Play           Home (logo, Start Game / Online Match, Continue card, self-playing board), PlayView + PlaySetupModel
+  Features/Play           Home (logo, Start game / Online match, Continue card, self-playing board), PlayView + PlaySetupModel
   Features/Game           GamePresenting, GameSession (local), board (flip / spins / shape draw-on), chrome, sheets
   Features/Online         RoomCoordinator (lobby), OnlineGameSession, OnlineConnection, OnlinePanel, WaitingRoomView
   Features/Learn          Accordion rulebook with the web's 13 scripted demo boards

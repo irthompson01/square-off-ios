@@ -554,17 +554,54 @@ public struct LoginResponse: Codable, Sendable, Equatable {
     /// Present once the server branch with bearer support is deployed; nil on older servers.
     public let accessToken: String?
     public let tokenType: String?
+    /// Games the request's guest session had played, now on the account (the 2026-11-15
+    /// server claims them when the login carries the guest token); nil when nothing was claimed.
+    public let claimedGames: Int?
 
-    public init(message: String?, accessToken: String?, tokenType: String? = "bearer") {
+    public init(message: String?, accessToken: String?, tokenType: String? = "bearer", claimedGames: Int? = nil) {
         self.message = message
         self.accessToken = accessToken
         self.tokenType = tokenType
+        self.claimedGames = claimedGames
     }
 
     enum CodingKeys: String, CodingKey {
         case message
         case accessToken = "access_token"
         case tokenType = "token_type"
+        case claimedGames = "claimed_games"
+    }
+}
+
+/// `POST /account/claim-guest`: the guest session's own token proves the caller held it.
+public struct ClaimGuestRequest: Codable, Sendable, Equatable {
+    public let guestToken: String
+
+    public init(guestToken: String) {
+        self.guestToken = guestToken
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case guestToken = "guest_token"
+    }
+}
+
+public struct ClaimGuestResponse: Codable, Sendable, Equatable {
+    public let claimedGames: Int
+    public let claimedSeats: Int?
+    /// The same account had already claimed this guest: nothing moved this time.
+    public let alreadyClaimed: Bool?
+
+    public init(claimedGames: Int, claimedSeats: Int? = nil, alreadyClaimed: Bool? = nil) {
+        self.claimedGames = claimedGames
+        self.claimedSeats = claimedSeats
+        self.alreadyClaimed = alreadyClaimed
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case claimedGames = "claimed_games"
+        case claimedSeats = "claimed_seats"
+        case alreadyClaimed = "already_claimed"
     }
 }
 

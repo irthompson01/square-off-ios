@@ -6,6 +6,7 @@ struct ColorSwatchPicker: View {
     /// Profile and admin may pick any colour; setup offers only the eight presets.
     var allowCustom = false
     @State private var isPresented = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         Button { isPresented = true } label: {
@@ -21,7 +22,10 @@ struct ColorSwatchPicker: View {
         .accessibilityValue(ColorNames.name(for: selection))
         .sheet(isPresented: $isPresented) {
             ColorSwatchSheet(selection: $selection, allowCustom: allowCustom)
-                .presentationDetents([.height(allowCustom ? 380 : 260)])
+                .presentationDetents([.height(allowCustom ? 392 : 272)])
+                .presentationDragIndicator(.visible)
+                // Phones honour the detent; iPad would otherwise show a mostly empty form sheet.
+                .presentationFitted(sizeClass == .regular)
                 .presentationBackground(Theme.overlay)
         }
     }
@@ -40,12 +44,10 @@ struct ColorSwatchSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text("Pick a color").font(Theme.display(17, relativeTo: .headline)).foregroundStyle(Theme.foreground)
-                Spacer()
-                Button("Done") { dismiss() }.buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
-            }
+        VStack(spacing: 0) {
+            SheetHeader(title: "Pick a color") { dismiss() }
+                .padding(.top, 8)
+            VStack(alignment: .leading, spacing: 18) {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
                 ForEach(Theme.swatches, id: \.self) { hex in
                     let selected = selection.uppercased() == hex
@@ -69,6 +71,7 @@ struct ColorSwatchSheet: View {
                     .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
+            .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
             if allowCustom {
                 HStack(spacing: 12) {
                     ColorPicker(selection: $custom, supportsOpacity: false) {
@@ -85,9 +88,10 @@ struct ColorSwatchSheet: View {
                 .padding(14)
                 .background(Theme.surfaceSecondary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
+            }
+            .padding(20)
             Spacer(minLength: 0)
         }
-        .padding(20)
     }
 }
 
@@ -131,5 +135,12 @@ enum ColorNames {
         case ..<300: return "Violet"
         default: return "Pink"
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func presentationFitted(_ fitted: Bool) -> some View {
+        if fitted { presentationSizing(.fitted) } else { self }
     }
 }

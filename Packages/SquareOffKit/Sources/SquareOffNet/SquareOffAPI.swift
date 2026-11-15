@@ -54,6 +54,8 @@ public protocol SquareOffAPI: Sendable {
     func appleNativeLogin(_ request: AppleNativeLoginRequest) async throws -> LoginResponse
     /// `POST /account/delete`: tombstones the signed-in account and revokes every session.
     func deleteAccount(_ request: AccountDeleteRequest) async throws -> MessageResponse
+    /// Moves the games a guest session played onto the signed-in account (2026-11-15 server).
+    func claimGuest(_ request: ClaimGuestRequest) async throws -> ClaimGuestResponse
     /// `POST /password/forgot`: always succeeds, whether or not the address has an account.
     func requestPasswordReset(email: String) async throws -> MessageResponse
     /// `POST /password/reset`: 400 `reset_token_invalid` / `reset_token_expired`, 422 when short.
@@ -126,6 +128,27 @@ public enum APIError: Error, Equatable {
             return list.compactMap { $0["msg"] as? String }.joined(separator: ", ")
         }
         return nil
+    }
+}
+
+extension APIError: LocalizedError {
+    /// `detail` when it reads as a sentence; a bare code such as `room_not_found` is left to
+    /// callers, who know what it means in context.
+    public var friendlyDetail: String? {
+        guard let detail, detail.contains(" ") else { return nil }
+        return detail
+    }
+
+    /// A sentence for the user; the backstop when a caller has no better mapping.
+    public var errorDescription: String? {
+        switch self {
+        case .timeout: return "The server didn't answer in time."
+        case .invalidResponse: return "The server sent an unexpected reply."
+        case let .http(status, _):
+            if status >= 500 { return "The game server is having trouble. Try again in a moment." }
+            if status == 429 { return "Too many attempts. Try again in a minute." }
+            return friendlyDetail ?? "Something went wrong (HTTP \(status))."
+        }
     }
 }
 

@@ -44,7 +44,7 @@ struct SettingStepper<Option: Hashable>: View {
             @unknown default: break
             }
         }
-        .sensoryFeedback(.selection, trigger: selection)
+        .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
     }
 
     private func step(_ delta: Int) {
@@ -79,7 +79,7 @@ struct SettingSegments<Option: Hashable>: View {
             Text(title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.foreground)
             SegmentedPills(options: options, selection: $selection, title: label, compact: true)
         }
-        .sensoryFeedback(.selection, trigger: selection)
+        .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
     }
 }
 
@@ -101,10 +101,10 @@ struct LevelPicker: View {
                         Text("\(level.number)")
                             .font(Theme.display(15, relativeTo: .body))
                             .foregroundStyle(selected ? Theme.link : (disabled ? Theme.muted.opacity(0.45) : Theme.foregroundSecondary))
-                            .frame(width: 36, height: 36)
+                            .frame(width: 38, height: 38)
                             .background(selected ? Theme.accent.opacity(0.18) : Theme.controlFill, in: Circle())
                             .overlay(Circle().strokeBorder(selected ? Theme.link : .clear, lineWidth: 1.5))
-                            .frame(maxWidth: .infinity)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(PressScaleStyle())
@@ -118,7 +118,7 @@ struct LevelPicker: View {
                 Text(selection.shortName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foreground)
             }
         }
-        .sensoryFeedback(.selection, trigger: selection)
+        .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
     }
 }
 
