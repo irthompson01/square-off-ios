@@ -89,10 +89,22 @@ struct ProfileView: View {
                 showsFeedback = true
             }
         }
+        // The pending flags are also consumed here: "Log in" from the verify-email and reset sheets
+        // sets them while Profile is already on screen, so `onAppear` alone never fires.
+        .onChange(of: app.pendingSignIn) { _, route in
+            guard let route else { return }
+            app.pendingSignIn = nil
+            signIn = route
+        }
         .onChange(of: app.pendingForgotPassword) { _, pending in
             guard pending else { return }
             app.pendingForgotPassword = false
             showsForgotPassword = true
+        }
+        .onChange(of: app.pendingFeedback) { _, pending in
+            guard pending else { return }
+            app.pendingFeedback = false
+            showsFeedback = true
         }
         .onChange(of: app.account) { _, _ in
             isEditing = false
