@@ -69,6 +69,7 @@ struct ColorSwatchSheet: View {
                     .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
+            .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
             if allowCustom {
                 HStack(spacing: 12) {
                     ColorPicker(selection: $custom, supportsOpacity: false) {

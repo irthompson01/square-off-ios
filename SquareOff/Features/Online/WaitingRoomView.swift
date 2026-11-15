@@ -90,6 +90,7 @@ struct WaitingRoomView: View {
                             .foregroundStyle(copied ? Theme.success : Theme.foreground)
                     }
                     .buttonStyle(SecondaryButtonStyle(fullWidth: false))
+                    .sensoryFeedback(.impact(weight: .light), trigger: copied) { _, now in now && Haptics.isEnabled }
                     .disabled(info == nil)
                     if let info {
                         ShareLink(item: info.inviteURL, subject: Text("Join my Square Off game"), message: Text("Room \(info.code)")) {

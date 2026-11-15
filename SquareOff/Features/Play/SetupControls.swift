@@ -44,7 +44,7 @@ struct SettingStepper<Option: Hashable>: View {
             @unknown default: break
             }
         }
-        .sensoryFeedback(.selection, trigger: selection)
+        .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
     }
 
     private func step(_ delta: Int) {
@@ -79,7 +79,7 @@ struct SettingSegments<Option: Hashable>: View {
             Text(title).font(.subheadline.weight(.medium)).foregroundStyle(Theme.foreground)
             SegmentedPills(options: options, selection: $selection, title: label, compact: true)
         }
-        .sensoryFeedback(.selection, trigger: selection)
+        .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
     }
 }
 
@@ -118,7 +118,7 @@ struct LevelPicker: View {
                 Text(selection.shortName).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.foreground)
             }
         }
-        .sensoryFeedback(.selection, trigger: selection)
+        .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
     }
 }
 

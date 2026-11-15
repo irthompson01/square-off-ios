@@ -360,6 +360,7 @@ struct SegmentedPills<Option: Hashable>: View {
         }
         .padding(4)
         .background(Theme.controlFill, in: Capsule())
+        .sensoryFeedback(.selection, trigger: selection) { _, _ in Haptics.isEnabled }
     }
 }
 

@@ -54,6 +54,7 @@ struct GameView<Session: GamePresenting>: View {
             }
         }
         .appBackground()
+        .sensoryFeedback(.success, trigger: session.isOver) { _, over in over && Haptics.isEnabled }
         .overlay(alignment: .top) { noticeBanner }
         .task { await session.start() }
         .onDisappear { session.stop() }

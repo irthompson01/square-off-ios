@@ -48,8 +48,8 @@ struct BoardView<Session: GamePresenting>: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .aspectRatio(1, contentMode: .fit)
-        .sensoryFeedback(.impact(weight: .light), trigger: session.placeCount)
-        .sensoryFeedback(.success, trigger: session.scoreCount)
+        .sensoryFeedback(.impact(weight: .light), trigger: session.placeCount) { _, _ in Haptics.isEnabled }
+        .sensoryFeedback(.success, trigger: session.scoreCount) { _, _ in Haptics.isEnabled }
     }
 
     private func color(for owner: Int?) -> Color? {
