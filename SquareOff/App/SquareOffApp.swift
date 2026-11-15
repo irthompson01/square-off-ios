@@ -202,7 +202,11 @@ struct RootView: View {
         .syncsMusic()
         .task { await app.accounts.restore() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { app.activeGame?.saveNow() }
+            if phase == .background {
+                app.activeGame?.saveNow()
+                app.activeOnlineGame?.sceneDidEnterBackground()
+                app.online.sceneDidEnterBackground()
+            }
             guard phase == .active else { return }
             Task { await app.accounts.restore() }
             app.activeOnlineGame?.sceneDidBecomeActive()

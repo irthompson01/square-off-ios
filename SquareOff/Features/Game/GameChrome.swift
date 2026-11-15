@@ -73,6 +73,12 @@ struct TurnBanner<Session: GamePresenting>: View {
                     .controlSize(.small)
                     .frame(height: 32)
             }
+            if session.statusBanner == .lost {
+                Button("Reconnect") { session.reconnect() }
+                    .buttonStyle(PrimaryButtonStyle(fullWidth: false))
+                    .controlSize(.small)
+                    .frame(height: 32)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -98,6 +104,9 @@ struct TurnBannerState {
         switch session.statusBanner {
         case .error(let message):
             self.init(text: message, background: Theme.danger.opacity(0.15), foreground: Theme.dangerText)
+            return
+        case .lost:
+            self.init(text: "Connection lost", background: Theme.danger.opacity(0.15), foreground: Theme.dangerText)
             return
         case .hostAway:
             self.init(text: "Host disconnected — waiting for them to reconnect…", background: Theme.warning.opacity(0.15), foreground: Theme.warning)
@@ -152,6 +161,8 @@ struct StatusBannerView: View {
             AlertBox(.default, message: "Connecting to the game server…")
         case .hostAway:
             AlertBox(.warning, title: "Host disconnected", message: "Waiting a moment for them to reconnect…")
+        case .lost:
+            AlertBox(.danger, title: "Connection lost", message: "The room couldn't be reached. Reconnect, or leave the room.")
         case .error(let message):
             AlertBox(.danger, message: message)
         case nil:

@@ -56,6 +56,9 @@ final class OnlineGameSession: @MainActor GamePresenting {
     private var timerTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
     private var stallTask: Task<Void, Never>?
+    private var lastSeenWrite: ContinuousClock.Instant?
+    /// Tests shorten the reconnect window (the real one is the server's 30/60 s grace).
+    var reconnectWindowOverride: Duration?
     private let transport: OnlineTransport
     private let me: Identity
 
@@ -131,8 +134,11 @@ final class OnlineGameSession: @MainActor GamePresenting {
     var statusBanner: StatusBanner? {
         if case .roomClosed(let reason) = phase { return .error(reason) }
         if hostAway { return .hostAway }
-        if connection != .online { return .connecting }
-        return nil
+        switch connection {
+        case .online: return nil
+        case .reconnecting: return .connecting
+        case .lost: return .lost
+        }
     }
 
     var rematchState: RematchState {
@@ -172,19 +178,35 @@ final class OnlineGameSession: @MainActor GamePresenting {
 
     func restart() {
         guard onlineRole == .host, case .over = phase else { return }
+        guard connection == .online else { notice = "Reconnecting… try again in a moment"; return }
         Task {
-            try? await transport.connection.send(.gameReset(boardSize: boardSize, timer: timerSeconds, gameID: gameID))
+            do {
+                try await transport.connection.send(.gameReset(boardSize: boardSize, timer: timerSeconds, gameID: gameID))
+            } catch {
+                notice = "Couldn't reset the room. Check your connection."
+            }
         }
     }
 
     func startRematch() {
         guard onlineRole == .host, case .awaitingRematch = phase else { return }
+        guard connection == .online else { notice = "Reconnecting… try again in a moment"; return }
         Task {
             if let gameID {
                 try? await transport.api.updatePlayers(gameID: gameID, players: seats)
             }
-            try? await transport.connection.send(.gameStart)
+            do {
+                try await transport.connection.send(.gameStart)
+            } catch {
+                notice = "Couldn't start the rematch. Check your connection."
+            }
         }
+    }
+
+    /// "Reconnect" on the connection-lost banner: one more try, outside the backoff window.
+    func reconnect() {
+        guard connection == .lost else { return }
+        beginReconnect(immediately: true)
     }
 
     func stop() {
@@ -208,9 +230,16 @@ final class OnlineGameSession: @MainActor GamePresenting {
 
     /// Back in the foreground: don't wait for the backoff timer.
     func sceneDidBecomeActive() {
-        guard connection != .online, case .playing = phase else { return }
+        guard connection != .online else { return }
+        if case .roomClosed = phase { return }
         reconnectTask?.cancel()
         beginReconnect(immediately: true)
+    }
+
+    /// Going to the background: stamp the record so a relaunch within the grace window rejoins.
+    func sceneDidEnterBackground() {
+        if case .roomClosed = phase { return }
+        markSeen(force: true)
     }
 
     // MARK: Events
@@ -292,6 +321,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
 
     /// Apply the echoed move locally when it reproduces the server's state; otherwise rebuild.
     private func apply(_ snapshot: GameSnapshotPayload) {
+        markSeen()
         timerTask?.cancel()
         timeRemaining = nil
         pendingCell = nil
@@ -340,6 +370,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
     }
 
     private func resync(from snapshot: GameSnapshotPayload) {
+        markSeen()
         guard let rebuilt = Game(restoring: snapshot, timerSeconds: timerSeconds) else { return }
         game = rebuilt
         boardSize = rebuilt.board.size
@@ -399,12 +430,15 @@ final class OnlineGameSession: @MainActor GamePresenting {
 
     // MARK: Reconnect
 
+    /// Any phase but a closed room reconnects: a drop on the game-over sheet or while waiting
+    /// for the rematch would otherwise leave both sides stuck. The rejoin's `GAME_STATE`
+    /// restores the phase.
     private func beginReconnect(immediately: Bool) {
-        guard case .playing = phase else { return }
+        if case .roomClosed = phase { return }
         reconnectTask?.cancel()
         connection = .reconnecting(attempt: 1)
         timerTask?.cancel()
-        let window: Duration = .seconds(onlineRole == .host ? 60 : 30)
+        let window: Duration = reconnectWindowOverride ?? .seconds(onlineRole == .host ? 60 : 30)
         let code = roomCode
         let seat = mySeat ?? 0
         let role = onlineRole
@@ -422,12 +456,7 @@ final class OnlineGameSession: @MainActor GamePresenting {
                 try await transport.connection.send(.rejoinRoom(roomCode: code, playerID: seat, role: role))
             })
             guard !Task.isCancelled else { return }
-            if ok {
-                connection = .online
-            } else {
-                connection = .lost
-                notice = "You were disconnected from the room"
-            }
+            connection = ok ? .online : .lost   // `.lost` shows the banner with Reconnect
         }
     }
 
@@ -491,5 +520,12 @@ final class OnlineGameSession: @MainActor GamePresenting {
         OnlineSessionRecord(roomCode: roomCode, seat: mySeat, role: onlineRole, gameID: gameID, boardSize: boardSize,
                             timerSeconds: timerSeconds, started: started, savedAt: Date(), backendID: transport.backendID,
                             playerID: me.playerID).save()
+    }
+
+    /// Stamps the stored record's `lastSeenAt`, at most once a second (every move arrives here).
+    private func markSeen(force: Bool = false) {
+        if !force, let last = lastSeenWrite, .now - last < .seconds(1) { return }
+        lastSeenWrite = .now
+        OnlineSessionRecord.touch()
     }
 }

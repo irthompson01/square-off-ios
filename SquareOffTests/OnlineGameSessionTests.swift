@@ -83,9 +83,8 @@ struct OnlineGameSessionTests {
         #expect(host.visibleShapes.isEmpty)
     }
 
-    @Test func fullGameThenHostResetsAndRestarts() async throws {
-        let fixture = Fixture()
-        let (host, guest, _, _) = try await startedGame(fixture, boardSize: 4)
+    /// Plays the game to the end, alternating whoever may tap.
+    private func playOut(_ host: OnlineGameSession, _ guest: OnlineGameSession) async throws {
         while !host.isOver {
             let mover = host.canTap ? host : guest
             try await waitUntil { mover.canTap }
@@ -93,6 +92,12 @@ struct OnlineGameSessionTests {
             let count = host.game.moves.count
             try await waitUntil { host.game.moves.count == count + 1 && guest.game.moves.count == count + 1 }
         }
+    }
+
+    @Test func fullGameThenHostResetsAndRestarts() async throws {
+        let fixture = Fixture()
+        let (host, guest, _, _) = try await startedGame(fixture, boardSize: 4)
+        try await playOut(host, guest)
         #expect(guest.isOver)
         #expect(host.game.players.map(\.score) == guest.game.players.map(\.score))
         #expect(host.rematchState == .none && guest.rematchState == .none)
@@ -136,6 +141,83 @@ struct OnlineGameSessionTests {
         #expect(guest.canTap)
         guest.tap(Cell(row: 3, col: 3))
         try await waitUntil { host.game.moves.count == 2 }
+    }
+
+    @Test func sessionRecordGraceCountsFromLastSeen() throws {
+        // A record written before `lastSeenAt` existed still decodes, and its grace counts from `savedAt`.
+        let legacy = Data(#"{"roomCode":12345,"role":"guest","boardSize":8,"timerSeconds":0,"started":true,"savedAt":0,"backendID":"mock"}"#.utf8)
+        let old = try JSONDecoder().decode(OnlineSessionRecord.self, from: legacy)
+        #expect(old.lastSeenAt == nil)
+        #expect(!old.isWithinGrace)
+        var seen = old
+        seen.lastSeenAt = Date()
+        #expect(seen.isWithinGrace)
+    }
+
+    @Test func movesRefreshTheRejoinWindowWithoutMovingSavedAt() async throws {
+        let fixture = Fixture()
+        let (host, guest, _, _) = try await startedGame(fixture)
+        var aged = try #require(OnlineSessionRecord.load())
+        aged.lastSeenAt = Date(timeIntervalSinceNow: -100)
+        UserDefaults.standard.set(try JSONEncoder().encode(aged), forKey: OnlineSessionRecord.key)
+        #expect(OnlineSessionRecord.load()?.isWithinGrace == false)
+
+        host.tap(Cell(row: 0, col: 0))
+        try await waitUntil { host.game.moves.count == 1 && guest.game.moves.count == 1 }
+        let refreshed = try #require(OnlineSessionRecord.load())
+        #expect(refreshed.isWithinGrace)
+        #expect(refreshed.savedAt == aged.savedAt)
+
+        // A second move within a second is not written again.
+        guest.tap(Cell(row: 1, col: 1))
+        try await waitUntil { host.game.moves.count == 2 && guest.game.moves.count == 2 }
+        #expect(OnlineSessionRecord.load()?.lastSeenAt == refreshed.lastSeenAt)
+    }
+
+    @Test func lostConnectionOffersReconnectAndRecovers() async throws {
+        let fixture = Fixture()
+        let (host, guest, _, _) = try await startedGame(fixture)
+        guest.reconnectWindowOverride = .zero   // the window closes before the first attempt
+        let socket = try #require(guest.debugSocket as? MockGameSocket)
+        await socket.simulateDrop()
+        try await waitUntil { guest.statusBanner == .lost }
+        #expect(!guest.canTap)
+        #expect(guest.notice == nil)
+
+        host.tap(Cell(row: 2, col: 2))   // played while the guest is gone
+        try await waitUntil { host.game.moves.count == 1 }
+        guest.reconnect()
+        try await waitUntil(.seconds(5)) { guest.connection == .online && guest.game.board[Cell(row: 2, col: 2)] == 1 }
+        #expect(guest.statusBanner == nil)
+        #expect(guest.canTap)
+    }
+
+    @Test func dropAfterGameOverStillReconnects() async throws {
+        let fixture = Fixture()
+        let (host, guest, _, _) = try await startedGame(fixture, boardSize: 4)
+        try await playOut(host, guest)
+        let socket = try #require(guest.debugSocket as? MockGameSocket)
+        await socket.simulateDrop()
+        try await waitUntil { guest.connection != .online }
+        try await waitUntil(.seconds(5)) { guest.connection == .online }
+        #expect(guest.isOver)
+
+        host.restart()
+        try await waitUntil { guest.rematchState == .waitingForHost }
+    }
+
+    @Test func failedResetSurfacesANotice() async throws {
+        let fixture = Fixture()
+        let (host, guest, _, _) = try await startedGame(fixture, boardSize: 4)
+        try await playOut(host, guest)
+        let socket = try #require(host.debugSocket as? MockGameSocket)
+        await socket.failNextSend()
+        host.restart()
+        try await waitUntil { host.notice?.hasPrefix("Couldn't reset") == true }
+        #expect(host.rematchState == .none)
+
+        host.restart()   // the socket works again
+        try await waitUntil { host.rematchState == .hostCanStart && guest.rematchState == .waitingForHost }
     }
 
     @Test func quickMatchLandsInABotRoomThatStartsItself() async throws {

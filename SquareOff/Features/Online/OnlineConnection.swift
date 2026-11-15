@@ -115,10 +115,14 @@ nonisolated struct OnlineSessionRecord: Codable, Equatable, Sendable {
     /// The session that held the seat. Seats belong to sessions on the server, so a device whose
     /// guest session was re-minted asks for a fresh seat instead of `REJOIN_ROOM`.
     var playerID: String? = nil
+    /// Last time the room was known to be alive (a move arrived, or the app went to the
+    /// background). The grace window counts from here; `savedAt` only moves on room events.
+    /// Optional so records written before it existed still decode.
+    var lastSeenAt: Date? = nil
 
     /// Host rooms survive 60 s without their host, guest seats 30 s.
     var graceSeconds: TimeInterval { role == .host ? 60 : 30 }
-    var isWithinGrace: Bool { Date().timeIntervalSince(savedAt) < graceSeconds }
+    var isWithinGrace: Bool { Date().timeIntervalSince(lastSeenAt ?? savedAt) < graceSeconds }
 
     static func load(defaults: UserDefaults = .standard) -> OnlineSessionRecord? {
         guard let data = defaults.data(forKey: key) else { return nil }
@@ -128,7 +132,15 @@ nonisolated struct OnlineSessionRecord: Codable, Equatable, Sendable {
     func save(defaults: UserDefaults = .standard) {
         var copy = self
         copy.savedAt = Date()
+        copy.lastSeenAt = copy.savedAt
         defaults.set(try? JSONEncoder().encode(copy), forKey: Self.key)
+    }
+
+    /// Refreshes `lastSeenAt` on the stored record without touching anything else.
+    static func touch(defaults: UserDefaults = .standard) {
+        guard var record = load(defaults: defaults) else { return }
+        record.lastSeenAt = Date()
+        defaults.set(try? JSONEncoder().encode(record), forKey: key)
     }
 
     static func clear(defaults: UserDefaults = .standard) {

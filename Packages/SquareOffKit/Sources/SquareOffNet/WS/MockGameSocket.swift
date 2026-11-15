@@ -8,6 +8,7 @@ public actor MockGameSocket: GameSocket {
     private var connectionID: MockRoomServer.ConnectionID?
     private var forwardTask: Task<Void, Never>?
     private var refusals: [SocketError] = []
+    private var sendFailures = 0
     private let stream: AsyncStream<SocketEvent>
     private let continuation: AsyncStream<SocketEvent>.Continuation
 
@@ -35,7 +36,16 @@ public actor MockGameSocket: GameSocket {
 
     public func send(_ message: ClientMessage) async throws {
         guard let connectionID else { throw SocketError.notConnected }
+        if sendFailures > 0 {
+            sendFailures -= 1
+            throw SocketError.closed
+        }
         await server.handle(message, from: connectionID)
+    }
+
+    /// Test hook: the next `count` sends fail as if the socket had just closed.
+    public func failNextSend(count: Int = 1) {
+        sendFailures += count
     }
 
     public func close() async {

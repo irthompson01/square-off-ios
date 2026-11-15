@@ -118,7 +118,7 @@ struct GameView<Session: GamePresenting>: View {
     /// Header arrow: a local game goes back to the menu and stays available on the Continue
     /// card; an online room asks before leaving (the seat is lost).
     private func closeTapped() {
-        if session.isOver || session.capabilities.isSpectator || session.statusBanner.isFatal {
+        if session.isOver || session.capabilities.isSpectator || session.statusBanner.allowsImmediateExit {
             exit(.setup)
         } else if session.capabilities.isOnline {
             isMenuPresented = false
@@ -145,6 +145,14 @@ struct GameView<Session: GamePresenting>: View {
                         .card()
                     }
                     StatusBannerView(state: session.statusBanner)
+                    if session.statusBanner == .lost {
+                        HStack(spacing: 8) {
+                            Button("Reconnect") { session.reconnect() }
+                                .buttonStyle(PrimaryButtonStyle(fullWidth: false))
+                            Button("Leave") { exit(.setup) }
+                                .buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
+                        }
+                    }
                     if session.capabilities.isSpectator {
                         AlertBox(.accent, title: "Watching live game", message: "You'll join the next round when the host restarts.")
                     }
@@ -223,8 +231,12 @@ struct GameView<Session: GamePresenting>: View {
 }
 
 private extension Optional where Wrapped == StatusBanner {
-    var isFatal: Bool {
-        if case .error = self { return true }
-        return false
+    /// The seat is already gone (room closed, or the reconnect window passed): the X leaves
+    /// without asking.
+    var allowsImmediateExit: Bool {
+        switch self {
+        case .error, .lost: true
+        default: false
+        }
     }
 }

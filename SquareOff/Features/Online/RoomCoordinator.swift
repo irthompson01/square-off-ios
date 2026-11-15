@@ -268,6 +268,11 @@ final class RoomCoordinator {
         rejoinable = (record?.isWithinGrace ?? false) ? record : nil
     }
 
+    /// Going to the background in a lobby: keep the rejoin window counting from now.
+    func sceneDidEnterBackground() {
+        if state.roomInfo != nil { OnlineSessionRecord.touch() }
+    }
+
     func sceneDidBecomeActive() {
         refreshRejoinable()
         guard let transport, state.roomInfo != nil, !transport.connection.isConnected else { return }
