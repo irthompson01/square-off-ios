@@ -187,7 +187,7 @@ struct RulebookSectionView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(section.title).font(Theme.display(17, relativeTo: .headline)).foregroundStyle(Theme.foreground)
                         if let eyebrow = section.eyebrow {
-                            Text(eyebrow.uppercased()).font(.system(size: 11, weight: .medium)).tracking(1.3).foregroundStyle(Theme.muted)
+                            Text(eyebrow.uppercased()).font(.caption2.weight(.medium)).tracking(1.3).foregroundStyle(Theme.muted)
                         }
                     }
                     Spacer(minLength: 0)
@@ -221,7 +221,7 @@ struct RulebookSectionView: View {
     private func body(expanded: Bool) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             if let intro = section.intro {
-                Text(intro).font(.system(size: 15)).lineSpacing(4).foregroundStyle(Theme.foregroundSecondary)
+                Text(intro).font(.callout).lineSpacing(4).foregroundStyle(Theme.foregroundSecondary)
             }
             ForEach(section.blocks) { block in
                 RulebookBlockView(block: block, demosEnabled: expanded)
@@ -253,7 +253,7 @@ struct RulebookBlockView: View {
     var body: some View {
         switch block {
         case .paragraph(let text):
-            Text(text).font(.system(size: 15)).lineSpacing(4).foregroundStyle(Theme.foregroundSecondary)
+            Text(text).font(.callout).lineSpacing(4).foregroundStyle(Theme.foregroundSecondary)
 
         case .subtitle(let text):
             Text(text).font(Theme.display(16, relativeTo: .headline)).foregroundStyle(Theme.foreground).padding(.top, 8)
@@ -266,7 +266,7 @@ struct RulebookBlockView: View {
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(Theme.muted)
                             .frame(width: 18, alignment: .trailing)
-                        Text(item).font(.system(size: 15)).lineSpacing(3).foregroundStyle(Theme.foregroundSecondary)
+                        Text(item).font(.callout).lineSpacing(3).foregroundStyle(Theme.foregroundSecondary)
                     }
                 }
             }
@@ -322,9 +322,9 @@ struct RulebookBlockView: View {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(lines, id: \.self) { line in
                     Text(line)
-                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .font(.system(.subheadline, design: .monospaced).weight(.semibold))
                         .foregroundStyle(Theme.foreground)
-                        .lineLimit(1)
+                        .lineLimit(1).minimumScaleFactor(0.75)
                         .minimumScaleFactor(0.7)
                 }
                 if let caption {

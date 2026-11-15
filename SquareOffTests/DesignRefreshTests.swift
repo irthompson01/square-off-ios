@@ -83,6 +83,35 @@ struct DesignRefreshTests {
         #expect(setup.timer == 0 && setup.boardSize == 8 && setup.level == .random && setup.listPublic == false)
     }
 
+    @Test func setupIsRememberedBetweenVisits() throws {
+        let defaults = try #require(UserDefaults(suiteName: "SquareOffTests.setup.\(UUID().uuidString)"))
+        let first = PlaySetupModel(remembering: defaults)
+        first.boardSize = 10
+        first.timer = 20
+        first.level = .maxMinIO
+        first.playerCount = 3
+        first.players[0].name = "Ada"
+        first.players[0].colorHex = "#8B5CF6"
+        first.listPublic = true
+        first.mode = .online
+        first.joinCode = "123"
+        first.persist()
+
+        let second = PlaySetupModel(remembering: defaults)
+        #expect(second.boardSize == 10 && second.timer == 20 && second.level == .maxMinIO && second.playerCount == 3)
+        #expect(second.players[0].name == "Ada" && second.players[0].colorHex == "#8B5CF6")
+        #expect(second.listPublic)
+        #expect(second.mode == .cpu && second.joinCode.isEmpty, "the route decides mode and code")
+
+        // Values outside today's options fall back; a corrupt blob is ignored.
+        defaults.set(try JSONEncoder().encode(PlaySetupModel.Memory(boardSize: 20, timer: 7, level: .cnn, playerCount: 9, players: [], listPublic: false)), forKey: PlaySetupModel.memoryKey)
+        let third = PlaySetupModel(remembering: defaults)
+        #expect(third.boardSize == 8 && third.timer == 0 && third.level == .random && third.playerCount == 2 && third.players.count == 4)
+        defaults.set(Data("junk".utf8), forKey: PlaySetupModel.memoryKey)
+        #expect(PlaySetupModel(remembering: defaults).boardSize == 8)
+        #expect(PlaySetupModel().defaultsAreOff)
+    }
+
     @Test func joinCodeAcceptsOnlyOneToSixDigits() {
         let setup = PlaySetupModel()
         setup.joinCode = "12ab34567"

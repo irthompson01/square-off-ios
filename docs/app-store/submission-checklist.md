@@ -10,6 +10,7 @@
 
 ## Web (deploy `feature/ios-parity-web` first)
 - [ ] https://square-off.com/privacy and /support live (required URLs).
+- [ ] `feature/guest-claim` deployed (`deployments/2026-11-15_guest-history-claim/`): logging in on a device that played as a guest brings those games along; until then the app's claim call 404s quietly.
 - [ ] https://square-off.com/turnstile renders the widget (native sign-up depends on it).
 - [ ] AASA lists `/verify-email`; Apple's CDN refreshed (`https://app-site-association.cdn-apple.com/a/v1/square-off.com`).
 
@@ -18,7 +19,7 @@
 - [ ] Developer portal: App ID `com.novastrada.squareoff` with Sign in with Apple + Associated Domains.
 - [ ] App Store Connect: app record (name availability; fallback "Square Off: Battle of Shapes"), SKU, primary language, category Games › Board + Strategy, pricing Free, availability.
 - [ ] App Store Connect API key (App Manager) → `~/.appstoreconnect/private_keys/AuthKey_<id>.p8`; `make testflight ASC_KEY_ID=… ASC_ISSUER_ID=…`.
-- [ ] Demo account created on the website, verified, with a few games played; credentials into `review-notes.md` placeholders and App Review Information.
+- [ ] Demo account created on the website, verified, with a few games played (so the Stats screenshot and the reviewer's Stats tab aren't empty); credentials into `review-notes.md` placeholders and App Review Information.
 - [ ] TestFlight internal group; run `testflight-what-to-test.txt` on an iPhone and an iPad.
 - [ ] Version page: screenshots (both sets), metadata from `metadata/en-US`, App Privacy (`app-privacy.md`), age rating (`age-rating.md`), Content Rights, review notes, the TestFlight build; "Manually release this version"; submit.
 

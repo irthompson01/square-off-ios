@@ -15,6 +15,7 @@ enum PlayRoute: Hashable {
 struct HomeView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @AppStorage(AppModel.hasPlayedGameKey) private var hasPlayedGame = false
 
     var body: some View {
         ScrollView {
@@ -28,6 +29,16 @@ struct HomeView: View {
                     Label("Online match", systemImage: "globe")
                 }
                 .buttonStyle(SecondaryButtonStyle())
+                if !hasPlayedGame {
+                    // Until the first game: the rules are one tap away instead of a tab away.
+                    Button {
+                        app.pendingRulesSection = "section-gameplay"
+                        app.selectedTab = .learn
+                    } label: {
+                        Label("How to play (2 min)", systemImage: "book")
+                    }
+                    .buttonStyle(TertiaryButtonStyle())
+                }
                 if let session = app.activeGame, !session.isOver {
                     ContinueGameCard(session: session).padding(.top, 6)
                 }

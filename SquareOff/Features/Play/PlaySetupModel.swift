@@ -1,11 +1,58 @@
+import Foundation
 import Observation
 import SquareOffCore
 import SquareOffNet
 
 /// Everything the Play page edits (web `useSetupParams` + `useSetupPlayers`). Lives for the
-/// page's lifetime so switching modes keeps every setting.
+/// page's lifetime so switching modes keeps every setting, and the board, timer, level, seat
+/// count and seat names are remembered on device between visits (`Memory`).
 @Observable
 final class PlaySetupModel {
+    /// What is remembered between visits. The mode, online tab and join code come from the route.
+    nonisolated struct Memory: Codable, Equatable {
+        var boardSize: Int
+        var timer: Int
+        var level: CPULevel
+        var playerCount: Int
+        var players: [SetupPlayer]
+        var listPublic: Bool
+    }
+
+    static let memoryKey = "playSetup"
+    private let defaults: UserDefaults?
+
+    /// `defaults` nil (tests, previews) forgets everything when the page goes away.
+    init(remembering defaults: UserDefaults? = nil) {
+        self.defaults = defaults
+        if let data = defaults?.data(forKey: Self.memoryKey),
+           let memory = try? JSONDecoder().decode(Memory.self, from: data) {
+            apply(memory)
+        }
+    }
+
+    var memory: Memory {
+        Memory(boardSize: boardSize, timer: timer, level: level, playerCount: playerCount, players: players, listPublic: listPublic)
+    }
+
+    /// True when nothing is remembered (tests and previews construct the model this way).
+    var defaultsAreOff: Bool { defaults == nil }
+
+    /// Writes the current settings; the page calls it when `memory` changes.
+    func persist() {
+        guard let defaults, let data = try? JSONEncoder().encode(memory) else { return }
+        defaults.set(data, forKey: Self.memoryKey)
+    }
+
+    /// Restores a remembered setup, ignoring anything outside today's options.
+    private func apply(_ memory: Memory) {
+        if Self.boardSizes.contains(memory.boardSize) { boardSize = memory.boardSize }
+        if Self.timers.contains(memory.timer) { timer = memory.timer }
+        if (2...4).contains(memory.playerCount) { playerCount = memory.playerCount }
+        if memory.players.count == players.count, memory.players.map(\.id) == players.map(\.id) { players = memory.players }
+        level = CPULevel.selectable.contains(memory.level) && CPUAvailability.isSelectable(memory.level, boardSize: boardSize) ? memory.level : .random
+        listPublic = memory.listPublic
+    }
+
     enum Mode: String, CaseIterable, Identifiable {
         case cpu, local, online
         var id: String { rawValue }

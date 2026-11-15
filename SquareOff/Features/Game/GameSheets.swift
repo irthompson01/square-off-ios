@@ -237,7 +237,7 @@ struct GameOverSheet<Session: GamePresenting>: View {
 
     private var shareText: String {
         let lines = session.game.standings.map { "\($0.name) \($0.score)" }.joined(separator: " · ")
-        return "\(lines) — Square Off"
+        return "\(lines) — Square Off\nhttps://square-off.com"
     }
 }
 

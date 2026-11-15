@@ -22,7 +22,7 @@ Debug shortcuts (Product › Scheme › Edit Scheme… › Run › Arguments):
 
 | Argument | Effect |
 |---|---|
-| `-demoGame cpu\|server\|local4\|busy\|over` | jump into a game (Level 3, Level 8 on the live server, 4-player, a busy 12×12, a finished one) |
+| `-demoGame cpu\|server\|local4\|busy\|scoring\|over` | jump into a game (Level 3, Level 8 on the live server, 4-player, a busy 12×12, a seeded 8×8 with scores, a finished one) |
 | `-demoScreen setup\|rules\|signin\|register\|checkEmail\|verify\|resend\|profile\|stats\|color\|forgot\|feedback` | open a screen or sheet (`-rulesSection <id>` with rules) |
 | `-demoSignedIn YES` | restore the mock `demo` account at launch (pair with `-demoScreen profile\|stats`) |
 | `-demoResetToken mock-reset-token-0123456789` | the reset-password sheet, as a universal link would open it |

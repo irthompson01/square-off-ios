@@ -53,7 +53,7 @@ struct SquareOffApp: App {
     #endif
 
     /// Debug launch arguments for screenshots / quick iteration:
-    /// `-demoGame cpu|server|local4|busy|over`,
+    /// `-demoGame cpu|server|local4|busy|scoring|over`,
     /// `-demoScreen rules|setup|stats|profile|color|signin|register|checkEmail|verify|resend|forgot|feedback`
     /// (`-rulesSection <id>` with rules), `-demoResetToken <token>`, `-demoVerifyToken <token>`,
     /// `-demoOnline host|guest|spectator|quickmatch` and `-backend production|local|mock`.
@@ -135,6 +135,32 @@ struct SquareOffApp: App {
                 while session.game.moves.count < 126 {
                     session.tap(CPUStrategy.maxMinOptimal.chooseMove(in: session.game))
                 }
+            }
+        case "scoring":
+            // The store's first screenshot: an 8×8 game a dozen moves in, both sides with shapes
+            // on the board and scores on the cards, Player 1 to move. Seeded, so it is stable.
+            app.start(GameConfig(mode: .passAndPlay, boardSize: 8, timerSeconds: 0, players: Array(players.prefix(2))))
+            if let session = app.activeGame {
+                // Find a seed whose first moves leave Player 1 ahead with a shape and on turn,
+                // on a copy of the game; then replay those taps for real.
+                var chosen: [Cell] = []
+                search: for seed in 1...80 {
+                    var rng = SplitMix64(seed: UInt64(seed))
+                    var trial = session.game
+                    var moves: [Cell] = []
+                    while moves.count < 28 {
+                        let cell = CPUStrategy.maxMinOptimal.chooseMove(in: trial, using: &rng)
+                        guard (try? trial.place(at: cell)) != nil else { break }
+                        moves.append(cell)
+                        let p1 = trial.players[0], p2 = trial.players[1]
+                        if p1.squares.count >= 1, p1.shapeCount >= 2, p2.shapeCount >= 1, p1.score > p2.score, trial.currentPlayer.id == 1 {
+                            chosen = moves
+                            break search
+                        }
+                    }
+                }
+                for cell in chosen { session.tap(cell) }
+                session.notice = nil
             }
         case "over":
             // A finished 6×6 Pass & Play game, for the end-of-game screens: a strong player against

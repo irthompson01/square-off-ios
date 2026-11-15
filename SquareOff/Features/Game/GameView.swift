@@ -241,7 +241,8 @@ struct GameView<Session: GamePresenting>: View {
                 .padding(.top, 56)
                 .onTapGesture { session.notice = nil }
                 .task {
-                    try? await Task.sleep(for: .seconds(4))
+                    // The first-game coach line stays long enough to read; everything else 4 s.
+                    try? await Task.sleep(for: .seconds(notice == AppModel.coachLine ? 10 : 4))
                     session.notice = nil
                 }
         }

@@ -95,13 +95,14 @@ struct Chip: View {
     var body: some View {
         HStack(spacing: 5) {
             if dot { Circle().fill(foreground).frame(width: 6, height: 6) }
-            if let symbol { Image(systemName: symbol).font(.system(size: 11, weight: .semibold)) }
+            if let symbol { Image(systemName: symbol).font(.caption2.weight(.semibold)) }
             Text(text)
         }
-        .font(.system(size: 12, weight: .semibold))
+        .font(.caption.weight(.semibold))
         .foregroundStyle(foreground)
         .padding(.horizontal, 9)
-        .frame(height: 24)
+        .padding(.vertical, 3)
+        .frame(minHeight: 24)
         .background(background, in: Capsule())
         .fixedSize()
         .layoutPriority(1)

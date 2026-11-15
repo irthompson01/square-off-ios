@@ -287,7 +287,10 @@ struct ProfileView: View {
     /// Account deletion (App Store 5.1.1(v)): two confirmations, then `POST /account/delete`.
     private var accountActionsPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionLabel("Account")
+            SectionLabel("Manage account")
+            Button { Task { await app.accounts.signOut() } } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
+                .buttonStyle(SecondaryButtonStyle())
+            Theme.separator.frame(height: 1).padding(.vertical, 4)
             Text("Deleting removes your profile, stats and replays from Square Off.")
                 .font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
             if let deleteError {
@@ -328,11 +331,6 @@ struct ProfileView: View {
             SettingsToggle(title: "Music", description: "Music by Missy Cundiff", isOn: $musicEnabled)
             SettingsToggle(title: "Haptics", isOn: $hapticsEnabled)
             SettingsToggle(title: "Starfield", isOn: $starsEnabled)
-            if app.account.isSignedIn {
-                Theme.separator.frame(height: 1).padding(.vertical, 4)
-                Button { Task { await app.accounts.signOut() } } label: { Label("Log out", systemImage: "rectangle.portrait.and.arrow.right") }
-                    .buttonStyle(DangerButtonStyle(soft: true))
-            }
         }
         .padding(20)
         .card()

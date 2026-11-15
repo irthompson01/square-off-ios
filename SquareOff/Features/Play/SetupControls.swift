@@ -101,10 +101,10 @@ struct LevelPicker: View {
                         Text("\(level.number)")
                             .font(Theme.display(15, relativeTo: .body))
                             .foregroundStyle(selected ? Theme.link : (disabled ? Theme.muted.opacity(0.45) : Theme.foregroundSecondary))
-                            .frame(width: 36, height: 36)
+                            .frame(width: 38, height: 38)
                             .background(selected ? Theme.accent.opacity(0.18) : Theme.controlFill, in: Circle())
                             .overlay(Circle().strokeBorder(selected ? Theme.link : .clear, lineWidth: 1.5))
-                            .frame(maxWidth: .infinity)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(PressScaleStyle())

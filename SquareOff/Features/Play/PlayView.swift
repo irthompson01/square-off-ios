@@ -10,7 +10,7 @@ struct PlayView: View {
     @State private var setup: PlaySetupModel
 
     init(mode: PlaySetupModel.Mode = .cpu, onlineTab: PlaySetupModel.OnlineTab = .create) {
-        let setup = PlaySetupModel()
+        let setup = PlaySetupModel(remembering: .standard)
         setup.mode = mode
         setup.onlineTab = onlineTab
         _setup = State(initialValue: setup)
@@ -104,6 +104,7 @@ struct PlayView: View {
         .onChange(of: setup.boardSize) { _, _ in
             if !CPUAvailability.isSelectable(setup.level, boardSize: setup.boardSize) { setup.level = .random }
         }
+        .onChange(of: setup.memory) { _, _ in setup.persist() }
     }
 
     private var playersEditor: some View {
