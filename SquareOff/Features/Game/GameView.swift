@@ -14,6 +14,10 @@ struct GameView<Session: GamePresenting>: View {
     /// Set when "leave" is tapped inside a sheet: the cover is dismissed only after the sheet
     /// has gone, because dismissing both in one transaction drops the outer one.
     @State private var pendingExit: AppModel.GameExit?
+    /// Same idea for How to play / Send feedback from the menu: presented once the menu has gone.
+    @State private var pendingSheet: PendingSheet?
+
+    enum PendingSheet { case rules, feedback }
 
     var body: some View {
         GeometryReader { proxy in
@@ -63,7 +67,7 @@ struct GameView<Session: GamePresenting>: View {
         }
         .sheet(isPresented: $isMenuPresented, onDismiss: finishExitIfPending) {
             GameMenuSheet(session: session, onReset: { confirmReset = true }, onLeave: { confirmLeave = true },
-                          onRules: { isRulesPresented = true }, onFeedback: { isFeedbackPresented = true })
+                          onRules: { pendingSheet = .rules }, onFeedback: { pendingSheet = .feedback })
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
@@ -71,14 +75,21 @@ struct GameView<Session: GamePresenting>: View {
         .sheet(isPresented: $session.isGameOverPresented, onDismiss: finishExitIfPending) {
             GameOverSheet(session: session, onExit: exit)
                 .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
         .sheet(isPresented: $isRulesPresented) {
-            NavigationStack { RulesView() }
-                .presentationBackground(Theme.background)
+            VStack(spacing: 0) {
+                SheetHeader(title: "How to play", symbol: "book") { isRulesPresented = false }
+                    .padding(.top, 8)
+                RulesView(embedded: true)
+            }
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Theme.background)
         }
         .sheet(isPresented: $isFeedbackPresented) {
             FeedbackView(context: session.title)
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
         .alert(session.capabilities.isOnline ? "Leave this room?" : "Leave this game?", isPresented: $confirmLeave) {
@@ -110,6 +121,13 @@ struct GameView<Session: GamePresenting>: View {
     }
 
     private func finishExitIfPending() {
+        if let sheet = pendingSheet {
+            pendingSheet = nil
+            switch sheet {
+            case .rules: isRulesPresented = true
+            case .feedback: isFeedbackPresented = true
+            }
+        }
         guard let destination = pendingExit else { return }
         pendingExit = nil
         app.exitGame(to: destination)

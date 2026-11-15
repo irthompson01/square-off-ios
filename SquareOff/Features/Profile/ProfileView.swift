@@ -63,9 +63,10 @@ struct ProfileView: View {
         .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $signIn) { route in SignInView(route: route) }
-        .sheet(isPresented: $showsFeedback) { FeedbackView() }
-        .sheet(isPresented: $showsForgotPassword) { ForgotPasswordView().presentationBackground(Theme.overlay) }
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $signIn) { route in SignInView(route: route).presentationDragIndicator(.visible) }
+        .sheet(isPresented: $showsFeedback) { FeedbackView().presentationDragIndicator(.visible) }
+        .sheet(isPresented: $showsForgotPassword) { ForgotPasswordView().presentationDragIndicator(.visible).presentationBackground(Theme.overlay) }
         .alert("Delete your account?", isPresented: $confirmDelete) {
             Button("Continue", role: .destructive) { confirmDeleteFinal = true }
             Button("Cancel", role: .cancel) {}

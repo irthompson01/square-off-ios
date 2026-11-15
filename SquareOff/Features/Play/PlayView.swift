@@ -66,7 +66,8 @@ struct PlayView: View {
         .onAppear(perform: handlePendingRoutes)
         .sheet(isPresented: $debugColorSheet) {
             ColorSwatchSheet(selection: $setup.players[0].colorHex)
-                .presentationDetents([.height(260)])
+                .presentationDetents([.height(272)])
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
     }
@@ -219,6 +220,7 @@ struct PlayView: View {
 struct ContinueGameCard: View {
     @Environment(AppModel.self) private var app
     let session: GameSession
+    @State private var confirmDiscard = false
 
     var body: some View {
         let players = session.game.players
@@ -246,7 +248,7 @@ struct ContinueGameCard: View {
             HStack(spacing: 8) {
                 Button { app.resumeGame() } label: { Label("Resume", systemImage: "play.fill") }
                     .buttonStyle(PrimaryButtonStyle(fullWidth: false))
-                Button { app.discardGame() } label: { Label("Discard", systemImage: "trash") }
+                Button { confirmDiscard = true } label: { Label("Discard", systemImage: "trash") }
                     .buttonStyle(TertiaryButtonStyle(fullWidth: false))
             }
         }
@@ -255,5 +257,11 @@ struct ContinueGameCard: View {
         .card()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Continue game")
+        .alert("Discard saved game?", isPresented: $confirmDiscard) {
+            Button("Discard", role: .destructive) { app.discardGame() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your unfinished \(session.game.board.size)×\(session.game.board.size) game will be lost.")
+        }
     }
 }

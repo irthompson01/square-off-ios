@@ -174,7 +174,7 @@ struct RootView: View {
                             switch route {
                             case .play: PlayView()
                             case .online: PlayView(mode: .online, onlineTab: .quick)
-                            case .stats: StatsView()
+                            case .stats: StatsView(backTitle: "Home")
                             }
                         }
                 }
@@ -219,16 +219,19 @@ struct RootView: View {
         .sheet(item: $app.pendingPasswordReset) { reset in
             ResetPasswordView(token: reset.token)
                 .environment(app)
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
         .sheet(item: $app.pendingEmailVerification) { verification in
             VerifyEmailView(token: verification.token)
                 .environment(app)
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
         .sheet(isPresented: $app.pendingResendVerification) {
             ResendVerificationView(prefill: "")
                 .environment(app)
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
         .fullScreenCover(isPresented: $app.isGamePresented, onDismiss: app.gameDismissed) {

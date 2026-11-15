@@ -23,23 +23,21 @@ struct ReplayView: View {
     @State private var note: String?
 
     var body: some View {
-        Group {
-            if let payload, let game {
-                content(payload, game)
-            } else if let loadError {
-                ContentUnavailableView("Replay unavailable", systemImage: "film", description: Text(loadError))
-            } else {
-                ProgressView("Loading replay…")
+        VStack(spacing: 0) {
+            SheetHeader(title: "Game replay", symbol: "film", closeLabel: "Close replay") { dismiss() }
+                .padding(.top, 8)
+            Group {
+                if let payload, let game {
+                    content(payload, game)
+                } else if let loadError {
+                    ContentUnavailableView("Replay unavailable", systemImage: "film", description: Text(loadError))
+                } else {
+                    ProgressView("Loading replay…")
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Theme.overlay)
-        .navigationTitle("Game replay")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button { dismiss() } label: { Image(systemName: "xmark") }.accessibilityLabel("Close replay")
-            }
-        }
         .task { await load() }
         .task(id: isPlaying) { await autoplay() }
     }

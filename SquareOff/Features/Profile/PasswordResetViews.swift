@@ -186,16 +186,3 @@ struct AuthCardHeader: View {
         .padding(.top, 12)
     }
 }
-
-struct CloseButton: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 44, height: 44)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Close")
-        .padding(8)
-    }
-}

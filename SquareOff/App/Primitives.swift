@@ -364,6 +364,51 @@ struct SegmentedPills<Option: Hashable>: View {
     }
 }
 
+/// 44pt X for sheets and cards.
+struct CloseButton: View {
+    var label = "Close"
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .padding(8)
+    }
+}
+
+/// Title row every custom sheet shares: optional symbol, display title, 44pt X, hairline.
+struct SheetHeader: View {
+    let title: String
+    var symbol: String? = nil
+    var symbolColor: Color = Theme.muted
+    var closeLabel = "Close"
+    var isCloseDisabled = false
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                if let symbol { Image(systemName: symbol).foregroundStyle(symbolColor) }
+                Text(title)
+                    .font(Theme.display(18, relativeTo: .headline))
+                    .foregroundStyle(Theme.foreground)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                CloseButton(label: closeLabel, action: onClose)
+                    .disabled(isCloseDisabled)
+                    .opacity(isCloseDisabled ? 0.4 : 1)
+            }
+            .padding(.leading, 20)
+            .padding(.trailing, 4)
+            .padding(.vertical, 4)
+            Theme.separator.frame(height: 1)
+        }
+    }
+}
+
 /// Toggle styled like the web's HeroUI `Switch` (accent when on).
 struct SettingsToggle: View {
     let title: String

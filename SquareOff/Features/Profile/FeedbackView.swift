@@ -72,7 +72,9 @@ struct FeedbackView: View {
     @State private var showsContact = false
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            SheetHeader(title: "Send feedback", symbol: "bubble.left.and.text.bubble.right", isCloseDisabled: isBusy) { dismiss() }
+                .padding(.top, 8)
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Tell us what works, what does not, and what you would like next. Your app version and device are included.")
@@ -129,15 +131,8 @@ struct FeedbackView: View {
                 .frame(maxWidth: 560)
                 .frame(maxWidth: .infinity)
             }
-            .background(Theme.overlay)
-            .navigationTitle("Send feedback")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }.disabled(isBusy)
-                }
-            }
         }
+        .background(Theme.overlay)
         .onAppear(perform: prefill)
     }
 

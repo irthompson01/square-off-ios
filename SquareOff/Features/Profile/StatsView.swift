@@ -6,6 +6,8 @@ import SwiftUI
 /// Game stats (web `/profile/stats`): the Statistics panel (All / Humans / CPU with a win-rate
 /// donut, tiles and filters) and the Game history panel (W/L/T strip, rows, server paging, replays).
 struct StatsView: View {
+    /// Where the pill goes back to: Profile pushes it; the Play tab's debug route says "Home".
+    var backTitle = "Profile"
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
@@ -56,7 +58,7 @@ struct StatsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                BackButton { dismiss() }
+                BackButton(title: backTitle) { dismiss() }
                 PageHeading(title: "Game stats", description: "Your record across every game, by opponent type.")
                 if isLoading {
                     skeleton
@@ -89,7 +91,8 @@ struct StatsView: View {
         .task(id: "\(cpuBoard ?? 0)-\(cpuTimer ?? -1)-\(cpuType ?? "")") { await loadCPU() }
         .task(id: page) { await loadHistory() }
         .sheet(item: $replayGame) { target in
-            NavigationStack { ReplayView(gameID: target.id) }
+            ReplayView(gameID: target.id)
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
     }

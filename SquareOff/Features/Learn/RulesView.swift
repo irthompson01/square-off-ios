@@ -4,6 +4,8 @@ import SwiftUI
 /// by default, several may be open), a contents sheet on phones and a sticky contents sidebar on
 /// wide layouts. Demo boards play only while their section is open and on screen.
 struct RulesView: View {
+    /// Inside the in-game sheet, under a `SheetHeader`: no page heading of its own.
+    var embedded = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(AppModel.self) private var app
     @State private var expanded: Set<String> = ["section-intro"]
@@ -28,6 +30,7 @@ struct RulesView: View {
         .appBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isContentsPresented) {
             NavigationStack {
                 RulebookContents(current: current) { id in
@@ -43,6 +46,7 @@ struct RulesView: View {
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { isContentsPresented = false } } }
             }
             .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
             .presentationBackground(Theme.overlay)
         }
         .task {
@@ -57,7 +61,9 @@ struct RulesView: View {
         ScrollViewReader { reader in
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    PageHeading(title: "How to Play", description: "Rules, scoring, multipliers, and strategies — open a section to see it in action.")
+                    if !embedded {
+                        PageHeading(title: "How to Play", description: "Rules, scoring, multipliers, and strategies — open a section to see it in action.")
+                    }
                     if sizeClass != .regular {
                         Button { isContentsPresented = true } label: { Label("Contents", systemImage: "list.bullet.indent") }
                             .buttonStyle(SecondaryButtonStyle(fullWidth: false))

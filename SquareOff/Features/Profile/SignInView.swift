@@ -94,10 +94,12 @@ struct SignInView: View {
         }
         .sheet(isPresented: $showsForgotPassword) {
             ForgotPasswordView(prefill: identifier.contains("@") ? identifier.trimmingCharacters(in: .whitespaces) : "")
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
         .sheet(isPresented: $showsResend) {
             ResendVerificationView(prefill: "")
+                .presentationDragIndicator(.visible)
                 .presentationBackground(Theme.overlay)
         }
     }

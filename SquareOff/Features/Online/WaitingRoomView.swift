@@ -14,9 +14,15 @@ struct WaitingRoomView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                if case .failed(let error) = app.online.state {
-                    fatal(error)
+                // Same pill as Play and Stats. The tab bar stays hidden here (unlike Play): leaving a
+                // room is a confirmed action, not a tab switch.
+                if case .failed = app.online.state {
+                    BackButton(title: "Setup", accessibilityLabel: "Back to setup") { Task { await app.online.leave() } }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if case .failed(let error) = app.online.state { fatal(error) }
                 } else {
+                    BackButton(title: "Leave", accessibilityLabel: "Leave room") { confirmLeave = true }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     room
                 }
             }
@@ -27,6 +33,7 @@ struct WaitingRoomView: View {
         .appBackground()
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .navigationBarBackButtonHidden(true)
         .onChange(of: app.online.state) { _, state in
