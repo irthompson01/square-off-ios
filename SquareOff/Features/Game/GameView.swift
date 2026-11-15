@@ -36,14 +36,20 @@ struct GameView<Session: GamePresenting>: View {
                         }
                     }
                 } else {
+                    let banner = TurnBannerState(session: session)
                     VStack(spacing: 0) {
                         GameHeader(session: session, onLeave: closeTapped, onMenu: { isMenuPresented = true })
-                        TurnBanner(session: session)
+                        // The cards show whose turn it is; the banner only appears with something more to say.
+                        if !banner.isPlainTurn {
+                            TurnBanner(session: session).transition(.move(edge: .top).combined(with: .opacity))
+                        }
                         PlayerStrip(session: session)
                         BoardView(session: session)
-                            .padding(8)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
+                    .animation(.easeOut(duration: 0.2), value: banner.isPlainTurn)
                 }
             }
         }

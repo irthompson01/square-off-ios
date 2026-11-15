@@ -9,7 +9,8 @@
           "fillStyle": "#0583D2",
           "isCPU": false,
           "currentScore": 0,
-          "currentMultiplier": 1
+          "currentMultiplier": 1,
+          "playerId": "e580f850-87f5-4f9a-b58d-4d210776243d"
         },
         {
           "id": 1,
@@ -17,7 +18,8 @@
           "fillStyle": "#0583D2",
           "isCPU": false,
           "currentScore": 0,
-          "currentMultiplier": 1
+          "currentMultiplier": 1,
+          "playerId": "e580f850-87f5-4f9a-b58d-4d210776243d"
         },
         null,
         null,
@@ -31,7 +33,8 @@
           "fillStyle": "#0583D2",
           "isCPU": false,
           "currentScore": 0,
-          "currentMultiplier": 1
+          "currentMultiplier": 1,
+          "playerId": "e580f850-87f5-4f9a-b58d-4d210776243d"
         },
         null,
         null,
@@ -67,7 +70,8 @@
           "fillStyle": "#FF3131",
           "isCPU": false,
           "currentScore": 0,
-          "currentMultiplier": 1
+          "currentMultiplier": 1,
+          "playerId": "1af424a8-9c04-4ff1-8149-e8e3c3bee748"
         }
       ],
       [
@@ -81,7 +85,8 @@
           "fillStyle": "#FF3131",
           "isCPU": false,
           "currentScore": 0,
-          "currentMultiplier": 1
+          "currentMultiplier": 1,
+          "playerId": "1af424a8-9c04-4ff1-8149-e8e3c3bee748"
         },
         {
           "id": 2,
@@ -89,7 +94,8 @@
           "fillStyle": "#FF3131",
           "isCPU": false,
           "currentScore": 0,
-          "currentMultiplier": 1
+          "currentMultiplier": 1,
+          "playerId": "1af424a8-9c04-4ff1-8149-e8e3c3bee748"
         }
       ]
     ],
@@ -101,6 +107,7 @@
         "isCPU": false,
         "currentScore": 0,
         "currentMultiplier": 1,
+        "playerId": "e580f850-87f5-4f9a-b58d-4d210776243d",
         "scoreHistory": [
           0,
           0,
@@ -121,6 +128,7 @@
         "isCPU": false,
         "currentScore": 0,
         "currentMultiplier": 1,
+        "playerId": "1af424a8-9c04-4ff1-8149-e8e3c3bee748",
         "scoreHistory": [
           0,
           0,
@@ -157,6 +165,7 @@
       "isCPU": false,
       "currentScore": 0,
       "currentMultiplier": 1,
+      "playerId": "e580f850-87f5-4f9a-b58d-4d210776243d",
       "scoreHistory": [
         0,
         0,
@@ -177,6 +186,7 @@
       "isCPU": false,
       "currentScore": 0,
       "currentMultiplier": 1,
+      "playerId": "1af424a8-9c04-4ff1-8149-e8e3c3bee748",
       "scoreHistory": [
         0,
         0,

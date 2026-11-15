@@ -440,7 +440,7 @@ public actor MockAdminAPI: AdminAPI {
         }
         cpus = CPULevel.allCases.map { level in
             AdminCPURow(id: level.number, cpuType: level.cpuType, displayName: "Level \(level.number) · \(level.shortName)",
-                        color: "#DD5144", description: level == .cnn ? "Convolutional net, 8×8 only" : nil, isPremium: level == .maxMinIO,
+                        color: "#DD5144", description: level == .cnn ? "Retired 2026-10-29; its games keep their history" : level.description, isPremium: level == .maxMinIO,
                         createdAt: Self.naive(now.addingTimeInterval(-200 * 86_400)), usageCount: level == .maxMinIO ? 0 : 30 + level.number * 11)
         }
         games = (1...Self.gameCount).map { n in

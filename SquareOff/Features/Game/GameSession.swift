@@ -238,16 +238,16 @@ final class GameSession: @MainActor GamePresenting {
     private func playCPUTurn() async {
         isCPUThinking = true
         defer { isCPUThinking = false }
-        // Same feel as the web: the CPU never answers instantly.
-        let delay = thinkDelay.lowerBound == thinkDelay.upperBound ? thinkDelay.lowerBound : Int.random(in: thinkDelay)
-        if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
-        guard !Task.isCancelled else { return }
-
         let level = currentPlayer.cpuLevel ?? .random
         // The answer only counts for the turn it was asked for: a restart, reset or resumed
         // game while the provider was thinking must not place a stale (or second) tile.
         let turnKey = (moves: game.moves.count, player: currentPlayer.id)
-        var cell = await cpu.move(for: game, level: level)
+        // Same feel as the web: the CPU never answers instantly, but the "thinking" pause runs
+        // alongside the request (a server round trip is not added on top of it).
+        let delay = thinkDelay.lowerBound == thinkDelay.upperBound ? thinkDelay.lowerBound : Int.random(in: thinkDelay)
+        async let answer = cpu.move(for: game, level: level)
+        if delay > 0 { try? await Task.sleep(for: .milliseconds(delay)) }
+        var cell = await answer
         guard !Task.isCancelled, game.moves.count == turnKey.moves, currentPlayer.id == turnKey.player,
               !game.isOver else { return }
         // An unplayable reply (occupied, or off the board from a misbehaving server) becomes a
@@ -283,7 +283,7 @@ final class GameSession: @MainActor GamePresenting {
             // The seat keeps the chosen level; the move provider decides where it runs.
             return [
                 PlayerState(id: 1, name: me.name, colorHex: me.colorHex),
-                PlayerState(id: 2, name: "CPU (\(level.rawValue))", colorHex: cpuColor, isCPU: true, cpuLevel: level),
+                PlayerState(id: 2, name: "\(level.shortName) CPU", colorHex: cpuColor, isCPU: true, cpuLevel: level),
             ]
         case .passAndPlay:
             return config.players.map { PlayerState(id: $0.id, name: $0.name, colorHex: $0.colorHex) }

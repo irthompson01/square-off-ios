@@ -18,8 +18,12 @@ public enum ServerMessage: Sendable, Equatable, Decodable {
     case guestAway(playerId: Int?)
     case guestDisconnected(playerId: Int?)
     case playerRejoined(playerId: Int?, role: OnlineRole?)
+    /// `room_not_found`, `player_not_found`, `slot_in_use`, or `not_your_seat` (the seat belongs
+    /// to another session since the 2026-11 server).
     case rejoinFailed(reason: String)
-    case joinError(message: String)
+    /// `reason` is `already_seated` (this session holds another seat in the room) or `seat_taken`
+    /// (the slot was filled by someone else first); nil for the older full/not-found refusals.
+    case joinError(reason: String?, message: String)
     /// Added by the iOS server branch: the move was ignored (`not_your_turn`, `occupied`, `game_over`).
     case moveRejected(reason: String)
     case unknown(type: String)
@@ -102,7 +106,8 @@ public enum ServerMessage: Sendable, Equatable, Decodable {
         case "REJOIN_FAILED":
             self = .rejoinFailed(reason: (try? c.decodeIfPresent(String.self, forKey: .reason)) ?? "unknown")
         case "JOIN_ERROR":
-            self = .joinError(message: (try? c.decodeIfPresent(String.self, forKey: .message)) ?? "Room full or not found")
+            self = .joinError(reason: try? c.decodeIfPresent(String.self, forKey: .reason),
+                              message: (try? c.decodeIfPresent(String.self, forKey: .message)) ?? "Room full or not found")
         case "MOVE_REJECTED":
             self = .moveRejected(reason: (try? c.decodeIfPresent(String.self, forKey: .reason)) ?? "rejected")
         default:

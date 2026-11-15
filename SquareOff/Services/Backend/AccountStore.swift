@@ -25,6 +25,21 @@ enum AuthError: LocalizedError, Equatable {
     case resetLinkInvalid
     /// 422 from a password endpoint, with the server's reason.
     case weakPassword(String)
+    /// 403 `email_unverified`: a password account whose emailed link hasn't been opened yet.
+    case emailUnverified
+    /// 400 `captcha_failed` / 503 `captcha_unavailable` from `/register` (Cloudflare Turnstile).
+    case captchaFailed
+    case captchaUnavailable
+    /// 400 `email_domain_blocked` (disposable address) / `email_domain_unreachable` (no mail server).
+    case emailDomainBlocked
+    case emailDomainUnreachable
+    /// `POST /verify-email` refused the token.
+    case verifyLinkExpired
+    case verifyLinkInvalid
+    /// 401 `account_required`: a guest session on a route that needs an account.
+    case signInRequired
+    /// 422 outside the password routes, with the server's reason.
+    case invalidInput(String)
     case server(status: Int)
     /// A provider sign-in that came back with `?error=<code>` (web `oauth-errors.ts` wording).
     case oauth(String)
@@ -41,6 +56,15 @@ enum AuthError: LocalizedError, Equatable {
         case .accountDisabled: "This account has been disabled. Contact support if you think this is a mistake."
         case .resetLinkInvalid: "This reset link is invalid or has expired. Request a new one."
         case .weakPassword(let reason): reason
+        case .emailUnverified: "Verify your email first. We sent you a link."
+        case .captchaFailed: "The anti-bot check didn't pass. Try again."
+        case .captchaUnavailable: "The anti-bot check is unavailable right now. Try again in a minute."
+        case .emailDomainBlocked: "Please use a non-disposable email address."
+        case .emailDomainUnreachable: "We can't deliver email to that domain."
+        case .verifyLinkExpired: "This verification link has expired. Request a new one below."
+        case .verifyLinkInvalid: "This verification link is invalid or was already used. Request a new one below."
+        case .signInRequired: "Sign in to continue."
+        case .invalidInput(let reason): reason
         case .server(let status): "Sign-in failed (HTTP \(status))."
         }
     }
@@ -51,10 +75,23 @@ enum AuthError: LocalizedError, Equatable {
             switch api {
             case .http(let status, let body):
                 if (status == 401 || status == 403), body.contains(SessionEndReason.disabled.rawValue) { return .accountDisabled }
+                switch api.detail {
+                case "email_unverified": return .emailUnverified
+                case "captcha_failed": return .captchaFailed
+                case "captcha_unavailable": return .captchaUnavailable
+                case "email_domain_blocked": return .emailDomainBlocked
+                case "email_domain_unreachable": return .emailDomainUnreachable
+                case "verify_token_expired": return .verifyLinkExpired
+                case "verify_token_invalid": return .verifyLinkInvalid
+                case "already_registered": return .alreadyRegistered
+                case APIError.accountRequiredCode: return .signInRequired
+                default: break
+                }
                 if status == 400, body.contains("reset_token_") { return .resetLinkInvalid }
                 if status == 422, body.contains("new_password") || body.contains("characters") {
                     return .weakPassword(api.detail ?? "Choose a longer password.")
                 }
+                if status == 422 { return .invalidInput(api.detail ?? "Check the form and try again.") }
                 if status == 401 { return .invalidCredentials }
                 if status == 429 { return .tooManyAttempts }
                 if status == 409, body.contains("apple_no_email") { return .appleNoEmail }
@@ -102,34 +139,57 @@ final class AccountStore {
         backend.tokenStore.clear()
         account = .guest(backend.identity.guest)
         onSessionEnded?(reason)
+        Task { await becomeGuest() }
     }
 
     /// Token → `/check-auth` → `/profile`. An expired token is dropped without a round-trip;
     /// a network error keeps the token for the next try but leaves the account as guest.
+    /// Without a usable user token the device's guest session is made sure of instead (minted
+    /// on a fresh install, renewed when its token is getting old).
+    /// Launch, foreground and after a 403: confirm the stored token or fall back to a guest.
+    /// Concurrent callers share one pass, and `ensureIdentity()` waits for it so a room opened
+    /// right after launch doesn't mint a guest while a user token is still being checked.
     func restore() async {
-        guard !isRestoring else { return }
+        if let restoreTask { await restoreTask.value; return }
+        let task = Task { await performRestore() }
+        restoreTask = task
+        await task.value
+        restoreTask = nil
+    }
+
+    private var restoreTask: Task<Void, Never>?
+
+    private func performRestore() async {
         isRestoring = true
         defer { isRestoring = false }
         guard let token = backend.tokenStore.accessToken() else {
-            account = .guest(backend.identity.guest)
+            await becomeGuest()
             return
         }
         if JWT.isExpired(token) {
             backend.tokenStore.clear()
-            account = .guest(backend.identity.guest)
+            await becomeGuest()
             return
         }
         do {
             guard try await backend.api.checkAuth() else {
                 backend.tokenStore.clear()
-                account = .guest(backend.identity.guest)
+                await becomeGuest()
                 return
             }
             account = .signedIn(try await backend.api.profile())
         } catch {
             if let api = error as? APIError, api.isUnauthorized { backend.tokenStore.clear() }
             account = .guest(backend.identity.guest)
+            if backend.tokenStore.accessToken() == nil { await becomeGuest() }
         }
+    }
+
+    /// Guest state: the cached identity at once, then the session confirmed with the server.
+    /// Failures are silent; the next player call recovers on its own (`RESTClient`).
+    private func becomeGuest() async {
+        account = .guest(backend.identity.guest)
+        if let guest = try? await backend.identity.ensureGuest() { account = .guest(guest) }
     }
 
     func signIn(emailOrUsername: String, password: String) async throws {
@@ -141,13 +201,34 @@ final class AccountStore {
         }
     }
 
-    func register(username: String, email: String, password: String) async throws {
+    /// Creates the account. Since the 2026-11 server it comes back pending
+    /// (`verificationRequired`) with no token: the caller shows "Check your email" and the user
+    /// logs in after opening the link. An older server answers without the flag; log in then.
+    @discardableResult
+    func register(username: String, email: String, password: String, turnstileToken: String? = nil) async throws -> RegisterResponse {
         do {
-            _ = try await backend.api.register(RegisterRequest(username: username, email: email, password: password))
+            return try await backend.api.register(RegisterRequest(username: username, email: email, password: password, turnstileToken: turnstileToken))
         } catch {
             throw AuthError.wrap(error)
         }
-        try await signIn(emailOrUsername: email, password: password)
+    }
+
+    /// Redeems the emailed verification token (`POST /verify-email`).
+    func verifyEmail(token: String) async throws -> VerifyEmailResponse {
+        do {
+            return try await backend.api.verifyEmail(token: token)
+        } catch {
+            throw AuthError.wrap(error)
+        }
+    }
+
+    /// `POST /verify-email/resend`: the same answer whether or not the address has a pending account.
+    func resendVerification(email: String) async throws {
+        do {
+            _ = try await backend.api.resendVerification(email: email)
+        } catch {
+            throw AuthError.wrap(error)
+        }
     }
 
     func signInWithApple(_ credential: AppleNativeCredential) async throws {
@@ -179,7 +260,7 @@ final class AccountStore {
         }
         backend.tokenStore.clear()
         defaults.removeObject(forKey: Self.signedInWithAppleKey)
-        account = .guest(backend.identity.guest)
+        await becomeGuest()
     }
 
     func requestPasswordReset(email: String) async throws {
@@ -225,15 +306,18 @@ final class AccountStore {
         }
     }
 
+    /// Logs the account out; the device keeps playing on its guest session (reused when its
+    /// token is still fresh, minted again otherwise).
     func signOut() async {
         try? await backend.api.logout()
         backend.tokenStore.clear()
         defaults.removeObject(forKey: Self.signedInWithAppleKey)
-        account = .guest(backend.identity.guest)
+        await becomeGuest()
     }
 
     /// The identity to play online or record games with; creates the guest row on first use.
     func ensureIdentity() async throws -> Identity {
+        if let restoreTask { await restoreTask.value }
         if let identity = account.identity { return identity }
         let guest = try await backend.identity.ensureGuest(name: "Guest", colorHex: Theme.playerColors[0])
         account = .guest(guest)

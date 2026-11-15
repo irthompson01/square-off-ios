@@ -3,10 +3,11 @@ import SquareOffCore
 
 /// Simulates `/api/matcher/*` on top of `MockRoomServer`: a lobby of bot-hosted rooms and
 /// quick-match tickets that resolve to one of them after a short wait (so the polling path runs).
+/// Like the server, tickets are keyed by id alone (the requester is the session).
 public actor MockMatcherAPI: MatcherAPI {
     private let server: MockRoomServer
     private let ticketDelay: Duration
-    private var tickets: [String: (boardSize: Int, timer: Int, requester: String, created: ContinuousClock.Instant)] = [:]
+    private var tickets: [String: (boardSize: Int, timer: Int, created: ContinuousClock.Instant)] = [:]
     private var seeded = false
 
     public init(server: MockRoomServer, ticketDelay: Duration = .seconds(1.5)) {
@@ -21,8 +22,7 @@ public actor MockMatcherAPI: MatcherAPI {
     }
 
     public func advertise(_ request: AdvertiseRoomRequest) async throws -> AdvertiseRoomResponse {
-        guard let response = await server.upsertListing(code: request.roomCode, listed: request.listed,
-                                                        hostLabel: request.hostLabel, hostKey: request.hostKey) else {
+        guard let response = await server.upsertListing(code: request.roomCode, listed: request.listed, hostLabel: request.hostLabel) else {
             throw APIError.http(status: 404, body: #"{"detail":"Room not found"}"#)
         }
         return response
@@ -35,12 +35,12 @@ public actor MockMatcherAPI: MatcherAPI {
     public func quickMatch(_ request: QuickMatchRequest) async throws -> QuickMatchResult {
         await ensureSeeded()
         let ticket = UUID().uuidString.lowercased()
-        tickets[ticket] = (request.boardSize, request.timer, request.requesterId, .now)
+        tickets[ticket] = (request.boardSize, request.timer, .now)
         return QuickMatchResult(status: .pending, action: .queued, ticketId: ticket)
     }
 
-    public func quickMatchStatus(ticketID: String, requesterID: String) async throws -> QuickMatchResult {
-        guard let ticket = tickets[ticketID], ticket.requester == requesterID else {
+    public func quickMatchStatus(ticketID: String) async throws -> QuickMatchResult {
+        guard let ticket = tickets[ticketID] else {
             throw APIError.http(status: 404, body: #"{"detail":"Ticket not found"}"#)
         }
         guard ContinuousClock.now - ticket.created >= ticketDelay else {
@@ -51,7 +51,7 @@ public actor MockMatcherAPI: MatcherAPI {
         return QuickMatchResult(status: .matched, action: .joinRoom, ticketId: ticketID, roomCode: code)
     }
 
-    public func cancelQuickMatch(ticketID: String, requesterID: String) async throws {
+    public func cancelQuickMatch(ticketID: String) async throws {
         tickets[ticketID] = nil
     }
 

@@ -2,12 +2,14 @@
 
 iOS / iPadOS app for Square Off. SwiftUI, iOS 18+, dark-only.
 
-Status: **design-refresh pass** on top of the server integration. The app follows the web client's design system (`square-off-react/square-off-app/docs/FRONTEND_DESIGN_SYSTEM.md`): the same tokens, Grapple + Chakra Petch Bold, the claim flip and corner spins (empty tiles stay dark on iOS), two-stroke shape draw-on, the GameScreen chrome, merged Play page, accordion rulebook, auth card, profile and stats. Every flow works against two backends, picked under Profile › Developer (debug builds) or with `-backend mock|live`:
+Status: **design-refresh pass** on top of the server integration. The app follows the web client's design system (`square-off-react/square-off-app/docs/FRONTEND_DESIGN_SYSTEM.md`): the same tokens, Grapple + Chakra Petch Bold, the claim flip and corner spins on the web's white tiles, two-stroke shape draw-on, the GameScreen chrome, merged Play page, accordion rulebook, auth card, profile and stats. Every flow works against two backends, picked under Profile › Developer (debug builds) or with `-backend mock|live`:
 
-- **Mock (default):** an in-app simulated server. Stateful REST mock (accounts, guests, games, turns, stats, replays; `demo` / `password`), an in-process room server with bot opponents for online play, and a simulated Level 3. Nothing to run.
-- **Live:** the docker stack from `square-off-react` (branch `feature/ios-integration`). Real sign-in (password, Sign in with Apple, Google/GitHub), games recorded to Postgres, Level 3 (CNN) from the server, real rooms against the web client.
+- **Mock (default):** an in-app simulated server. Stateful REST mock (accounts, guests, games, turns, stats, replays; `demo` / `password`), an in-process room server with bot opponents for online play, and simulated engine tiers (levels 7–8). Nothing to run.
+- **Live:** the docker stack from `square-off-react` (`main`), or production at square-off.com. Real sign-in (password, Sign in with Apple, Google/GitHub), games recorded to Postgres, levels 7–8 (Grandmaster, Impossible) from the server's engine, real rooms against the web client.
 
-Local games (Vs Computer, Pass & Play) always play with the on-device rules and heuristics (levels 1, 2, 4, 5, 6 in `SquareOffCore/CPU`); the backend only records them and answers Level 3 (8×8, two players). An unfinished local game is saved on device and offered on Home and Play as "Continue game" (the header arrow keeps it; Leave / Home / New game discard it).
+Every game, CPU, matchmaking and socket call needs a session (server release 2026-11-05): the app mints a 30-day guest session on first launch (`POST /create_guest`, token in the Keychain next to the user's, renewed when it gets old, replaced silently after a 401 `session_required`) and sends the user's token instead once signed in. Password sign-up creates a pending account: the emailed link (`/verify-email`, a universal link) opens the app's verification sheet, then the user logs in. On production the sign-up form carries a Cloudflare Turnstile token rendered by `square-off.com/turnstile` in a small web view (`TurnstileView`); the mock and the docker stack need none.
+
+Local games (Vs Computer, Pass & Play) always play with the on-device rules and heuristics (levels 1–6 in `SquareOffCore/CPU`); the backend only records them and answers levels 7–8 (6×6 to 12×12), which fall back to Level 6 on device when it cannot be reached. An unfinished local game is saved on device and offered on Home and Play as "Continue game" (the header arrow keeps it; Leave / Home / New game discard it).
 
 ## Run it
 
@@ -20,10 +22,11 @@ Debug shortcuts (Product › Scheme › Edit Scheme… › Run › Arguments):
 
 | Argument | Effect |
 |---|---|
-| `-demoGame cpu\|cnn\|local4\|busy\|over` | jump into a game (Level 4, Level 3 on the live server, 4-player, a busy 12×12, a finished one) |
-| `-demoScreen setup\|rules\|signin\|profile\|stats\|color\|forgot\|feedback` | open a screen or sheet (`-rulesSection <id>` with rules) |
+| `-demoGame cpu\|server\|local4\|busy\|over` | jump into a game (Level 3, Level 8 on the live server, 4-player, a busy 12×12, a finished one) |
+| `-demoScreen setup\|rules\|signin\|register\|checkEmail\|verify\|resend\|profile\|stats\|color\|forgot\|feedback` | open a screen or sheet (`-rulesSection <id>` with rules) |
 | `-demoSignedIn YES` | restore the mock `demo` account at launch (pair with `-demoScreen profile\|stats`) |
 | `-demoResetToken mock-reset-token-0123456789` | the reset-password sheet, as a universal link would open it |
+| `-demoVerifyToken mock-verify-token-0123456789` | the email-verification sheet (any other token shows the failure + resend state) |
 | `-demoOnline host\|guest\|spectator\|quickmatch` | online flows against the mock room server with quick bots |
 | `-backend production\|local\|mock` | backend for this launch (Release builds only know `production`) |
 
@@ -63,14 +66,14 @@ make bump BUILD=2            # or VERSION=1.0.1; edits project.yml and regenerat
 make release-check           # Release archive + plist versions, entitlements, icon alpha, privacy manifest
 make testflight ASC_KEY_ID=<key id> ASC_ISSUER_ID=<issuer id>   # archive, export (ExportOptions.plist), upload
 ```
-`make archive` / `make export` are the individual steps (`build-archive/`). The upload needs an App Store Connect API key (Users and Access › Integrations › App Store Connect API, role App Manager) saved as `~/.appstoreconnect/private_keys/AuthKey_<key id>.p8`.
+`make archive` / `make export` are the individual steps (`build-archive/`). The upload needs an App Store Connect API key (Users and Access › Integrations › App Store Connect API, role App Manager) saved as `~/.appstoreconnect/private_keys/AuthKey_<key id>.p8`. `make screenshots` captures the 6.9" iPhone and 13" iPad sets into `build-screenshots/`. The listing text, review notes, App Privacy and age-rating answers, content-rights checklist and the submission checklist are in `docs/app-store/`.
 
 What the store build carries, for App Review:
 - Sign in with Apple next to Google and GitHub (guideline 4.8); guest play needs no account.
 - Account deletion in two taps: Profile › Account › Delete account (5.1.1(v)); Apple-linked accounts re-authorise so the server can revoke the Apple session.
 - `PrivacyInfo.xcprivacy`: no tracking, UserDefaults (CA92.1); data collected: email, name, user id (also a guest id), gameplay content, feedback — all linked to the user, none for tracking. The App Privacy answers in App Store Connect mirror that list.
-- `ITSAppUsesNonExemptEncryption = false`, category Board games, universal links for `square-off.com/guest/*` and `/reset-password` (associated domains + the AASA served by the site).
-- Review notes to include: a production demo account, "Level 3 uses our server; the other levels run on device", and that invite links open the app from a second device.
+- `ITSAppUsesNonExemptEncryption = false`, category Board games, universal links for `/guest/*`, `/reset-password` and `/verify-email` on square-off.com and www.square-off.com (associated domains + the AASA served by the site). Password sign-up stays native; only the Turnstile widget is a web view, served by our own site.
+- Review notes to include: a production demo account, "Levels 7–8 use our server; levels 1–6 run on device", and that invite links open the app from a second device.
 - Still to confirm before submitting: the licences for the Grapple font and the bundled music/SFX.
 
 ## Tests
@@ -80,12 +83,12 @@ What the store build carries, for App Review:
   ```bash
   cd Packages/SquareOffKit && swift test
   ```
-- **Live contract tests** against the docker server (REST with a bearer token, CNN, two real sockets):
+- **Live contract tests** against the docker server (guest sessions, the seat rule, CPU moves, two real sockets):
   ```bash
   cd Packages/SquareOffKit && SQUAREOFF_LIVE_API=1 swift test --filter Live
   ```
 - **Server tests** (inside the backend image, no DB): `make test-server` in `square-off-react/square-off-app`.
-- Fixtures: REST responses in `Tests/SquareOffNetTests/Fixtures/`, socket messages in `Fixtures/ws/` captured with `scripts/capture_ws_fixtures.py` (see its header for the docker command).
+- Fixtures: REST responses in `Tests/SquareOffNetTests/Fixtures/` captured with `scripts/capture_rest_fixtures.sh`, socket messages in `Fixtures/ws/` captured with `scripts/capture_ws_fixtures.py` (see its header for the docker command). Both need the docker stack on the current server image.
 
 ## Command line
 

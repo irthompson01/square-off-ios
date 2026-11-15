@@ -165,4 +165,13 @@ struct WSDecodingTests {
         #expect(try message("GUEST_AWAY_1") == .guestAway(playerId: 2))
         #expect(try message("HOST_AWAY_1") == .hostAway)
     }
+
+    /// Seats belong to sessions (2026-11 server): a second socket on the same session, a stranger
+    /// taking a filled slot, and a stranger rejoining somebody's seat.
+    @Test func sessionRefusals() throws {
+        #expect(try message("JOIN_ERROR_1") == .joinError(reason: "already_seated", message: "You already have a seat in this room"))
+        guard case let .joinError(reason, _) = try message("JOIN_ERROR_2") else { Issue.record("JOIN_ERROR_2"); return }
+        #expect(reason == "seat_taken")
+        #expect(try message("REJOIN_FAILED_1") == .rejoinFailed(reason: "not_your_seat"))
+    }
 }

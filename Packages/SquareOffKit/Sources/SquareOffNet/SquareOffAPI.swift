@@ -1,24 +1,51 @@
 import Foundation
 import SquareOffCore
 
-/// Supplies the bearer token for authenticated requests. The app keeps it in the Keychain;
-/// the mock keeps a `mock:<username>` string in UserDefaults.
+/// Whose token a request carries: a signed-in account's, or the device's 30-day guest session
+/// (`POST /create_guest`). Every game, CPU, matcher and socket call needs one of the two.
+public enum TokenKind: Sendable, Equatable {
+    case user
+    case guest
+}
+
+/// Supplies the bearer token for authenticated requests. The app keeps both tokens in the
+/// Keychain (the user's wins while it exists); the mock keeps `mock:<username>` /
+/// `mock-guest:<id>` strings in UserDefaults.
 public protocol TokenProvider: Sendable {
     func accessToken() -> String?
+    /// Which kind `token` is. Only the app's combined store can tell; plain stores hold user tokens.
+    func kind(of token: String) -> TokenKind
 }
+
+public extension TokenProvider {
+    func kind(of token: String) -> TokenKind { .user }
+}
+
+/// Mints or renews the guest session after a 401 that says the session is missing or dead.
+/// `true` means the failed request is retried once with whatever token the provider now holds.
+public typealias SessionRecovery = @Sendable () async -> Bool
 
 /// The server's REST API as the app uses it, mirroring the web's service modules
 /// (`hero-client/src/services/{auth,game,model}API.ts`). Screens and services talk to this
 /// protocol; `LiveSquareOffAPI` hits the docker server and `MockSquareOffAPI` simulates it.
 public protocol SquareOffAPI: Sendable {
     // MARK: authAPI
-    func guests() async throws -> GuestsResponse
+    /// `GET /cpu_player/{type}`: the CPU definition row. Needs a player session (user or guest).
     func cpuPlayer(_ level: CPULevel) async throws -> CPUPlayerResponse
     func login(_ request: LoginRequest) async throws -> LoginResponse
+    /// `POST /register`: creates a pending account; `verification_required` means no token is
+    /// issued until the emailed link is opened (409 `already_registered`, 400 `captcha_failed`).
     func register(_ request: RegisterRequest) async throws -> RegisterResponse
+    /// `POST /verify-email`: redeems the emailed token (400 `verify_token_invalid` / `_expired`).
+    func verifyEmail(token: String) async throws -> VerifyEmailResponse
+    /// `POST /verify-email/resend`: always 200, whether or not the address has a pending account.
+    func resendVerification(email: String) async throws -> MessageResponse
     func logout() async throws
-    /// `true` when the token (or cookie) is valid: `GET /check-auth` returns 200.
+    /// `true` when the token (or cookie) belongs to a signed-in account: `GET /check-auth`
+    /// returns 200 (a guest session gets 401 `account_required`).
     func checkAuth() async throws -> Bool
+    /// `POST /create_guest`: mints the device's guest session (or renews it when the current
+    /// guest token is sent) and returns its bearer token; 409 `already_signed_in` with a user token.
     func createGuest(_ request: CreateGuestRequest) async throws -> CreateGuestResponse
     func profile() async throws -> ProfileResponse
     func updateProfile(_ request: ProfileUpdateRequest) async throws
@@ -77,6 +104,16 @@ public enum APIError: Error, Equatable {
         guard status == 401, let detail else { return nil }
         return SessionEndReason(rawValue: detail)
     }
+
+    /// 401 on a player route with no usable session: the client mints a guest and retries.
+    public static let sessionRequiredCode = "session_required"
+    /// 401 on an account route with a guest token: sign in to continue (never a sign-out).
+    public static let accountRequiredCode = "account_required"
+    /// 409 from `POST /create_guest` while a user token is attached.
+    public static let alreadySignedInCode = "already_signed_in"
+
+    public var isSessionRequired: Bool { status == 401 && detail == Self.sessionRequiredCode }
+    public var isAccountRequired: Bool { status == 401 && detail == Self.accountRequiredCode }
 
     /// FastAPI's `{"detail": "..."}` when the body carries one.
     public var detail: String? {

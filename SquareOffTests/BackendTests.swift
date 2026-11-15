@@ -37,13 +37,15 @@ struct ServerGameRecorderTests {
         #expect(backend.identity.guest?.playerID == "guest-uuid")
 
         let start = try #require(await api.startRequests.first)
-        #expect(start.players.map(\.playerId) == ["guest-uuid", backend.identity.localSeatIDs[0]])
+        #expect(start.players.map(\.playerId) == ["guest-uuid", nil], "only the caller's seat carries an id; the server mints the rest")
+        #expect(backend.guestTokens.accessToken() == "spy-guest-token-1")
         let turns = await api.turnRequests
         #expect(turns.map(\.participantId) == Array(repeating: [500, 501], count: 8).flatMap { $0 })
         #expect(turns[0].playerId == "guest-uuid")
+        #expect(turns[1].playerId == "minted-1", "seat 2 records under the guest the server minted for it")
         let end = try #require(await api.endRequests.first)
-        #expect(end.scores.count == 2)
-        #expect(end.winnerId == (session.game.isDraw ? "" : start.players[session.game.standings[0].id - 1].playerId))
+        #expect(end.scores.map(\.playerId) == ["guest-uuid", "minted-1"])
+        #expect(end.winnerId == (session.game.isDraw ? "" : (session.game.standings[0].id == 1 ? "guest-uuid" : "minted-1")))
     }
 
     @Test func cpuSeatUsesTheServerCPUIdAndASignedInUserTheirUUID() async throws {
@@ -54,7 +56,7 @@ struct ServerGameRecorderTests {
         await session.start()
         try await settle()
         let start = try #require(await api.startRequests.first)
-        #expect(start.players.map(\.playerId) == ["user-uuid", "104"])
+        #expect(start.players.map(\.playerId) == ["user-uuid", "103"])   // SpyAPI: 100 + level number (max-min is level 3)
         #expect(start.cpuType == "max-min")
         #expect(await api.calls.contains("cpuPlayer"))
         #expect(!(await api.calls.contains("createGuest")))
@@ -164,14 +166,32 @@ struct AccountStoreTests {
         #expect(await api.calls == ["checkAuth", "profile"])
     }
 
-    @Test func anExpiredTokenIsDroppedWithoutANetworkCall() async throws {
+    @Test func ensureIdentityWaitsForTheRestorePassInsteadOfMintingAGuest() async throws {
+        // Opening a room right after launch, while the stored user token is still being checked,
+        // must not call create_guest (the server answers 409 already_signed_in to a user token).
+        let api = SpyAPI()
+        await api.setAuthenticated(true)
+        await api.setDelay("checkAuth", .milliseconds(100))
+        let backend = Backend.test(api: api, token: "stored")
+        let accounts = AccountStore(backend: backend)
+        async let restoring: () = accounts.restore()
+        try await Task.sleep(for: .milliseconds(10))
+        let identity = try await accounts.ensureIdentity()
+        await restoring
+        #expect(accounts.account.isSignedIn)
+        #expect(identity.displayName == "ian")
+        #expect(!(await api.calls.contains("createGuest")))
+    }
+
+    @Test func anExpiredTokenIsDroppedWithoutAnAuthCallAndAGuestIsMinted() async throws {
         let api = SpyAPI()
         let backend = Backend.test(api: api, token: fakeJWT(expiringAt: Date().addingTimeInterval(-60)))
         let accounts = AccountStore(backend: backend)
         await accounts.restore()
         #expect(!accounts.account.isSignedIn)
         #expect(backend.tokenStore.accessToken() == nil)
-        #expect(await api.calls.isEmpty)
+        #expect(await api.calls == ["createGuest"])
+        #expect(accounts.account.serverPlayerID == "guest-uuid")
     }
 
     @Test func aRejectedTokenFallsBackToGuest() async throws {
@@ -230,10 +250,11 @@ struct AccountStoreTests {
         let backend = Backend.test(api: api, token: "stored")
         let accounts = AccountStore(backend: backend)
         try await accounts.deleteAccount(appleAuthorizationCode: "apple-code")
-        #expect(await api.calls == ["deleteAccount"])
+        #expect(await api.calls == ["deleteAccount", "createGuest"], "the device goes on as a guest")
         #expect(await api.deleteRequests == [AccountDeleteRequest(appleAuthorizationCode: "apple-code")])
         #expect(backend.tokenStore.accessToken() == nil)
         #expect(!accounts.account.isSignedIn)
+        #expect(accounts.account.serverPlayerID == "guest-uuid")
     }
 
     @Test func deleteAccountFailureKeepsTheSession() async throws {
@@ -292,11 +313,15 @@ struct AccountStoreTests {
 }
 
 struct ConfigurationTests {
-    @Test func cnnIsOnlySelectableOn8x8WithTwoPlayers() {
-        #expect(CPUAvailability.isCNNSelectable(kind: .production, boardSize: 8, playerCount: 2))
-        #expect(CPUAvailability.isCNNSelectable(kind: .mock, boardSize: 8, playerCount: 2))
-        #expect(!CPUAvailability.isCNNSelectable(kind: .local, boardSize: 10, playerCount: 2))
-        #expect(!CPUAvailability.isCNNSelectable(kind: .local, boardSize: 8, playerCount: 3))
+    @Test func engineTiersPlaySixToTwelveOnly() {
+        #expect(CPUAvailability.isSelectable(.impossible, boardSize: 8))
+        #expect(CPUAvailability.isSelectable(.grandmaster, boardSize: 12))
+        #expect(!CPUAvailability.isSelectable(.grandmaster, boardSize: 4))
+        #expect(CPUAvailability.isSelectable(.maxMinPlus, boardSize: 4))
+        #expect(CPUAvailability.unavailableLevels(boardSize: 5) == [.grandmaster, .impossible])
+        #expect(CPUAvailability.unavailableLevels(boardSize: 8).isEmpty)
+        #expect(CPUAvailability.footnote(kind: .production, level: .impossible).contains("Square Off server"))
+        #expect(CPUAvailability.footnote(kind: .production, level: .maxMin) == "Levels 1–6 play on this device.")
     }
 
     @Test func launchArgumentBeatsThePersistedBackend() {
@@ -351,5 +376,208 @@ struct ConfigurationTests {
         #expect(JWT.expiry(of: fakeJWT(expiringAt: soon))!.timeIntervalSince(soon) < 1)
         #expect(JWT.isExpired(fakeJWT(expiringAt: Date().addingTimeInterval(-1))))
         #expect(!JWT.isExpired("not-a-jwt"))
+    }
+}
+
+/// The device's guest session: minted on a fresh install, renewed when old, replaced when the
+/// server drops it, never touched while a user is signed in.
+@MainActor
+struct GuestSessionTests {
+    @Test func aFreshInstallMintsAGuestOnceAcrossRestores() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api)
+        let accounts = AccountStore(backend: backend)
+        await accounts.restore()
+        await accounts.restore()
+        #expect(await api.calls == ["createGuest"])
+        #expect(backend.guestTokens.accessToken() == "spy-guest-token-1")
+        #expect(backend.identity.guest?.playerID == "guest-uuid")
+        #expect(backend.tokens.accessToken() == "spy-guest-token-1")
+        #expect(backend.tokens.kind(of: "spy-guest-token-1") == .guest)
+    }
+
+    @Test func theUserTokenWinsOverTheGuestToken() async throws {
+        let backend = Backend.test(api: SpyAPI(), token: "user-token", guestToken: "guest-token")
+        #expect(backend.tokens.accessToken() == "user-token")
+        #expect(backend.tokens.kind(of: "user-token") == .user)
+        #expect(backend.tokens.kind(of: "guest-token") == .guest)
+    }
+
+    @Test func anOldGuestTokenIsRenewedKeepingNameAndColour() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api)
+        _ = try await backend.identity.ensureGuest(name: "Zed", colorHex: "#123456")
+        try backend.guestTokens.store(fakeJWT(expiringAt: Date().addingTimeInterval(5 * 86_400)))
+        #expect(backend.identity.needsRenewal)
+        let renewed = try await backend.identity.ensureGuest()
+        #expect(renewed.name == "Zed" && renewed.colorHex == "#123456")
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 2)
+        try backend.guestTokens.store(fakeJWT(expiringAt: Date().addingTimeInterval(29 * 86_400)))
+        #expect(!backend.identity.needsRenewal)
+        _ = try await backend.identity.ensureGuest()
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 2)
+    }
+
+    @Test func concurrentCallersShareOneMint() async throws {
+        let api = SpyAPI()
+        await api.setDelay("createGuest", .milliseconds(100))
+        let backend = Backend.test(api: api)
+        async let a = backend.identity.ensureGuest()
+        async let b = backend.identity.ensureGuest()
+        let (first, second) = try await (a, b)
+        #expect(first == second)
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
+    }
+
+    @Test func recoveryMintsANewGuestUnlessAUserIsSignedIn() async throws {
+        let api = SpyAPI()
+        let guest = Backend.test(api: api, guestToken: "dead-guest")
+        #expect(await guest.recovery.run())
+        #expect(guest.guestTokens.accessToken() == "spy-guest-token-1")
+        #expect(await api.calls == ["createGuest"])
+
+        let signedIn = Backend.test(api: SpyAPI(), token: "user-token", guestToken: "guest-token")
+        #expect(await signedIn.recovery.run() == false)
+        #expect(signedIn.guestTokens.accessToken() == "guest-token")
+    }
+
+    @Test func signOutAndSessionEndFallBackToAGuest() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api)
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        await accounts.signOut()
+        #expect(accounts.account.serverPlayerID == "guest-uuid")
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
+
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        backend.sessions.post(.revoked)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!accounts.account.isSignedIn)
+        #expect(accounts.account.serverPlayerID == "guest-uuid")   // the fresh guest token was reused
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
+    }
+
+    @Test func legacySeatIDsAreDroppedAndTheGuestIdentityKept() async throws {
+        let defaults = UserDefaults(suiteName: "SquareOffTests.identity.\(UUID().uuidString)")!
+        let id = BackendConfiguration.standard(for: .local).id
+        defaults.set(["a", "b", "c"], forKey: "localSeatIDs.\(id)")
+        defaults.set(try JSONEncoder().encode(GuestIdentity(playerID: "old-guest", name: "Old", colorHex: "#ABCDEF")), forKey: "guestIdentity.\(id)")
+        let api = SpyAPI()
+        let backend = Backend.test(api: api, defaults: defaults)
+        #expect(defaults.stringArray(forKey: "localSeatIDs.\(id)") == nil)
+        #expect(backend.identity.guest?.playerID == "old-guest")
+        // No token for the old id: the first use mints a session, carrying the name and colour over.
+        let guest = try await backend.identity.ensureGuest()
+        #expect(guest.playerID == "guest-uuid" && guest.name == "Old" && guest.colorHex == "#ABCDEF")
+    }
+
+    @Test func noCookiesEverOnTheSharedSession() {
+        let configuration = Backend.test(api: SpyAPI()).urlSession.configuration
+        #expect(configuration.httpShouldSetCookies == false)
+        #expect(configuration.httpCookieAcceptPolicy == .never)
+        #expect(configuration.httpCookieStorage == nil)
+    }
+}
+
+@MainActor
+struct EngineTierTests {
+    private func game(timer: Int = 0) -> Game {
+        var game = Game(boardSize: 8, players: [
+            PlayerState(id: 1, name: "Me", colorHex: "#0583D2"),
+            PlayerState(id: 2, name: "CPU", colorHex: "#FF3131", isCPU: true, cpuLevel: .impossible),
+        ], timerSeconds: timer)
+        try! game.place(at: Cell(row: 0, col: 0))
+        return game
+    }
+
+    @Test func theBackendSendsOnlyTheEngineTiersToTheServer() {
+        let backend = Backend.test(api: SpyAPI())
+        let me = [SetupPlayer(id: 1, name: "Me", colorHex: "#0583D2")]
+        #expect(backend.makeCPUProvider(config: GameConfig(mode: .cpu(.impossible), boardSize: 8, timerSeconds: 0, players: me), notices: SessionNoticeRelay()) is ServerCPUMoveProvider)
+        #expect(backend.makeCPUProvider(config: GameConfig(mode: .cpu(.grandmaster), boardSize: 8, timerSeconds: 0, players: me), notices: SessionNoticeRelay()) is ServerCPUMoveProvider)
+        #expect(backend.makeCPUProvider(config: GameConfig(mode: .cpu(.maxMinPlus), boardSize: 8, timerSeconds: 0, players: me), notices: SessionNoticeRelay()) is LocalCPUMoveProvider)
+        let all = Backend.test(api: SpyAPI(), cpuMovesFromServer: true)
+        #expect(all.makeCPUProvider(config: GameConfig(mode: .cpu(.random), boardSize: 8, timerSeconds: 0, players: me), notices: SessionNoticeRelay()) is ServerCPUMoveProvider)
+    }
+
+    @Test func theTimerIsForwardedAndAnEngineFallbackIsMentionedOnce() async throws {
+        let api = SpyAPI()
+        await api.setCPUMoveReply(CPUMoveResponse(row: 4, col: 4, engine: CPUEngineInfo(mode: "fallback", fallback: true, fallbackCpuType: "max-min-io")))
+        let notices = SessionNoticeRelay()
+        let session = GameSession(config: GameConfig(mode: .cpu(.impossible), boardSize: 8, timerSeconds: 20, players: [SetupPlayer(id: 1, name: "Me", colorHex: "#0583D2")]))
+        notices.session = session
+        let provider = ServerCPUMoveProvider(api: api, serverLevels: [.impossible], notices: notices)
+        #expect(await provider.move(for: game(timer: 20), level: .impossible) == Cell(row: 4, col: 4))
+        #expect(await api.cpuMoveRequests.first?.timer == 20)
+        #expect(await api.cpuMoveRequests.first?.cpuType == "impossible")
+        #expect(session.notice == "Server engine busy, playing a simpler move")
+        session.notice = nil
+        _ = await provider.move(for: game(timer: 20), level: .impossible)
+        #expect(session.notice == nil, "once per game")
+        #expect(await api.cpuMoveRequests.last?.timer == 20)
+        _ = await provider.move(for: game(), level: .impossible)
+        #expect(await api.cpuMoveRequests.last?.timer == nil)
+    }
+
+    @Test func anUnreachableEngineTierPlaysLevelSixOnDevice() async throws {
+        let api = SpyAPI()
+        await api.setFailing(["cpuMove"])
+        let notices = SessionNoticeRelay()
+        let session = GameSession(config: GameConfig(mode: .cpu(.grandmaster), boardSize: 8, timerSeconds: 0, players: [SetupPlayer(id: 1, name: "Me", colorHex: "#0583D2")]))
+        notices.session = session
+        let provider = ServerCPUMoveProvider(api: api, serverLevels: [.grandmaster], notices: notices)
+        let cell = await provider.move(for: game(), level: .grandmaster)
+        #expect(game().board[cell] == nil)
+        #expect(session.notice == "Level 7 unavailable, using Level 6 on device")
+    }
+}
+
+@MainActor
+struct SignUpTests {
+    @Test func registerDoesNotSignInAndReportsThePendingState() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api)
+        let accounts = AccountStore(backend: backend)
+        let response = try await accounts.register(username: "ian", email: "ian@example.com", password: "longenough1", turnstileToken: "tok")
+        #expect(response.verificationRequired)
+        #expect(!accounts.account.isSignedIn)
+        #expect(backend.tokenStore.accessToken() == nil)
+        #expect(await api.calls == ["register"])
+    }
+
+    @Test func signUpAndVerificationErrorsMapToCopy() async throws {
+        let api = SpyAPI()
+        let accounts = AccountStore(backend: Backend.test(api: api))
+        let cases: [(String, Int, String, AuthError)] = [
+            ("register", 409, "already_registered", .alreadyRegistered),
+            ("register", 400, "captcha_failed", .captchaFailed),
+            ("register", 503, "captcha_unavailable", .captchaUnavailable),
+            ("register", 400, "email_domain_blocked", .emailDomainBlocked),
+            ("register", 400, "email_domain_unreachable", .emailDomainUnreachable),
+        ]
+        for (method, status, detail, expected) in cases {
+            await api.setFailure(method, status: status, detail: detail)
+            await #expect(throws: expected) {
+                try await accounts.register(username: "ian", email: "ian@example.com", password: "longenough1")
+            }
+        }
+        await api.setFailure("login", status: 403, detail: "email_unverified")
+        await #expect(throws: AuthError.emailUnverified) {
+            try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        }
+        await api.setFailure("verifyEmail", status: 400, detail: "verify_token_expired")
+        await #expect(throws: AuthError.verifyLinkExpired) { _ = try await accounts.verifyEmail(token: "t") }
+        await api.setFailure("verifyEmail", status: 400, detail: "verify_token_invalid")
+        await #expect(throws: AuthError.verifyLinkInvalid) { _ = try await accounts.verifyEmail(token: "t") }
+        await api.setFailure("resendVerification", status: 429, detail: "Rate limit exceeded")
+        await #expect(throws: AuthError.tooManyAttempts) { try await accounts.resendVerification(email: "a@b.c") }
+        #expect(AuthError.wrap(APIError.http(status: 401, body: #"{"detail":"account_required"}"#)) == .signInRequired)
+    }
+
+    @Test func turnstilePageIsProductionOnly() {
+        #expect(BackendConfiguration.production.turnstilePageURL?.absoluteString == "https://square-off.com/turnstile?theme=dark")
+        #expect(BackendConfiguration.mock.turnstilePageURL == nil)
+        #expect(BackendConfiguration.localDocker.turnstilePageURL == nil)
     }
 }

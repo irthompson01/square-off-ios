@@ -329,7 +329,7 @@ struct NeonTile: View {
 
 /// Mode / tab segmented control in the web's `ToggleButtonGroup` style: pill track on
 /// `controlFill`, selected segment on `segment` with link-blue text.
-struct SegmentedPills<Option: Hashable & Identifiable>: View {
+struct SegmentedPills<Option: Hashable>: View {
     let options: [Option]
     @Binding var selection: Option
     let title: (Option) -> String
@@ -338,7 +338,7 @@ struct SegmentedPills<Option: Hashable & Identifiable>: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(options) { option in
+            ForEach(options, id: \.self) { option in
                 let selected = option == selection
                 Button {
                     withAnimation(.easeOut(duration: 0.15)) { selection = option }

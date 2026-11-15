@@ -151,7 +151,7 @@ struct ResetPasswordView: View {
                 try await app.accounts.resetPassword(token: token, newPassword: password)
                 app.toasts.success("Password updated", description: "Log in with your new password.")
                 dismiss()
-                app.pendingSignIn = true
+                app.pendingSignIn = .signIn
                 app.selectedTab = .profile
             } catch {
                 self.error = AuthError.wrap(error)

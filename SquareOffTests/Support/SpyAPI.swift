@@ -13,6 +13,7 @@ actor SpyAPI: SquareOffAPI {
     private(set) var feedbackRequests: [FeedbackRequest] = []
     private(set) var deleteRequests: [AccountDeleteRequest] = []
     private(set) var resetRequests: [(token: String, password: String)] = []
+    private(set) var guestsMinted = 0
     var failing: Set<String> = []
     /// Per-method HTTP failures with a specific status and body (beats `failing`).
     var failures: [String: APIError] = [:]
@@ -36,7 +37,6 @@ actor SpyAPI: SquareOffAPI {
         if failing.contains(name) { throw APIError.http(status: 500, body: #"{"detail":"spy failure"}"#) }
     }
 
-    func guests() async throws -> GuestsResponse { try await hit("guests"); return GuestsResponse(guests: ["g1"]) }
     func cpuPlayer(_ level: CPULevel) async throws -> CPUPlayerResponse {
         try await hit("cpuPlayer")
         return CPUPlayerResponse(id: 100 + level.number, cpuType: level.cpuType, displayName: "CPU", color: "#FF3131")
@@ -46,10 +46,16 @@ actor SpyAPI: SquareOffAPI {
         guard request.password == "secret" else { throw APIError.http(status: 401, body: #"{"detail":"Invalid credentials"}"#) }
         return LoginResponse(message: "ok", accessToken: "spy-token")
     }
-    func register(_ request: RegisterRequest) async throws -> RegisterResponse { try await hit("register"); return RegisterResponse(message: "ok", playerId: "user-1") }
+    func register(_ request: RegisterRequest) async throws -> RegisterResponse { try await hit("register"); return RegisterResponse(message: "ok", playerId: "user-1", verificationRequired: true) }
+    func verifyEmail(token: String) async throws -> VerifyEmailResponse { try await hit("verifyEmail"); return VerifyEmailResponse(message: "Email verified", alreadyVerified: false) }
+    func resendVerification(email: String) async throws -> MessageResponse { try await hit("resendVerification"); return MessageResponse(message: "sent") }
     func logout() async throws { try await hit("logout") }
     func checkAuth() async throws -> Bool { try await hit("checkAuth"); return authenticated }
-    func createGuest(_ request: CreateGuestRequest) async throws -> CreateGuestResponse { try await hit("createGuest"); return CreateGuestResponse(message: "ok", playerId: "guest-uuid") }
+    func createGuest(_ request: CreateGuestRequest) async throws -> CreateGuestResponse {
+        try await hit("createGuest")
+        guestsMinted += 1
+        return CreateGuestResponse(message: "ok", playerId: "guest-uuid", accessToken: "spy-guest-token-\(guestsMinted)")
+    }
     func profile() async throws -> ProfileResponse { try await hit("profile"); return profileResponse }
     func updateProfile(_ request: ProfileUpdateRequest) async throws { try await hit("updateProfile") }
     func oauthLoginURL(_ provider: OAuthProvider, client: OAuthClient) async throws -> OAuthLoginResponse { try await hit("oauthLoginURL"); return OAuthLoginResponse(url: oauthURL, state: "s") }
@@ -61,8 +67,10 @@ actor SpyAPI: SquareOffAPI {
     func startGame(_ request: StartGameRequest) async throws -> StartGameResponse {
         try await hit("startGame")
         startRequests.append(request)
-        return StartGameResponse(gameId: 42, participants: request.players.enumerated().map {
-            StartGameResponse.Participant(playerId: $1.playerId ?? "\($1.id)", participantId: 500 + $0)
+        // Like the server: id-less human seats get a minted guest id back, keyed by `slot`.
+        return StartGameResponse(gameId: 42, participants: request.players.enumerated().map { index, seat in
+            let playerID = seat.playerId ?? (seat.isCPU ? "\(seat.id)" : "minted-\(index)")
+            return StartGameResponse.Participant(playerId: playerID, participantId: 500 + index, slot: index)
         })
     }
     func insertTurn(gameID: Int, _ turn: GameTurnRequest) async throws -> GameTurnResponse {
@@ -81,7 +89,8 @@ actor SpyAPI: SquareOffAPI {
     func recentGames(limit: Int, offset: Int) async throws -> RecentGamesPage { try await hit("recentGames"); return RecentGamesPage(games: [], total: 0) }
     func statsViewHuman(boardSize: Int?, timer: Int?) async throws -> PlayerStatsView { try await hit("statsViewHuman"); return try await statsView() }
     func profileStatsFilters(scope: String) async throws -> ProfileStatsFilters { try await hit("profileStatsFilters"); return ProfileStatsFilters(boardSizes: [], timers: [], cpuTypes: []) }
-    func cpuMove(_ request: CPUMoveRequest) async throws -> CPUMoveResponse { try await hit("cpuMove"); return cpuMoveReply }
+    private(set) var cpuMoveRequests: [CPUMoveRequest] = []
+    func cpuMove(_ request: CPUMoveRequest) async throws -> CPUMoveResponse { try await hit("cpuMove"); cpuMoveRequests.append(request); return cpuMoveReply }
 }
 
 /// A matcher nothing calls in these tests.
@@ -90,19 +99,21 @@ struct UnusedMatcher: MatcherAPI {
     func advertise(_ request: AdvertiseRoomRequest) async throws -> AdvertiseRoomResponse { AdvertiseRoomResponse(roomCode: request.roomCode, listed: true, slotsFilled: 1) }
     func delist(roomCode: Int) async throws {}
     func quickMatch(_ request: QuickMatchRequest) async throws -> QuickMatchResult { QuickMatchResult(status: .pending, action: .queued, ticketId: "t") }
-    func quickMatchStatus(ticketID: String, requesterID: String) async throws -> QuickMatchResult { QuickMatchResult(status: .pending, action: .queued, ticketId: ticketID) }
-    func cancelQuickMatch(ticketID: String, requesterID: String) async throws {}
+    func quickMatchStatus(ticketID: String) async throws -> QuickMatchResult { QuickMatchResult(status: .pending, action: .queued, ticketId: ticketID) }
+    func cancelQuickMatch(ticketID: String) async throws {}
 }
 
 extension Backend {
     /// A backend over a spy API with an in-memory token store (and its own UserDefaults suite).
     @MainActor
-    static func test(api: any SquareOffAPI, kind: BackendKind = .local, token: String? = nil, cpuMovesFromServer: Bool = false) -> Backend {
+    static func test(api: any SquareOffAPI, kind: BackendKind = .local, token: String? = nil, guestToken: String? = nil,
+                     cpuMovesFromServer: Bool = false, defaults: UserDefaults? = nil) -> Backend {
         var configuration = BackendConfiguration.standard(for: kind)
         configuration.cpuMovesFromServer = cpuMovesFromServer
-        let defaults = UserDefaults(suiteName: "SquareOffTests.\(UUID().uuidString)")!
+        let defaults = defaults ?? UserDefaults(suiteName: "SquareOffTests.\(UUID().uuidString)")!
         return Backend(configuration: configuration, api: api, matcher: UnusedMatcher(),
-                       tokenStore: InMemoryTokenStore(token: token), roomServer: nil, defaults: defaults)
+                       tokenStore: InMemoryTokenStore(token: token), guestTokens: InMemoryTokenStore(token: guestToken),
+                       roomServer: nil, defaults: defaults)
     }
 }
 

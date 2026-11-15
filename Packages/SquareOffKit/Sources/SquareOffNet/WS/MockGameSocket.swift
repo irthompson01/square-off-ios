@@ -1,15 +1,19 @@
 import Foundation
 
-/// A `GameSocket` whose other end is the in-process `MockRoomServer`.
+/// A `GameSocket` whose other end is the in-process `MockRoomServer`. `playerID` stands for the
+/// session token the live socket sends on the handshake: the server stamps it on the seat.
 public actor MockGameSocket: GameSocket {
     private let server: MockRoomServer
+    private let playerID: String?
     private var connectionID: MockRoomServer.ConnectionID?
     private var forwardTask: Task<Void, Never>?
+    private var refusals: [SocketError] = []
     private let stream: AsyncStream<SocketEvent>
     private let continuation: AsyncStream<SocketEvent>.Continuation
 
-    public init(server: MockRoomServer) {
+    public init(server: MockRoomServer, playerID: String? = nil) {
         self.server = server
+        self.playerID = playerID
         (stream, continuation) = AsyncStream.makeStream()
     }
 
@@ -17,7 +21,8 @@ public actor MockGameSocket: GameSocket {
 
     public func connect() async throws {
         if connectionID != nil { return }
-        let (id, messages) = await server.connect()
+        if !refusals.isEmpty { throw refusals.removeFirst() }
+        let (id, messages) = await server.connect(playerID: playerID)
         connectionID = id
         let continuation = continuation
         forwardTask = Task {
@@ -42,6 +47,11 @@ public actor MockGameSocket: GameSocket {
         guard connectionID != nil else { return }
         await detach()
         continuation.yield(.disconnected(nil))
+    }
+
+    /// Test hook: the next `connect()` fails the way the live server refuses a handshake.
+    public func refuseNextConnect(code: Int? = 1008, reason: String? = "session_required") {
+        refusals.append(.handshakeRefused(code: code, reason: reason))
     }
 
     private func detach() async {

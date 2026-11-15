@@ -6,10 +6,13 @@ import SwiftUI
 
 /// Log in / Create account (web `AuthCard` + `/login`, `/register`): one centred card with the
 /// icon well, title and subtitle, a danger alert for server errors, labelled fields with inline
-/// validation, the primary action, an "OR" divider and the three social buttons.
+/// validation, the primary action, an "OR" divider and the three social buttons. A password
+/// sign-up ends on "Check your email": the account is pending until the emailed link is opened,
+/// and on production the form carries a Cloudflare Turnstile token (`TurnstileView`).
 struct SignInView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @Environment(\.webAuthenticationSession) private var webAuth
 
     enum Mode: String, CaseIterable, Identifiable {
@@ -17,8 +20,14 @@ struct SignInView: View {
         var id: String { rawValue }
     }
 
-    init(initialMode: Mode = .signIn) {
-        _mode = State(initialValue: initialMode)
+    init(route: SignInRoute = .signIn) {
+        switch route {
+        case .signIn: _mode = State(initialValue: .signIn)
+        case .register: _mode = State(initialValue: .register)
+        case .checkEmail(let email):
+            _mode = State(initialValue: .register)
+            _sentTo = State(initialValue: email)
+        }
     }
 
     @State private var mode: Mode
@@ -31,27 +40,42 @@ struct SignInView: View {
     @State private var fieldErrors: [String: String] = [:]
     @State private var appleNonce = ""
     @State private var showsForgotPassword = false
+    @State private var showsResend = false
+    /// The address a verification link was just sent to: the card shows "Check your email".
+    @State private var sentTo: String?
+    @State private var turnstileToken: String?
+    @State private var turnstileFailed = false
+    @State private var turnstileReload = 0
 
     static let emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    static let registerURL = URL(string: "https://square-off.com/register")!
+
+    private var turnstileURL: URL? { app.backend.configuration.turnstilePageURL }
+    private var needsTurnstile: Bool { mode == .register && turnstileURL != nil }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                header
-                if let error, error != .cancelled {
-                    AlertBox(.danger, message: error.localizedDescription)
+                if let sentTo {
+                    checkEmail(sentTo)
+                } else {
+                    header
+                    if let error, error != .cancelled {
+                        AlertBox(.danger, message: error.localizedDescription)
+                        if error == .emailUnverified { resendPrompt }
+                    }
+                    fields
+                    Button(action: submit) {
+                        PendingLabel(title: mode == .signIn ? "Log in" : "Create account",
+                                     pendingTitle: mode == .signIn ? "Signing in…" : "Creating account…",
+                                     symbol: nil, isPending: isBusy)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(large: true))
+                    .disabled(isBusy || (needsTurnstile && turnstileToken == nil))
+                    divider
+                    social
+                    footer
                 }
-                fields
-                Button(action: submit) {
-                    PendingLabel(title: mode == .signIn ? "Log in" : "Create account",
-                                 pendingTitle: mode == .signIn ? "Signing in…" : "Creating account…",
-                                 symbol: nil, isPending: isBusy)
-                }
-                .buttonStyle(PrimaryButtonStyle(large: true))
-                .disabled(isBusy)
-                divider
-                social
-                footer
             }
             .padding(24)
             .frame(maxWidth: 448)
@@ -62,14 +86,7 @@ struct SignInView: View {
         }
         .background(Theme.overlay)
         #if !ADMIN_CONSOLE
-        .overlay(alignment: .topTrailing) {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(Theme.muted).frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close")
-            .padding(8)
-        }
+        .overlay(alignment: .topTrailing) { CloseButton { dismiss() } }
         #endif
         .onChange(of: mode) { _, _ in
             error = nil
@@ -77,6 +94,10 @@ struct SignInView: View {
         }
         .sheet(isPresented: $showsForgotPassword) {
             ForgotPasswordView(prefill: identifier.contains("@") ? identifier.trimmingCharacters(in: .whitespaces) : "")
+                .presentationBackground(Theme.overlay)
+        }
+        .sheet(isPresented: $showsResend) {
+            ResendVerificationView(prefill: "")
                 .presentationBackground(Theme.overlay)
         }
     }
@@ -113,14 +134,14 @@ struct SignInView: View {
                         .foregroundStyle(Theme.foreground)
                 }
             } else {
-                LabeledField(label: "Username", error: fieldErrors["username"]) {
+                LabeledField(label: "Username", help: AccountRules.usernameHint, error: fieldErrors["username"]) {
                     TextField("your_username", text: $username)
                         .textContentType(.username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .foregroundStyle(Theme.foreground)
                 }
-                LabeledField(label: "Email", help: "Only used for account functions such as login and password reset.", error: fieldErrors["email"]) {
+                LabeledField(label: "Email", help: "We'll send a verification link. Only used for account functions such as login and password reset.", error: fieldErrors["email"]) {
                     TextField("you@example.com", text: $email)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
@@ -129,7 +150,8 @@ struct SignInView: View {
                         .foregroundStyle(Theme.foreground)
                 }
             }
-            LabeledField(label: "Password", error: fieldErrors["password"]) {
+            LabeledField(label: "Password", help: mode == .register ? "At least \(AccountRules.passwordLength.lowerBound) characters." : nil,
+                         error: fieldErrors["password"]) {
                 SecureField("••••••••", text: $password)
                     .textContentType(mode == .signIn ? .password : .newPassword)
                     .foregroundStyle(Theme.foreground)
@@ -142,13 +164,90 @@ struct SignInView: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.top, -6)
             }
+            if needsTurnstile, let turnstileURL {
+                turnstile(turnstileURL)
+            }
             #if DEBUG
             if app.backend.configuration.kind == .mock {
-                Text("Mock server: try \(MockSquareOffAPI.demoUsername) / \(MockSquareOffAPI.demoPassword), or create any account.")
+                Text(mode == .signIn
+                     ? "Mock server: try \(MockSquareOffAPI.demoUsername) / \(MockSquareOffAPI.demoPassword), or create any account."
+                     : "Mock server: new accounts are verified with -demoScreen verify (token \(MockSquareOffAPI.demoVerifyToken)).")
                     .font(.caption).foregroundStyle(Theme.muted).frame(maxWidth: .infinity, alignment: .leading)
             }
             #endif
         }
+    }
+
+    /// The anti-bot widget, or the way around it when the page won't load (the social buttons
+    /// below need no captcha; the website has the same form).
+    @ViewBuilder
+    private func turnstile(_ url: URL) -> some View {
+        if turnstileFailed {
+            AlertBox(.warning, message: "Couldn't load the anti-bot check. Continue with Apple, Google or GitHub, or create your account at square-off.com.")
+            Button { openURL(Self.registerURL) } label: { Label("Open square-off.com", systemImage: "safari") }
+                .buttonStyle(TertiaryButtonStyle(small: true, fullWidth: false))
+        } else {
+            TurnstileView(url: url, token: $turnstileToken, failed: $turnstileFailed, reload: turnstileReload)
+                .frame(height: 70)
+                .accessibilityLabel("Anti-bot check")
+        }
+    }
+
+    private func checkEmail(_ address: String) -> some View {
+        VStack(spacing: 20) {
+            AuthCardHeader(symbol: "envelope.badge", title: "Check your email", subtitle: "One more step")
+            VStack(spacing: 8) {
+                (Text("We sent a verification link to ") + Text(address).bold() + Text("."))
+                    .multilineTextAlignment(.center)
+                Text("The link works for 24 hours and only once.")
+                    .foregroundStyle(Theme.foregroundSecondary)
+            }
+            .font(.subheadline)
+            .foregroundStyle(Theme.foreground)
+            Button {
+                isBusy = true
+                Task {
+                    defer { isBusy = false }
+                    await ResendVerificationForm.resend(address, app: app)
+                }
+            } label: {
+                PendingLabel(title: "Resend the link", pendingTitle: "Sending…", symbol: "paperplane", isPending: isBusy)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(isBusy)
+            HStack(spacing: 4) {
+                Text("Already verified?").foregroundStyle(Theme.muted)
+                Button("Log in") {
+                    identifier = address
+                    password = ""
+                    sentTo = nil
+                    mode = .signIn
+                }
+                .foregroundStyle(Theme.link)
+                .underline()
+            }
+            .font(.subheadline)
+            .padding(.bottom, 8)
+        }
+    }
+
+    /// Under a `email_unverified` login refusal (web: "Didn't get it? Resend the link").
+    private var resendPrompt: some View {
+        HStack(spacing: 4) {
+            Text("Didn't get it?").foregroundStyle(Theme.muted)
+            Button("Resend the link") {
+                let address = identifier.trimmingCharacters(in: .whitespaces)
+                if address.contains("@") {
+                    Task { await ResendVerificationForm.resend(address, app: app) }
+                } else {
+                    showsResend = true
+                }
+            }
+            .foregroundStyle(Theme.link)
+            .underline()
+        }
+        .font(.subheadline)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var divider: some View {
@@ -194,21 +293,43 @@ struct SignInView: View {
             if identifier.trimmingCharacters(in: .whitespaces).isEmpty { errors["identifier"] = "Enter your email or username" }
             if password.isEmpty { errors["password"] = "Enter your password" }
         case .register:
-            if username.trimmingCharacters(in: .whitespaces).isEmpty { errors["username"] = "Choose a username" }
+            let name = username.trimmingCharacters(in: .whitespaces)
+            if name.isEmpty { errors["username"] = "Choose a username" }
+            else if !AccountRules.isValidUsername(name) { errors["username"] = "Use " + AccountRules.usernameHint.lowercased() }
             if email.trimmingCharacters(in: .whitespaces).wholeMatch(of: Self.emailPattern) == nil { errors["email"] = "Enter a valid email address" }
             if password.isEmpty { errors["password"] = "Choose a password" }
+            else if !AccountRules.isValidPassword(password) {
+                errors["password"] = password.count < AccountRules.passwordLength.lowerBound
+                    ? "Use at least \(AccountRules.passwordLength.lowerBound) characters"
+                    : "Use at most \(AccountRules.passwordLength.upperBound) characters"
+            }
         }
         fieldErrors = errors
         guard errors.isEmpty else { return }
-        run {
-            switch mode {
-            case .signIn:
+        switch mode {
+        case .signIn:
+            run {
                 try await app.accounts.signIn(emailOrUsername: identifier.trimmingCharacters(in: .whitespaces), password: password)
                 app.toasts.success("Logged in", description: "Welcome back.")
-            case .register:
-                try await app.accounts.register(username: username.trimmingCharacters(in: .whitespaces),
-                                                email: email.trimmingCharacters(in: .whitespaces), password: password)
-                app.toasts.success("Account created", description: "You're logged in and ready to play.")
+            }
+        case .register:
+            let address = email.trimmingCharacters(in: .whitespaces)
+            run(dismissing: false) {
+                do {
+                    let response = try await app.accounts.register(username: username.trimmingCharacters(in: .whitespaces),
+                                                                   email: address, password: password, turnstileToken: turnstileToken)
+                    if response.verificationRequired {
+                        sentTo = address
+                    } else {
+                        // Pre-2026-11 servers: the account is live at once.
+                        try await app.accounts.signIn(emailOrUsername: address, password: password)
+                        app.toasts.success("Account created", description: "You're logged in and ready to play.")
+                        dismiss()
+                    }
+                } catch {
+                    turnstileReload += 1   // a Turnstile token is single use
+                    throw error
+                }
             }
         }
     }
@@ -287,14 +408,14 @@ struct SignInView: View {
         }
     }
 
-    private func run(_ operation: @escaping @MainActor () async throws -> Void) {
+    private func run(dismissing: Bool = true, _ operation: @escaping @MainActor () async throws -> Void) {
         error = nil
         isBusy = true
         Task {
             defer { isBusy = false }
             do {
                 try await operation()
-                dismiss()
+                if dismissing { dismiss() }
             } catch {
                 self.error = AuthError.wrap(error)
             }

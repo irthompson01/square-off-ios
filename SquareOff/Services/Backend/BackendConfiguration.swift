@@ -80,6 +80,14 @@ nonisolated struct BackendConfiguration: Equatable, Sendable {
         kind == .local ? environment.webOrigin : APIEnvironment.production.webOrigin
     }
 
+    /// The page that renders the Cloudflare Turnstile widget for the sign-up form (it has to be
+    /// served from square-off.com, the site key's hostname). Production only: the docker stack
+    /// has no Turnstile secret, so it accepts sign-ups without a token, and so does the mock.
+    var turnstilePageURL: URL? {
+        guard kind == .production else { return nil }
+        return environment.webOrigin.appending(path: "turnstile").appending(queryItems: [URLQueryItem(name: "theme", value: "dark")])
+    }
+
     static func load(from defaults: UserDefaults = .standard,
                      available: [BackendKind] = BackendKind.available) -> BackendConfiguration {
         let persisted = defaults.string(forKey: Keys.kind).flatMap(BackendKind.init(persisted:))

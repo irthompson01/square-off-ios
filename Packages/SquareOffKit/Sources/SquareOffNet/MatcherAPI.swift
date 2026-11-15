@@ -1,14 +1,16 @@
 import Foundation
 
 /// `/api/matcher/*` (hero-client/src/services/matcherAPI.ts). Open-room listing, host heartbeat
-/// and quick-match tickets. None of it needs auth; `requester_id` is self-declared.
+/// and quick-match tickets. Every route needs a player session (user or guest token); the
+/// server takes the requester and the room's host from that session, so nothing here names them.
 public protocol MatcherAPI: Sendable {
     func openRooms(boardSize: Int?, timer: Int?, limit: Int, offset: Int) async throws -> [OpenRoomDTO]
+    /// 403 `not_room_host` unless the session is the room's host.
     func advertise(_ request: AdvertiseRoomRequest) async throws -> AdvertiseRoomResponse
     func delist(roomCode: Int) async throws
     func quickMatch(_ request: QuickMatchRequest) async throws -> QuickMatchResult
-    func quickMatchStatus(ticketID: String, requesterID: String) async throws -> QuickMatchResult
-    func cancelQuickMatch(ticketID: String, requesterID: String) async throws
+    func quickMatchStatus(ticketID: String) async throws -> QuickMatchResult
+    func cancelQuickMatch(ticketID: String) async throws
 }
 
 public struct OpenRoomDTO: Codable, Sendable, Equatable, Identifiable {
@@ -19,6 +21,7 @@ public struct OpenRoomDTO: Codable, Sendable, Equatable, Identifiable {
     public let slotsMax: Int
     public let listed: Bool
     public let hostLabel: String
+    /// Still returned by the server (the host's player id); informational only.
     public let hostKey: String
     /// Unix seconds.
     public let createdAt: Double
@@ -66,20 +69,17 @@ public struct AdvertiseRoomRequest: Codable, Sendable, Equatable {
     public let roomCode: Int
     public let listed: Bool
     public let hostLabel: String
-    public let hostKey: String
 
-    public init(roomCode: Int, listed: Bool = true, hostLabel: String, hostKey: String) {
+    public init(roomCode: Int, listed: Bool = true, hostLabel: String) {
         self.roomCode = roomCode
         self.listed = listed
         self.hostLabel = String(hostLabel.prefix(80))
-        self.hostKey = String(hostKey.prefix(200))
     }
 
     enum CodingKeys: String, CodingKey {
         case listed
         case roomCode = "room_code"
         case hostLabel = "host_label"
-        case hostKey = "host_key"
     }
 }
 
@@ -102,19 +102,16 @@ public struct AdvertiseRoomResponse: Codable, Sendable, Equatable {
 }
 
 public struct QuickMatchRequest: Codable, Sendable, Equatable {
-    public let requesterId: String
     public let boardSize: Int
     public let timer: Int
 
-    public init(requesterId: String, boardSize: Int, timer: Int) {
-        self.requesterId = requesterId
+    public init(boardSize: Int, timer: Int) {
         self.boardSize = boardSize
         self.timer = timer
     }
 
     enum CodingKeys: String, CodingKey {
         case timer
-        case requesterId = "requester_id"
         case boardSize = "board_size"
     }
 }
@@ -149,24 +146,23 @@ public struct QuickMatchResult: Codable, Sendable, Equatable {
 
 public struct QuickMatchCancelRequest: Codable, Sendable, Equatable {
     public let ticketId: String
-    public let requesterId: String
 
-    public init(ticketId: String, requesterId: String) {
+    public init(ticketId: String) {
         self.ticketId = ticketId
-        self.requesterId = requesterId
     }
 
     enum CodingKeys: String, CodingKey {
         case ticketId = "ticket_id"
-        case requesterId = "requester_id"
     }
 }
 
 public struct LiveMatcherAPI: MatcherAPI {
     private let client: RESTClient
 
-    public init(environment: APIEnvironment, session: URLSession = .shared, tokenProvider: (any TokenProvider)? = nil) {
-        client = RESTClient(baseURL: environment.baseURL, session: session, tokenProvider: tokenProvider)
+    public init(environment: APIEnvironment, session: URLSession = .shared, tokenProvider: (any TokenProvider)? = nil,
+                sessionRecovery: SessionRecovery? = nil) {
+        client = RESTClient(baseURL: environment.baseURL, session: session, tokenProvider: tokenProvider,
+                            sessionRecovery: sessionRecovery)
     }
 
     public func openRooms(boardSize: Int?, timer: Int?, limit: Int, offset: Int) async throws -> [OpenRoomDTO] {
@@ -189,11 +185,11 @@ public struct LiveMatcherAPI: MatcherAPI {
         try await client.send("POST", "matcher/quick-match", body: request)
     }
 
-    public func quickMatchStatus(ticketID: String, requesterID: String) async throws -> QuickMatchResult {
-        try await client.send("GET", "matcher/quick-match/\(ticketID)", query: [URLQueryItem(name: "requester_id", value: requesterID)])
+    public func quickMatchStatus(ticketID: String) async throws -> QuickMatchResult {
+        try await client.send("GET", "matcher/quick-match/\(ticketID)")
     }
 
-    public func cancelQuickMatch(ticketID: String, requesterID: String) async throws {
-        try await client.data("POST", "matcher/quick-match/cancel", body: QuickMatchCancelRequest(ticketId: ticketID, requesterId: requesterID))
+    public func cancelQuickMatch(ticketID: String) async throws {
+        try await client.data("POST", "matcher/quick-match/cancel", body: QuickMatchCancelRequest(ticketId: ticketID))
     }
 }

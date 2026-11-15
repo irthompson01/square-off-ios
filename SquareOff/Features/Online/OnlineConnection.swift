@@ -10,11 +10,18 @@ final class OnlineConnection {
     var onEvent: ((SocketEvent) -> Void)?
     private(set) var isConnected = false
     private var pump: Task<Void, Never>?
+    /// Mints a new guest session when the server refuses the handshake for a missing or dead
+    /// token (`IdentityStore.recoverSession`); nil means refusals are final.
+    private let recovery: (@MainActor () async -> Bool)?
 
-    init(socket: any GameSocket) {
+    init(socket: any GameSocket, recovery: (@MainActor () async -> Bool)? = nil) {
         self.socket = socket
+        self.recovery = recovery
     }
 
+    /// Opens the socket. A refused handshake is retried once: after a new guest session for
+    /// `session_required` / a dead guest token, after a short pause for 1013 (server busy).
+    /// `origin_not_allowed` and a refusal with a user token signed in are thrown as they are.
     func connect() async throws {
         if pump == nil {
             let socket = socket
@@ -25,7 +32,16 @@ final class OnlineConnection {
                 }
             }
         }
-        try await socket.connect()
+        do {
+            try await socket.connect()
+        } catch let error as SocketError where error.isRecoverableRefusal {
+            if case .handshakeRefused(1013, _) = error {
+                try await Task.sleep(for: .seconds(2))
+            } else {
+                guard let recovery, await recovery() else { throw error }
+            }
+            try await socket.connect()
+        }
         isConnected = true
     }
 
@@ -96,6 +112,9 @@ nonisolated struct OnlineSessionRecord: Codable, Equatable, Sendable {
     var started: Bool
     var savedAt: Date
     var backendID: String
+    /// The session that held the seat. Seats belong to sessions on the server, so a device whose
+    /// guest session was re-minted asks for a fresh seat instead of `REJOIN_ROOM`.
+    var playerID: String? = nil
 
     /// Host rooms survive 60 s without their host, guest seats 30 s.
     var graceSeconds: TimeInterval { role == .host ? 60 : 30 }

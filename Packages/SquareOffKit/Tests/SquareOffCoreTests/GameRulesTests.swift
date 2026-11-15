@@ -151,8 +151,13 @@ struct GameFlowTests {
     }
 
     @Test func cpuLevelsMatchTheWebNumbering() {
-        #expect(CPULevel.allCases.map(\.number) == [1, 2, 3, 4, 5, 6])
-        #expect(CPULevel(number: 3) == .cnn)
-        #expect(CPULevel.maxMinIO.cpuType == "max-min-io")
+        #expect(CPULevel.selectable.map(\.number) == Array(1...8))
+        #expect(CPULevel(number: 3) == .maxMin)
+        #expect(CPULevel(number: 4) == .maxMinPlus)
+        #expect(CPULevel(number: 7) == .grandmaster && CPULevel(number: 8) == .impossible)
+        #expect(CPULevel.maxMinIO.cpuType == "max-min-io" && CPULevel.maxMinPlus.cpuType == "max-min-plus")
+        #expect(CPULevel(rawValue: "cnn")?.number == 3, "old games keep decoding")
+        #expect(CPULevel.selectable.map(\.shortName) == ["Random", "Max-Random", "Max-Min", "Max-Min Plus", "Max-Min-Optimal", "Max-Min-IO", "Grandmaster", "Impossible"])
+        #expect(CPULevel.maxMinOptimal.statsLabel == "Max-Min Optimal" && CPULevel.maxMinIO.statsLabel == "Max-Min IO")
     }
 }

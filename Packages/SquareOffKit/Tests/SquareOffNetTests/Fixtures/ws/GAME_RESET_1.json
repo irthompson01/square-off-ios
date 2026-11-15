@@ -9,7 +9,8 @@
       "fillStyle": "#0583D2",
       "isCPU": false,
       "currentScore": 0,
-      "currentMultiplier": 1
+      "currentMultiplier": 1,
+      "playerId": "e580f850-87f5-4f9a-b58d-4d210776243d"
     },
     {
       "id": 2,
@@ -17,14 +18,16 @@
       "fillStyle": "#FF3131",
       "isCPU": false,
       "currentScore": 0,
-      "currentMultiplier": 1
+      "currentMultiplier": 1,
+      "playerId": "1af424a8-9c04-4ff1-8149-e8e3c3bee748"
     },
     {
       "id": 3,
       "name": "Player 3",
       "fillStyle": "#DD5144",
       "currentScore": 0,
-      "currentMultiplier": 1
+      "currentMultiplier": 1,
+      "playerId": "c02f6f21-e8c7-46ee-970e-87fee538eb0c"
     }
   ],
   "spectatorCount": 0

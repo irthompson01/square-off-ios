@@ -28,6 +28,10 @@ final class RoomCoordinator {
         case roomFull
         case hostLeft
         case rejoinFailed(String)
+        /// This session already holds a seat in the room (another device, or a stale tab).
+        case alreadySeated
+        /// The slot was filled by someone else between `PLAYER_SLOT_ASSIGNED` and `JOIN_ROOM`.
+        case seatTaken
         case network(String)
         case matchTimeout
         case badRoomState
@@ -37,7 +41,10 @@ final class RoomCoordinator {
             case .roomNotFound: "That room doesn't exist (or was closed)."
             case .roomFull: "That room is full or doesn't exist."
             case .hostLeft: "The host ended the room."
-            case .rejoinFailed: "Couldn't rejoin the room."
+            case .rejoinFailed(let reason):
+                reason == "not_your_seat" ? "Couldn't rejoin: that seat belongs to another player." : "Couldn't rejoin the room."
+            case .alreadySeated: "You already have a seat in this room on another device. Leave it there first."
+            case .seatTaken: "That seat was just taken. Try joining again."
             case .network(let text): text
             case .matchTimeout: "Quick match failed. Please retry."
             case .badRoomState: "The room sent a state this app can't play."
@@ -99,8 +106,15 @@ final class RoomCoordinator {
     private var me: Identity?
     private var role: OnlineRole = .guest
     private var mySeat: Int?
+    private struct PendingJoin {
+        var code: Int
+        var record: OnlineSessionRecord?
+        /// `seat_taken` is retried once with a fresh slot request.
+        var seatRetried = false
+    }
+
     private var pendingHost: (boardSize: Int, timer: Int, listPublic: Bool, gameID: Int?)?
-    private var pendingJoin: (code: Int, record: OnlineSessionRecord?)?
+    private var pendingJoin: PendingJoin?
     private var advertiseTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
@@ -145,15 +159,18 @@ final class RoomCoordinator {
             let transport = try await connectedTransport()
             let record = OnlineSessionRecord.load()
             state = .joining(code: code)
-            if let record, record.roomCode == code, record.backendID == transport.backendID, record.isWithinGrace {
+            // Seats belong to sessions: a record saved by a different session (the guest was
+            // re-minted since) can't be rejoined, so ask for a fresh seat instead.
+            if let record, record.roomCode == code, record.backendID == transport.backendID, record.isWithinGrace,
+               record.playerID == nil || record.playerID == me.playerID {
                 role = record.role
                 mySeat = record.seat
-                pendingJoin = (code, record)
+                pendingJoin = PendingJoin(code: code, record: record)
                 try await transport.connection.send(.rejoinRoom(roomCode: code, playerID: record.seat ?? 0, role: record.role))
             } else {
                 role = .guest
                 mySeat = nil
-                pendingJoin = (code, nil)
+                pendingJoin = PendingJoin(code: code)
                 try await transport.connection.send(.requestPlayerSlot(roomCode: code))
             }
         } catch {
@@ -172,7 +189,7 @@ final class RoomCoordinator {
             let me = try await resolvedIdentity()
             self.me = me
             let transport = ensureTransport()
-            let result = try await transport.matcher.quickMatch(QuickMatchRequest(requesterId: me.playerID, boardSize: boardSize, timer: timer))
+            let result = try await transport.matcher.quickMatch(QuickMatchRequest(boardSize: boardSize, timer: timer))
             await handleMatch(result, boardSize: boardSize, timer: timer)
         } catch {
             fail(.network(Self.describe(error)))
@@ -182,8 +199,8 @@ final class RoomCoordinator {
     func cancelQuickMatch() async {
         pollTask?.cancel()
         pollTask = nil
-        if let ticketID, let transport, let me {
-            try? await transport.matcher.cancelQuickMatch(ticketID: ticketID, requesterID: me.playerID)
+        if let ticketID, let transport {
+            try? await transport.matcher.cancelQuickMatch(ticketID: ticketID)
         }
         ticketID = nil
         state = .idle
@@ -357,15 +374,30 @@ final class RoomCoordinator {
         case .hostDisconnected:
             fail(.hostLeft)
 
-        case .joinError(let message):
-            fail(message.lowercased().contains("full") && !message.lowercased().contains("not found") ? .roomFull : .roomNotFound)
+        case .joinError(let reason, let message):
+            switch reason {
+            case "already_seated":
+                fail(.alreadySeated)
+            case "seat_taken":
+                // Somebody filled the slot first: ask once for another one.
+                if var pending = pendingJoin, !pending.seatRetried, let transport {
+                    pending.seatRetried = true
+                    pendingJoin = pending
+                    Task { try? await transport.connection.send(.requestPlayerSlot(roomCode: pending.code)) }
+                } else {
+                    fail(.seatTaken)
+                }
+            default:
+                fail(message.lowercased().contains("full") && !message.lowercased().contains("not found") ? .roomFull : .roomNotFound)
+            }
 
         case .rejoinFailed(let reason):
             OnlineSessionRecord.clear()
             refreshRejoinable()
             if let pending = pendingJoin, pending.record != nil, let transport {
-                // Like the web: fall back to asking for a fresh seat.
-                pendingJoin = (pending.code, nil)
+                // Like the web: fall back to asking for a fresh seat (also when the old seat now
+                // belongs to another session, `not_your_seat`).
+                pendingJoin = PendingJoin(code: pending.code)
                 role = .guest
                 mySeat = nil
                 Task { try? await transport.connection.send(.requestPlayerSlot(roomCode: pending.code)) }
@@ -443,7 +475,7 @@ final class RoomCoordinator {
         case .queued, .waitForHost:
             ticketID = result.ticketId ?? ticketID
             state = .matching(ticketID: ticketID, message: result.action == .waitForHost ? "Matched — waiting for the host to open the room…" : "In queue — waiting for a compatible player…")
-            guard let ticketID, let transport, let me else { return fail(.network("The matcher returned no ticket.")) }
+            guard let ticketID, let transport else { return fail(.network("The matcher returned no ticket.")) }
             pollTask?.cancel()
             let deadline = ContinuousClock.now + .seconds(180)
             pollTask = Task {
@@ -451,7 +483,7 @@ final class RoomCoordinator {
                     try? await Task.sleep(for: .seconds(2))
                     guard !Task.isCancelled else { return }
                     do {
-                        let status = try await transport.matcher.quickMatchStatus(ticketID: ticketID, requesterID: me.playerID)
+                        let status = try await transport.matcher.quickMatchStatus(ticketID: ticketID)
                         if status.status == .matched {
                             await handleMatch(status, boardSize: boardSize, timer: timer)
                             return
@@ -473,7 +505,7 @@ final class RoomCoordinator {
         guard let transport, let me else { return }
         advertiseTask = Task {
             while !Task.isCancelled {
-                _ = try? await transport.matcher.advertise(AdvertiseRoomRequest(roomCode: code, listed: true, hostLabel: me.displayName, hostKey: me.playerID))
+                _ = try? await transport.matcher.advertise(AdvertiseRoomRequest(roomCode: code, listed: true, hostLabel: me.displayName))
                 try? await Task.sleep(for: .seconds(15))
             }
         }
@@ -523,14 +555,22 @@ final class RoomCoordinator {
     private func saveRecord(_ info: RoomInfo) {
         guard let transport else { return }
         OnlineSessionRecord(roomCode: info.code, seat: info.mySeat, role: info.role, gameID: info.gameID, boardSize: info.boardSize,
-                            timerSeconds: info.timer, started: false, savedAt: Date(), backendID: transport.backendID).save()
+                            timerSeconds: info.timer, started: false, savedAt: Date(), backendID: transport.backendID,
+                            playerID: me?.playerID).save()
         refreshRejoinable()
     }
 
     static func describe(_ error: Error) -> String {
         if let api = error as? APIError {
             if api == .timeout { return "The server didn't answer in time." }
+            if api.detail == "not_room_host" { return "Only the room's host can change its listing." }
+            if api.detail == APIError.alreadySignedInCode { return "Your sign-in couldn't be confirmed. Check your connection and try again." }
             if let detail = api.detail { return detail }
+        }
+        if case let SocketError.handshakeRefused(_, reason) = error {
+            return reason == "origin_not_allowed"
+                ? "The game server refused this app's connection."
+                : "Couldn't sign in to the game server. Try again."
         }
         if error is URLError || error is SocketError {
             #if DEBUG
