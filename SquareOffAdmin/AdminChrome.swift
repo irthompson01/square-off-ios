@@ -1,3 +1,4 @@
+import SquareOffCore
 import SquareOffNet
 import SwiftUI
 
@@ -11,6 +12,32 @@ enum AdminChips {
 
     static func active(_ isActive: Bool) -> Chip {
         Chip(text: isActive ? "Active" : "Inactive", style: isActive ? .success : .danger, dot: true)
+    }
+
+    /// "Verified" / "Unverified" from `email_verified_at` (web `chips.tsx`).
+    static func verified(_ at: String?) -> Chip {
+        at == nil ? Chip(text: "Unverified", style: .default) : Chip(text: "Verified", style: .success)
+    }
+
+    static func suspect() -> Chip {
+        Chip(text: "Suspected bot", style: .warning)
+    }
+
+    enum HealthState: Equatable { case ok, down, off, unknown }
+
+    static func health(_ state: HealthState) -> Chip {
+        switch state {
+        case .ok: Chip(text: "OK", style: .success, dot: true)
+        case .down: Chip(text: "Down", style: .danger, dot: true)
+        case .off: Chip(text: "Not configured", style: .default)
+        case .unknown: Chip(text: "Unknown", style: .default)
+        }
+    }
+
+    /// The setup level a CPU type maps to; the retired CNN (and any unknown type) has none.
+    static func level(cpuType: String) -> Chip {
+        if let level = CPULevel(rawValue: cpuType), !level.isRetired { return Chip(text: "Level \(level.number)") }
+        return Chip(text: "Not in setup", style: .warning)
     }
 
     static func phase(_ room: AdminLiveRoom) -> Chip {
@@ -198,5 +225,40 @@ struct DetailRow: View {
                 .multilineTextAlignment(.trailing).textSelection(.enabled)
         }
         .padding(.vertical, 8)
+    }
+}
+
+/// Left-aligned flow: children keep their size and wrap to the next line (status chips under a
+/// long username).
+struct WrapLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        return place(in: width, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for (subview, point) in zip(subviews, place(in: bounds.width, subviews: subviews).points) {
+            subview.place(at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y), proposal: .unspecified)
+        }
+    }
+
+    private func place(in width: CGFloat, subviews: Subviews) -> (points: [CGPoint], size: CGSize) {
+        var points: [CGPoint] = []
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widest: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            points.append(CGPoint(x: x, y: y))
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            widest = max(widest, x - spacing)
+        }
+        return (points, CGSize(width: widest, height: y + rowHeight))
     }
 }

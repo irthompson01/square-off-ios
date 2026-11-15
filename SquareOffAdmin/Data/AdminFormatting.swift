@@ -92,6 +92,23 @@ nonisolated enum AdminFormat {
     }
 }
 
+/// Readable one-liners for structured audit details.
+nonisolated enum AuditDetail {
+    /// "Batch 3f9a1c2b4d5e · suspected-bot filter · signup bots" for a `bulk_deactivate` row.
+    static func bulkSummary(_ detail: JSONValue?) -> String? {
+        guard let detail else { return nil }
+        var parts: [String] = []
+        if let batch = detail["batch_id"]?.stringValue { parts.append("Batch \(batch)") }
+        switch detail["source"]?.stringValue {
+        case "suspect": parts.append("suspected-bot filter")
+        case "ids": parts.append("selected accounts")
+        default: break
+        }
+        if let reason = detail["reason"]?.stringValue, !reason.isEmpty { parts.append(reason) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
 /// The overview's 30-day comparison (web `overview-metrics.ts`).
 nonisolated enum OverviewMetrics {
     static let windowDays = 30

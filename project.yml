@@ -100,8 +100,9 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
 
   # The admin console: the same app code plus SquareOffAdmin/, its own bundle id and icon,
-  # never submitted to the store. No Sign in with Apple (the server's audience is the store
-  # id) and no URL scheme (it must not compete with Square Off for squareoff://).
+  # never submitted to the store. Sign in with Apple works (the server accepts
+  # `<bundle id>.admin` as a native audience); no URL scheme (it must not compete with
+  # Square Off for squareoff://).
   SquareOffAdmin:
     type: application
     platform: iOS
@@ -120,6 +121,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.novastrada.squareoff.admin
+        CODE_SIGN_ENTITLEMENTS: SquareOffAdmin/SquareOffAdmin.entitlements
         PRODUCT_NAME: SquareOffAdmin
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ADMIN_CONSOLE"
         TARGETED_DEVICE_FAMILY: "1,2"

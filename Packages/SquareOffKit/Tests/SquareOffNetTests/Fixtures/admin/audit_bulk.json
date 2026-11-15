@@ -1,0 +1,21 @@
+{
+  "total": 2,
+  "items": [
+    {
+      "id": 41,
+      "created_at": "2026-11-05T21:00:00.5+00:00",
+      "action": "bulk_deactivate",
+      "admin": {"id": "00000000-0000-4000-8000-000000000001", "username": "ian", "email": "ian@example.com"},
+      "target": {"id": "00000000-0000-4000-8000-000000000022", "username": "qXbLmRtWcPaZ", "email": "qxblmrtwcpaz@example.net"},
+      "detail": {"batch_id": "3f9a1c2b4d5e", "source": "suspect", "reason": null, "session_version": 1}
+    },
+    {
+      "id": 40,
+      "created_at": "2026-11-05T20:59:59+00:00",
+      "action": "bulk_deactivate",
+      "admin": {"id": "00000000-0000-4000-8000-000000000001", "username": "ian", "email": "ian@example.com"},
+      "target": {"id": "00000000-0000-4000-8000-000000000033", "username": "tRwQpLsKdMfA", "email": "trwqplskdmfa@example.net"},
+      "detail": {"batch_id": "3f9a1c2b4d5e", "source": "ids", "reason": "signup bots", "session_version": 2}
+    }
+  ]
+}
