@@ -21,6 +21,14 @@ struct RESTFixtureTests {
         #expect(response.accessToken != nil)
     }
 
+    @Test func guestClaim() throws {
+        let claim = try decode(ClaimGuestResponse.self, "claim_guest_response")
+        #expect(claim.claimedGames == 2 && claim.claimedSeats == 3 && claim.alreadyClaimed == false)
+        let error = APIError.http(status: 409, body: String(decoding: try fixture("error_guest_already_claimed"), as: UTF8.self))
+        #expect(error.detail == "guest_already_claimed")
+        #expect(try decode(LoginResponse.self, "login_response").claimedGames == nil, "older servers send no count")
+    }
+
     @Test func accountDeletionPasswordResetAndFeedback() throws {
         #expect(try decode(MessageResponse.self, "account_delete_response").message == "Account deleted")
         #expect(try decode(MessageResponse.self, "password_forgot_response").message.hasPrefix("If an account exists"))

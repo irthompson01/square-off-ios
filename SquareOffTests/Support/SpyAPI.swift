@@ -12,6 +12,9 @@ actor SpyAPI: SquareOffAPI {
     private(set) var endRequests: [GameEndRequest] = []
     private(set) var feedbackRequests: [FeedbackRequest] = []
     private(set) var deleteRequests: [AccountDeleteRequest] = []
+    private(set) var claimRequests: [ClaimGuestRequest] = []
+    /// `claimed_games` the fake `/login` answers with (the server claims inline when it sees a guest Bearer).
+    var loginClaimedGames: Int?
     private(set) var resetRequests: [(token: String, password: String)] = []
     private(set) var guestsMinted = 0
     var failing: Set<String> = []
@@ -32,6 +35,7 @@ actor SpyAPI: SquareOffAPI {
     func setAuthenticated(_ value: Bool) { authenticated = value }
     func setCPUMoveReply(_ reply: CPUMoveResponse) { cpuMoveReply = reply }
     func setOAuthURL(_ url: URL) { oauthURL = url }
+    func setLoginClaimedGames(_ count: Int?) { loginClaimedGames = count }
 
     private func hit(_ name: String) async throws {
         calls.append(name)
@@ -48,7 +52,7 @@ actor SpyAPI: SquareOffAPI {
     func login(_ request: LoginRequest) async throws -> LoginResponse {
         try await hit("login")
         guard request.password == "secret" else { throw APIError.http(status: 401, body: #"{"detail":"Invalid credentials"}"#) }
-        return LoginResponse(message: "ok", accessToken: "spy-token")
+        return LoginResponse(message: "ok", accessToken: "spy-token", claimedGames: loginClaimedGames)
     }
     func register(_ request: RegisterRequest) async throws -> RegisterResponse { try await hit("register"); return RegisterResponse(message: "ok", playerId: "user-1", verificationRequired: true) }
     func verifyEmail(token: String) async throws -> VerifyEmailResponse { try await hit("verifyEmail"); return VerifyEmailResponse(message: "Email verified", alreadyVerified: false) }
@@ -65,6 +69,7 @@ actor SpyAPI: SquareOffAPI {
     func oauthLoginURL(_ provider: OAuthProvider, client: OAuthClient) async throws -> OAuthLoginResponse { try await hit("oauthLoginURL"); return OAuthLoginResponse(url: oauthURL, state: "s") }
     func appleNativeLogin(_ request: AppleNativeLoginRequest) async throws -> LoginResponse { try await hit("appleNativeLogin"); return LoginResponse(message: "ok", accessToken: "apple-token") }
     func deleteAccount(_ request: AccountDeleteRequest) async throws -> MessageResponse { try await hit("deleteAccount"); deleteRequests.append(request); return MessageResponse(message: "Account deleted") }
+    func claimGuest(_ request: ClaimGuestRequest) async throws -> ClaimGuestResponse { try await hit("claimGuest"); claimRequests.append(request); return ClaimGuestResponse(claimedGames: 2, claimedSeats: 2, alreadyClaimed: false) }
     func requestPasswordReset(email: String) async throws -> MessageResponse { try await hit("requestPasswordReset"); return MessageResponse(message: "sent") }
     func resetPassword(token: String, newPassword: String) async throws -> MessageResponse { try await hit("resetPassword"); resetRequests.append((token, newPassword)); return MessageResponse(message: "Password updated") }
     func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse { try await hit("sendFeedback"); feedbackRequests.append(request); return FeedbackResponse(message: "ok", id: feedbackRequests.count, emailed: true) }

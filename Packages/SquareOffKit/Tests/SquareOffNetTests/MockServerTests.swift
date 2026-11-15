@@ -128,6 +128,33 @@ struct MockServerTests {
         #expect(replay.participants.map(\.participantType) == ["user", "cpu"])
     }
 
+    @Test func claimingAGuestMovesItsGamesToTheAccount() async throws {
+        let api = api()
+        let guest = try await api.createGuest(CreateGuestRequest(name: "Visitor", color: "#0583D2"))
+        let guestToken = try #require(guest.accessToken)
+        let cpu = try await api.cpuPlayer(.random)
+        let seats = [
+            StartPlayer(id: 1, name: "Visitor", color: "#0583D2", playerId: guest.playerId, isCPU: false, cpuType: nil),
+            StartPlayer(id: 2, name: cpu.displayName, color: "#FF3131", playerId: String(cpu.id), isCPU: true, cpuType: cpu.cpuType),
+        ]
+        let start = try await api.startGame(StartGameRequest(boardSize: 6, timer: 0, seats: seats, type: .local))
+        try await api.endGame(GameEndRequest(gameId: start.gameId, winnerId: guest.playerId, scores: [
+            ScoreEntry(playerId: guest.playerId, score: 12), ScoreEntry(playerId: String(cpu.id), score: 4),
+        ]))
+
+        _ = try await api.login(LoginRequest(emailOrUsername: MockSquareOffAPI.demoUsername, password: MockSquareOffAPI.demoPassword))
+        let before = try await api.recentGames(limit: 10, offset: 0).total
+        let claim = try await api.claimGuest(ClaimGuestRequest(guestToken: guestToken))
+        #expect(claim.claimedGames == 1 && claim.claimedSeats == 1 && claim.alreadyClaimed == false)
+        let after = try await api.recentGames(limit: 10, offset: 0)
+        #expect(after.total == before + 1)
+        #expect(after.games.first?.result == "W")
+        #expect(try await api.claimGuest(ClaimGuestRequest(guestToken: guestToken)).alreadyClaimed == true)
+        await #expect(throws: APIError.self) {   // a user token is not a guest token
+            _ = try await api.claimGuest(ClaimGuestRequest(guestToken: MockSquareOffAPI.token(for: "demo")))
+        }
+    }
+
     @Test func cpuMoveHonoursTheRequestedHeuristic() async throws {
         // Blue threatens a 2×2 at (1,1); max-min blocks, random usually doesn't.
         var game = Game(boardSize: 8, players: [

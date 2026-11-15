@@ -77,6 +77,10 @@ public struct LiveSquareOffAPI: SquareOffAPI {
         try await client.send("POST", "account/delete", query: [URLQueryItem(name: "client", value: OAuthClient.ios.rawValue)], body: request)
     }
 
+    public func claimGuest(_ request: ClaimGuestRequest) async throws -> ClaimGuestResponse {
+        try await client.send("POST", "account/claim-guest", body: request, retry: false)
+    }
+
     public func requestPasswordReset(email: String) async throws -> MessageResponse {
         try await client.send("POST", "password/forgot", body: PasswordForgotRequest(email: email))
     }

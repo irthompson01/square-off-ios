@@ -253,7 +253,7 @@ struct ProfileView: View {
                     Text("Playing as a guest on this device").font(.footnote).foregroundStyle(Theme.foregroundSecondary)
                 }
             }
-            Text("Log in to keep your stats and replays.").font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
+            Text("Log in or create an account and the games you've played on this device come with you.").font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
             HStack(spacing: 10) {
                 Button { signIn = .signIn } label: { Label("Log in", systemImage: "arrow.right.to.line") }
                     .buttonStyle(PrimaryButtonStyle(fullWidth: false))

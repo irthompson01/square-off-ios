@@ -49,6 +49,8 @@ The user directory hides suspected bots unless its Bots filter says otherwise. T
 
 `production` is square-off.com and the only backend a Release build knows. Debug builds default to the in-app **mock** on the simulator and to **production** on a device, and can switch to **Local docker** / **Production** / **Mock** under Profile › Developer (the admin console: the picker under its sign-in card) or with `-backend`. Shared invite links point at square-off.com except on local docker. When the server ends a session (`session_revoked`, `account_disabled`, an expired token) the app drops the token, falls back to the device guest and shows a toast; the mock's Developer panel has "Simulate revoked session".
 
+Signing in brings the device's guest history along: `/login` and `/apple/native` claim the games when the request carries the guest Bearer (the 2026-11-15 server answers `claimed_games`), and after a browser-based provider sign-in the app calls `POST /account/claim-guest` with the stored guest token. On success the guest is forgotten (the server retired it); a server without the route (404) or any other failure leaves the guest in place and the sign-in succeeds. The mock implements the same rules.
+
 ## Local server
 
 ```bash

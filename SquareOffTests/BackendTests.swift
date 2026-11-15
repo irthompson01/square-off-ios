@@ -289,6 +289,63 @@ struct AccountStoreTests {
         #expect(!accounts.account.isSignedIn)
     }
 
+    @Test func signInClaimsTheDeviceGuestsGames() async throws {
+        let api = SpyAPI()
+        let backend = Backend.test(api: api, guestToken: "guest-token")
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(await api.calls == ["login", "profile", "claimGuest"])
+        #expect(await api.claimRequests.map(\.guestToken) == ["guest-token"])
+        #expect(accounts.lastClaimedGames == 2)
+        #expect(accounts.signInToastDescription == "2 games you played here as a guest are now in your account.")
+        #expect(backend.guestTokens.accessToken() == nil, "the server retired that guest")
+        #expect(backend.identity.guest == nil)
+    }
+
+    @Test func signInWithoutAGuestClaimsNothing() async throws {
+        let api = SpyAPI()
+        let accounts = AccountStore(backend: Backend.test(api: api))
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(await api.calls == ["login", "profile"])
+        #expect(accounts.lastClaimedGames == nil)
+        #expect(accounts.signInToastDescription == "Welcome back.")
+    }
+
+    @Test func aLoginThatClaimedInlineSkipsTheExplicitCall() async throws {
+        let api = SpyAPI()
+        await api.setLoginClaimedGames(1)
+        let backend = Backend.test(api: api, guestToken: "guest-token")
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(await api.calls == ["login", "profile"])
+        #expect(accounts.lastClaimedGames == 1)
+        #expect(accounts.signInToastDescription == "The game you played here as a guest is now in your account.")
+        #expect(backend.guestTokens.accessToken() == nil)
+    }
+
+    @Test func aFailedClaimKeepsTheGuestForLater() async throws {
+        let api = SpyAPI()
+        await api.setFailure("claimGuest", status: 404, detail: "Not Found")   // a server without the route
+        let backend = Backend.test(api: api, guestToken: "guest-token")
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(accounts.account.isSignedIn)
+        #expect(accounts.lastClaimedGames == nil)
+        #expect(backend.guestTokens.accessToken() == "guest-token")
+    }
+
+    @Test func providerCallbacksCarryTheClaimCount() async throws {
+        let api = SpyAPI()
+        await api.setOAuthURL(URL(string: "squareoff://auth?token=spy-token&claimed_games=3")!)
+        let backend = Backend.test(api: api, guestToken: "guest-token")
+        let accounts = AccountStore(backend: backend)
+        try await accounts.signInWithProvider(.google) { url, _ in url }
+        #expect(await api.calls == ["oauthLoginURL", "profile"])
+        #expect(accounts.lastClaimedGames == 3)
+        #expect(backend.guestTokens.accessToken() == nil)
+        #expect(OAuthCallback.claimedGames(from: URL(string: "squareoff://auth?token=t")!) == nil)
+    }
+
     @Test func disabledAccountsAreToldApart() async throws {
         let api = SpyAPI()
         await api.setFailure("login", status: 403, detail: "account_disabled")
@@ -506,12 +563,17 @@ struct GuestSessionTests {
         #expect(accounts.account.serverPlayerID == "guest-uuid")
         #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
 
+        // Signing in again claims that guest's games (the server retires the guest), so the
+        // next fall-back mints a fresh one instead of reusing a revoked token.
         try await accounts.signIn(emailOrUsername: "ian", password: "secret")
+        #expect(await api.calls.filter { $0 == "claimGuest" }.count == 1)
+        #expect(backend.guestTokens.accessToken() == nil)
         backend.sessions.post(.revoked)
         try await Task.sleep(for: .milliseconds(100))
         #expect(!accounts.account.isSignedIn)
-        #expect(accounts.account.serverPlayerID == "guest-uuid")   // the fresh guest token was reused
-        #expect(await api.calls.filter { $0 == "createGuest" }.count == 1)
+        #expect(accounts.account.serverPlayerID == "guest-uuid")
+        #expect(await api.calls.filter { $0 == "createGuest" }.count == 2)
+        #expect(backend.guestTokens.accessToken() == "spy-guest-token-2")
     }
 
     @Test func legacySeatIDsAreDroppedAndTheGuestIdentityKept() async throws {

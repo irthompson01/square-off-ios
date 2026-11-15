@@ -337,7 +337,7 @@ struct SignInView: View {
         case .signIn:
             run {
                 try await app.accounts.signIn(emailOrUsername: identifier.trimmingCharacters(in: .whitespaces), password: password)
-                app.toasts.success("Logged in", description: "Welcome back.")
+                app.toasts.success("Logged in", description: app.accounts.signInToastDescription)
             }
         case .register:
             let address = email.trimmingCharacters(in: .whitespaces)
@@ -386,7 +386,7 @@ struct SignInView: View {
             } action: {
                 run {
                     try await app.accounts.signInWithApple(.mock)
-                    app.toasts.success("Logged in", description: "Welcome back.")
+                    app.toasts.success("Logged in", description: app.accounts.signInToastDescription)
                 }
             }
             #endif
@@ -408,7 +408,7 @@ struct SignInView: View {
             run {
                 try await app.accounts.signInWithApple(AppleNativeCredential(
                     identityToken: token, authorizationCode: code, fullName: name.isEmpty ? nil : name, rawNonce: nonce))
-                app.toasts.success("Logged in", description: "Welcome back.")
+                app.toasts.success("Logged in", description: app.accounts.signInToastDescription)
             }
         case .failure(let failure):
             if (failure as? ASAuthorizationError)?.code == .canceled { return }
@@ -424,7 +424,7 @@ struct SignInView: View {
                 try await app.accounts.signInWithProvider(provider) { url, scheme in
                     try await webAuth.authenticate(using: url, callbackURLScheme: scheme, preferredBrowserSession: .shared)
                 }
-                app.toasts.success("Logged in", description: "Welcome back.")
+                app.toasts.success("Logged in", description: app.accounts.signInToastDescription)
             } catch let failure as ASWebAuthenticationSessionError where failure.code == .canceledLogin {
                 throw AuthError.cancelled
             }

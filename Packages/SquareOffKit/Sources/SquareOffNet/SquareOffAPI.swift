@@ -54,6 +54,8 @@ public protocol SquareOffAPI: Sendable {
     func appleNativeLogin(_ request: AppleNativeLoginRequest) async throws -> LoginResponse
     /// `POST /account/delete`: tombstones the signed-in account and revokes every session.
     func deleteAccount(_ request: AccountDeleteRequest) async throws -> MessageResponse
+    /// Moves the games a guest session played onto the signed-in account (2026-11-15 server).
+    func claimGuest(_ request: ClaimGuestRequest) async throws -> ClaimGuestResponse
     /// `POST /password/forgot`: always succeeds, whether or not the address has an account.
     func requestPasswordReset(email: String) async throws -> MessageResponse
     /// `POST /password/reset`: 400 `reset_token_invalid` / `reset_token_expired`, 422 when short.
