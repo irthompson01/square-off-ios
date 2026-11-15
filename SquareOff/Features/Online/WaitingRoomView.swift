@@ -150,7 +150,9 @@ struct WaitingRoomView: View {
 
     private func connectionChip(_ info: RoomCoordinator.RoomInfo?) -> some View {
         Group {
-            if info == nil {
+            if let attempt = app.online.reconnectAttempt {
+                Chip(text: attempt > 1 ? "Reconnecting… (\(attempt))" : "Reconnecting…", style: .warning, dot: true)
+            } else if info == nil {
                 Chip(text: "Connecting…", dot: true)
             } else if info?.hostAway == true {
                 Chip(text: "Host away", style: .warning, dot: true)
@@ -161,6 +163,7 @@ struct WaitingRoomView: View {
     }
 
     private func banner(_ info: RoomCoordinator.RoomInfo?) -> StatusBanner? {
+        if app.online.reconnectAttempt != nil { return .connecting }
         if info?.hostAway == true { return .hostAway }
         if info == nil, case .joining = app.online.state { return .connecting }
         return nil
@@ -216,7 +219,7 @@ struct WaitingRoomView: View {
                     PendingLabel(title: "Start game", pendingTitle: "Starting…", symbol: "play.fill", isPending: starting)
                 }
                 .buttonStyle(PrimaryButtonStyle(large: true))
-                .disabled(info.seats.count < 2 || starting)
+                .disabled(info.seats.count < 2 || starting || app.online.reconnectAttempt != nil)
                 .opacity(info.seats.count < 2 ? 0.5 : 1)
                 if info.seats.count < 2 {
                     Text("Needs at least 2 players").font(.caption).foregroundStyle(Theme.muted)
@@ -234,7 +237,8 @@ struct WaitingRoomView: View {
             try? await Task.sleep(for: .seconds(10))
             guard !Task.isCancelled else { return }
             if case .starting = app.online.state {
-                app.toasts.show("Still waiting for the server…", description: "Try starting the game again.", style: .warning)
+                app.online.cancelStart()
+                app.toasts.show("Still waiting for the server…", description: "Try again.", style: .warning)
             }
         }
         Task { await app.online.startGame() }

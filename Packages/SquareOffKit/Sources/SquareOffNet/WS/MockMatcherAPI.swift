@@ -9,6 +9,17 @@ public actor MockMatcherAPI: MatcherAPI {
     private let ticketDelay: Duration
     private var tickets: [String: (boardSize: Int, timer: Int, created: ContinuousClock.Instant)] = [:]
     private var seeded = false
+    private var statusFailures = 0
+    private var requestDelay: Duration = .zero
+
+    /// Tickets the matcher still holds (a cancelled search must leave none).
+    public var openTicketCount: Int { tickets.count }
+
+    /// Test hook: the next `count` status polls fail like a proxy error.
+    public func failNextStatusChecks(_ count: Int) { statusFailures += count }
+
+    /// Test hook: `quickMatch` takes this long to answer (a slow link).
+    public func setRequestDelay(_ delay: Duration) { requestDelay = delay }
 
     public init(server: MockRoomServer, ticketDelay: Duration = .seconds(1.5)) {
         self.server = server
@@ -34,12 +45,17 @@ public actor MockMatcherAPI: MatcherAPI {
 
     public func quickMatch(_ request: QuickMatchRequest) async throws -> QuickMatchResult {
         await ensureSeeded()
+        if requestDelay > .zero { try await Task.sleep(for: requestDelay) }
         let ticket = UUID().uuidString.lowercased()
         tickets[ticket] = (request.boardSize, request.timer, .now)
         return QuickMatchResult(status: .pending, action: .queued, ticketId: ticket)
     }
 
     public func quickMatchStatus(ticketID: String) async throws -> QuickMatchResult {
+        if statusFailures > 0 {
+            statusFailures -= 1
+            throw APIError.http(status: 503, body: "<html>bad gateway</html>")
+        }
         guard let ticket = tickets[ticketID] else {
             throw APIError.http(status: 404, body: #"{"detail":"Ticket not found"}"#)
         }

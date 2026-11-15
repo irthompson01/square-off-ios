@@ -129,6 +129,27 @@ public enum APIError: Error, Equatable {
     }
 }
 
+extension APIError: LocalizedError {
+    /// `detail` when it reads as a sentence; a bare code such as `room_not_found` is left to
+    /// callers, who know what it means in context.
+    public var friendlyDetail: String? {
+        guard let detail, detail.contains(" ") else { return nil }
+        return detail
+    }
+
+    /// A sentence for the user; the backstop when a caller has no better mapping.
+    public var errorDescription: String? {
+        switch self {
+        case .timeout: return "The server didn't answer in time."
+        case .invalidResponse: return "The server sent an unexpected reply."
+        case let .http(status, _):
+            if status >= 500 { return "The game server is having trouble. Try again in a moment." }
+            if status == 429 { return "Too many attempts. Try again in a minute." }
+            return friendlyDetail ?? "Something went wrong (HTTP \(status))."
+        }
+    }
+}
+
 /// The `detail` codes a 401 carries when a session is over (`server/src/auth/session.py`).
 /// The web treats all of them as "signed out"; so does the app (`AccountStore.sessionEnded`).
 public enum SessionEndReason: String, Sendable, Equatable, CaseIterable {

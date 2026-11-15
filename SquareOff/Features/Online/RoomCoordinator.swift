@@ -94,6 +94,13 @@ final class RoomCoordinator {
     private(set) var state: State = .idle
     /// A room this device can still rejoin (same backend, within the grace window).
     private(set) var rejoinable: OnlineSessionRecord?
+    /// Set while the lobby socket is being re-established (1, 2, …); nil when connected.
+    private(set) var reconnectAttempt: Int?
+    /// Quick-match status polling cadence and the longest a ticket waits (tests shorten both).
+    var pollInterval: Duration = .seconds(2)
+    var matchWindow: Duration = .seconds(180)
+    /// How long `startGame` waits for `PUT /update/players` before sending `GAME_START` anyway.
+    var startTimeout: Duration = .seconds(5)
     /// The name and colour typed on the Play page; used for the seat instead of the account's defaults.
     var seatPreference: (name: String, colorHex: String)?
     /// The role of the room most recently joined or created, for error headings after `state` fails.
@@ -119,6 +126,9 @@ final class RoomCoordinator {
     private var pollTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
     private var ticketID: String?
+    /// Bumped by `leave()`, `cancelQuickMatch()` and `cancelStart()`: an entry point that
+    /// resumes from an `await` after the user backed out must not touch `state` again.
+    private var generation = 0
 
     init(makeTransport: @escaping @MainActor () -> OnlineTransport,
          identityProvider: @escaping @MainActor () async throws -> Identity) {
@@ -131,32 +141,40 @@ final class RoomCoordinator {
 
     func host(boardSize: Int, timer: Int, listPublic: Bool, preferredCode: Int? = nil) async {
         await leave()
+        let gen = generation
         state = .connecting
         do {
             let me = try await resolvedIdentity()
+            guard generation == gen else { return }
             self.me = me
             let transport = try await connectedTransport()
+            guard generation == gen else { return }
             role = .host
             mySeat = 1
             let seat = StartPlayer(id: 1, name: me.displayName, color: me.colorHex, playerId: me.playerID, isCPU: false, cpuType: nil)
             let start = try? await transport.api.startGame(StartGameRequest(boardSize: boardSize, timer: timer, seats: [seat], type: .online))
+            guard generation == gen else { return }
             pendingHost = (boardSize, timer, listPublic, start?.gameId)
             state = .creating
             try await transport.connection.send(.createRoom(
                 player: .seat(id: 1, name: me.displayName, colorHex: me.colorHex, playerID: me.playerID),
                 boardSize: boardSize, timer: timer, gameID: start?.gameId, roomCode: preferredCode))
         } catch {
+            guard generation == gen else { return }
             fail(.network(Self.describe(error)))
         }
     }
 
     func join(code: Int) async {
         await leave()
+        let gen = generation
         state = .connecting
         do {
             let me = try await resolvedIdentity()
+            guard generation == gen else { return }
             self.me = me
             let transport = try await connectedTransport()
+            guard generation == gen else { return }
             let record = OnlineSessionRecord.load()
             state = .joining(code: code)
             // Seats belong to sessions: a record saved by a different session (the guest was
@@ -174,6 +192,7 @@ final class RoomCoordinator {
                 try await transport.connection.send(.requestPlayerSlot(roomCode: code))
             }
         } catch {
+            guard generation == gen else { return }
             fail(.network(Self.describe(error)))
         }
     }
@@ -184,19 +203,28 @@ final class RoomCoordinator {
 
     func quickMatch(boardSize: Int, timer: Int) async {
         await leave()
+        let gen = generation
         state = .matching(ticketID: nil, message: "Finding a match…")
         do {
             let me = try await resolvedIdentity()
+            guard generation == gen else { return }
             self.me = me
             let transport = ensureTransport()
             let result = try await transport.matcher.quickMatch(QuickMatchRequest(boardSize: boardSize, timer: timer))
-            await handleMatch(result, boardSize: boardSize, timer: timer)
+            guard generation == gen else {
+                // Cancelled while the request was in flight: don't leave a ticket in the queue.
+                if let ticket = result.ticketId { await cancelTicket(ticket, transport) }
+                return
+            }
+            await handleMatch(result, boardSize: boardSize, timer: timer, gen: gen)
         } catch {
+            guard generation == gen else { return }
             fail(.network(Self.describe(error)))
         }
     }
 
     func cancelQuickMatch() async {
+        generation += 1
         pollTask?.cancel()
         pollTask = nil
         if let ticketID, let transport {
@@ -213,26 +241,42 @@ final class RoomCoordinator {
         if listed { startAdvertising(code: info.code) } else { await stopAdvertising(code: info.code) }
     }
 
-    /// Host: `PUT /update/players` with the final seats, then `GAME_START`.
+    /// Host: `PUT /update/players` with the final seats, then `GAME_START`. The seat update is
+    /// bounded by `startTimeout`: the room can start without it.
     func startGame() async {
         guard let info = state.roomInfo, info.role == .host, info.seats.count >= 2, let transport else { return }
         state = .starting(info)
+        let gen = generation
         await stopAdvertising(code: info.code)
+        guard generation == gen, case .starting = state else { return }
         if let gameID = info.gameID {
-            try? await transport.api.updatePlayers(gameID: gameID, players: info.seats)
+            let api = transport.api
+            let seats = info.seats
+            try? await withTimeout(startTimeout) { try await api.updatePlayers(gameID: gameID, players: seats) }
+            guard generation == gen, case .starting = state else { return }
         }
         do {
             try await transport.connection.send(.gameStart)
         } catch {
+            guard generation == gen else { return }
             fail(.network(Self.describe(error)))
         }
     }
 
+    /// The start watchdog gives the host the button back when `GAME_START` never echoes.
+    func cancelStart() {
+        guard case .starting(let info) = state else { return }
+        generation += 1
+        state = .waiting(info)
+    }
+
     func leave() async {
+        generation += 1
         pollTask?.cancel()
         pollTask = nil
         reconnectTask?.cancel()
         reconnectTask = nil
+        reconnectAttempt = nil
         if let info = state.roomInfo, info.role == .host { await stopAdvertising(code: info.code) }
         advertiseTask?.cancel()
         advertiseTask = nil
@@ -466,7 +510,7 @@ final class RoomCoordinator {
 
     // MARK: Matching
 
-    private func handleMatch(_ result: QuickMatchResult, boardSize: Int, timer: Int) async {
+    private func handleMatch(_ result: QuickMatchResult, boardSize: Int, timer: Int, gen: Int) async {
         switch result.action {
         case .joinRoom:
             ticketID = nil
@@ -482,25 +526,44 @@ final class RoomCoordinator {
             state = .matching(ticketID: ticketID, message: result.action == .waitForHost ? "Matched — waiting for the host to open the room…" : "In queue — waiting for a compatible player…")
             guard let ticketID, let transport else { return fail(.network("The matcher returned no ticket.")) }
             pollTask?.cancel()
-            let deadline = ContinuousClock.now + .seconds(180)
+            let deadline = ContinuousClock.now + matchWindow
             pollTask = Task {
+                // A blip (Wi-Fi to cellular) must not end the search: three polls in a row have
+                // to fail. Whatever ends it, the ticket is cancelled so nobody gets matched to a
+                // player who left.
+                var failures = 0
                 while !Task.isCancelled, ContinuousClock.now < deadline {
-                    try? await Task.sleep(for: .seconds(2))
-                    guard !Task.isCancelled else { return }
+                    try? await Task.sleep(for: pollInterval)
+                    guard !Task.isCancelled, generation == gen else { return }
                     do {
                         let status = try await transport.matcher.quickMatchStatus(ticketID: ticketID)
+                        guard !Task.isCancelled, generation == gen else {
+                            await cancelTicket(ticketID, transport)
+                            return
+                        }
+                        failures = 0
                         if status.status == .matched {
-                            await handleMatch(status, boardSize: boardSize, timer: timer)
+                            await handleMatch(status, boardSize: boardSize, timer: timer, gen: gen)
                             return
                         }
                     } catch {
+                        failures += 1
+                        guard failures >= 3 else { continue }
+                        await cancelTicket(ticketID, transport)
+                        guard generation == gen else { return }
                         fail(.network(Self.describe(error)))
                         return
                     }
                 }
-                if !Task.isCancelled { fail(.matchTimeout) }
+                guard !Task.isCancelled, generation == gen else { return }
+                await cancelTicket(ticketID, transport)
+                fail(.matchTimeout)
             }
         }
+    }
+
+    private func cancelTicket(_ ticketID: String, _ transport: OnlineTransport) async {
+        try? await transport.matcher.cancelQuickMatch(ticketID: ticketID)
     }
 
     // MARK: Advertising
@@ -540,22 +603,32 @@ final class RoomCoordinator {
 
     private func reconnectInLobby() {
         guard let transport, let info = state.roomInfo else { return }
+        reconnectTask?.cancel()
         let window: Duration = .seconds(info.role == .host ? 60 : 30)
         let seat = info.mySeat ?? 0
         let role = info.role
+        reconnectAttempt = 1
         reconnectTask = Task {
-            let ok = await transport.connection.reconnect(until: .now + window) {
+            let ok = await transport.connection.reconnect(until: .now + window, onAttempt: { [weak self] attempt in
+                self?.reconnectAttempt = attempt
+            }) {
                 try await transport.connection.send(.rejoinRoom(roomCode: info.code, playerID: seat, role: role))
             }
-            if !ok, !Task.isCancelled { fail(.network("Lost the connection to the room.")) }
+            guard !Task.isCancelled else { return }
+            reconnectAttempt = nil
+            if !ok { fail(.network("Lost the connection to the room.")) }
         }
     }
 
     private func fail(_ error: OnlineError) {
         advertiseTask?.cancel()
         pollTask?.cancel()
+        reconnectAttempt = nil
         state = .failed(error)
     }
+
+    /// The lobby socket (tests simulate drops on it).
+    var debugSocket: (any GameSocket)? { transport?.connection.socket }
 
     private func saveRecord(_ info: RoomInfo) {
         guard let transport else { return }
@@ -565,12 +638,25 @@ final class RoomCoordinator {
         refreshRejoinable()
     }
 
+    /// A sentence for a toast or alert. Known codes get their own copy; a 5xx or a proxy page
+    /// never reaches the user as "APIError error 0".
     static func describe(_ error: Error) -> String {
         if let api = error as? APIError {
             if api == .timeout { return "The server didn't answer in time." }
-            if api.detail == "not_room_host" { return "Only the room's host can change its listing." }
-            if api.detail == APIError.alreadySignedInCode { return "Your sign-in couldn't be confirmed. Check your connection and try again." }
-            if let detail = api.detail { return detail }
+            if let status = api.status, status >= 500 { return "The game server is having trouble. Try again in a moment." }
+            if api.status == 429 || api.detail == "rate_limited" { return "Too many attempts. Try again in a minute." }
+            switch api.detail {
+            case "not_room_host": return "Only the room's host can change its listing."
+            case APIError.alreadySignedInCode: return "Your sign-in couldn't be confirmed. Check your connection and try again."
+            case "room_not_found": return "That room doesn't exist (or was closed)."
+            case "room_full": return "That room is full."
+            case "ticket_not_found": return "Your quick-match ticket expired. Try again."
+            case APIError.sessionRequiredCode, APIError.accountRequiredCode: return "Couldn't sign in to the game server. Try again."
+            default: break
+            }
+            if let text = api.friendlyDetail { return text }
+            if api.status == 404 { return "That room or match couldn't be found." }
+            return "Something went wrong talking to the game server. Try again."
         }
         if case let SocketError.handshakeRefused(_, reason) = error {
             return reason == "origin_not_allowed"

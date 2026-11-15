@@ -9,13 +9,15 @@ import Testing
 struct OnlineGameSessionTests {
     final class Fixture {
         let server: MockRoomServer
+        let matcher: MockMatcherAPI
         let backend: Backend
         var sessions: [OnlineGameSession] = []
 
-        init(configuration: MockRoomServer.Configuration = .instant) {
+        init(configuration: MockRoomServer.Configuration = .instant, api: (any SquareOffAPI)? = nil, ticketDelay: Duration = .zero) {
             server = MockRoomServer(configuration: configuration)
-            backend = Backend(configuration: .mock, api: MockSquareOffAPI(latency: .zero),
-                              matcher: MockMatcherAPI(server: server, ticketDelay: .zero),
+            matcher = MockMatcherAPI(server: server, ticketDelay: ticketDelay)
+            backend = Backend(configuration: .mock, api: api ?? MockSquareOffAPI(latency: .zero),
+                              matcher: matcher,
                               tokenStore: InMemoryTokenStore(), roomServer: server,
                               defaults: UserDefaults(suiteName: "SquareOffTests.online.\(UUID().uuidString)")!)
         }
@@ -233,6 +235,162 @@ struct OnlineGameSessionTests {
         #expect(session.game.players.first?.isCPU == true)
         #expect(session.game.players.count == 2)
         #expect(!session.capabilities.canRestart)
+    }
+}
+
+/// The lobby under bad conditions: cancels that race in-flight requests, flaky status polls,
+/// a dropped lobby socket, and a seat update that never answers.
+@MainActor
+struct RoomCoordinatorResilienceTests {
+    private func waitUntil(_ timeout: Duration = .seconds(3), _ condition: @MainActor () -> Bool) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while !condition() {
+            guard ContinuousClock.now < deadline else { throw OnlineGameSessionTests.TimeoutError() }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    private func isMatching(_ state: RoomCoordinator.State, withTicket: Bool) -> Bool {
+        if case .matching(let ticket, _) = state { return withTicket == (ticket != nil) }
+        return false
+    }
+
+    @Test func cancelDuringQuickMatchStaysIdle() async throws {
+        let fixture = OnlineGameSessionTests.Fixture(ticketDelay: .milliseconds(300))
+        OnlineSessionRecord.clear()
+        let lobby = fixture.coordinator("Me")
+        lobby.pollInterval = .milliseconds(50)
+        await lobby.quickMatch(boardSize: 8, timer: 20)
+        try await waitUntil { isMatching(lobby.state, withTicket: true) }
+        await lobby.cancelQuickMatch()
+        #expect(lobby.state == .idle)
+        try await Task.sleep(for: .milliseconds(600))   // the ticket would have matched by now
+        #expect(lobby.state == .idle)
+        #expect(fixture.sessions.isEmpty)
+        #expect(await fixture.matcher.openTicketCount == 0)
+    }
+
+    @Test func cancelWhileQuickMatchRequestInFlight() async throws {
+        let fixture = OnlineGameSessionTests.Fixture()
+        OnlineSessionRecord.clear()
+        await fixture.matcher.setRequestDelay(.milliseconds(300))
+        let lobby = fixture.coordinator("Me")
+        let search = Task { await lobby.quickMatch(boardSize: 8, timer: 20) }
+        try await Task.sleep(for: .milliseconds(50))
+        await lobby.cancelQuickMatch()
+        await search.value
+        #expect(lobby.state == .idle)
+        #expect(await fixture.matcher.openTicketCount == 0)
+        #expect(fixture.sessions.isEmpty)
+    }
+
+    @Test func twoPollFailuresAreTolerated() async throws {
+        var configuration = MockRoomServer.Configuration.instant
+        configuration.botHostStartDelay = .milliseconds(50)
+        let fixture = OnlineGameSessionTests.Fixture(configuration: configuration)
+        OnlineSessionRecord.clear()
+        await fixture.matcher.failNextStatusChecks(2)
+        let lobby = fixture.coordinator("Me")
+        lobby.pollInterval = .milliseconds(50)
+        await lobby.quickMatch(boardSize: 8, timer: 20)
+        try await waitUntil(.seconds(6)) { fixture.sessions.count == 1 }
+    }
+
+    @Test func threeFailuresCancelTheTicket() async throws {
+        let fixture = OnlineGameSessionTests.Fixture(ticketDelay: .seconds(10))
+        OnlineSessionRecord.clear()
+        await fixture.matcher.failNextStatusChecks(3)
+        let lobby = fixture.coordinator("Me")
+        lobby.pollInterval = .milliseconds(50)
+        await lobby.quickMatch(boardSize: 8, timer: 20)
+        try await waitUntil { if case .failed = lobby.state { return true } else { return false } }
+        #expect(lobby.state == .failed(.network("The game server is having trouble. Try again in a moment.")))
+        #expect(await fixture.matcher.openTicketCount == 0)
+    }
+
+    @Test func matchTimeoutCancelsTheTicket() async throws {
+        let fixture = OnlineGameSessionTests.Fixture(ticketDelay: .seconds(10))
+        OnlineSessionRecord.clear()
+        let lobby = fixture.coordinator("Me")
+        lobby.pollInterval = .milliseconds(50)
+        lobby.matchWindow = .milliseconds(300)
+        await lobby.quickMatch(boardSize: 8, timer: 20)
+        try await waitUntil { lobby.state == .failed(.matchTimeout) }
+        #expect(await fixture.matcher.openTicketCount == 0)
+    }
+
+    @Test func lobbyDropShowsReconnectingThenClears() async throws {
+        var configuration = MockRoomServer.Configuration.instant
+        configuration.hostGrace = .seconds(10)   // `.instant` closes a hostless room at once
+        let fixture = OnlineGameSessionTests.Fixture(configuration: configuration)
+        OnlineSessionRecord.clear()
+        let hostLobby = fixture.coordinator("Host")
+        await hostLobby.host(boardSize: 4, timer: 0, listPublic: false)
+        try await waitUntil { hostLobby.state.roomInfo != nil }
+        let code = try #require(hostLobby.state.roomInfo?.code)
+        let socket = try #require(hostLobby.debugSocket as? MockGameSocket)
+        await socket.simulateDrop()
+        try await waitUntil { hostLobby.reconnectAttempt != nil }
+        try await waitUntil(.seconds(5)) { hostLobby.reconnectAttempt == nil && hostLobby.state.roomInfo != nil }
+
+        let guestLobby = fixture.coordinator("Guest")
+        await guestLobby.join(code: code)
+        try await waitUntil { hostLobby.state.roomInfo?.seats.count == 2 }
+    }
+
+    @Test func cancelStartRevertsAndSuppressesGameStart() async throws {
+        let api = SpyAPI()
+        await api.setDelay("updatePlayers", .seconds(30))
+        let fixture = OnlineGameSessionTests.Fixture(api: api)
+        OnlineSessionRecord.clear()
+        let hostLobby = fixture.coordinator("Host")
+        await hostLobby.host(boardSize: 4, timer: 0, listPublic: false)
+        try await waitUntil { hostLobby.state.roomInfo != nil }
+        let guestLobby = fixture.coordinator("Guest")
+        await guestLobby.join(code: try #require(hostLobby.state.roomInfo?.code))
+        try await waitUntil { hostLobby.state.roomInfo?.seats.count == 2 }
+
+        let starting = Task { await hostLobby.startGame() }
+        try await waitUntil { if case .starting = hostLobby.state { return true } else { return false } }
+        hostLobby.cancelStart()
+        #expect(hostLobby.state.roomInfo != nil)
+        if case .starting = hostLobby.state { Issue.record("still starting") }
+        try await Task.sleep(for: .milliseconds(400))
+        #expect(fixture.sessions.isEmpty)
+        starting.cancel()
+    }
+
+    @Test func slowUpdatePlayersTimesOutAndStillStarts() async throws {
+        let api = SpyAPI()
+        await api.setDelay("updatePlayers", .seconds(30))
+        let fixture = OnlineGameSessionTests.Fixture(api: api)
+        OnlineSessionRecord.clear()
+        let hostLobby = fixture.coordinator("Host")
+        await hostLobby.host(boardSize: 4, timer: 0, listPublic: false)
+        try await waitUntil { hostLobby.state.roomInfo != nil }
+        let guestLobby = fixture.coordinator("Guest")
+        await guestLobby.join(code: try #require(hostLobby.state.roomInfo?.code))
+        try await waitUntil { hostLobby.state.roomInfo?.seats.count == 2 }
+        hostLobby.startTimeout = .milliseconds(200)
+        await hostLobby.startGame()
+        try await waitUntil(.seconds(2)) { fixture.sessions.count == 2 }
+    }
+}
+
+/// What the lobby tells the user when the server misbehaves.
+@MainActor
+struct OnlineErrorCopyTests {
+    @Test func serverAndProxyErrorsReadAsSentences() {
+        #expect(RoomCoordinator.describe(APIError.http(status: 503, body: "<html>bad gateway</html>")) == "The game server is having trouble. Try again in a moment.")
+        #expect(RoomCoordinator.describe(APIError.http(status: 429, body: "")) == "Too many attempts. Try again in a minute.")
+        #expect(RoomCoordinator.describe(APIError.http(status: 400, body: #"{"detail":"rate_limited"}"#)) == "Too many attempts. Try again in a minute.")
+        #expect(RoomCoordinator.describe(APIError.http(status: 404, body: #"{"detail":"room_not_found"}"#)) == "That room doesn't exist (or was closed).")
+        #expect(RoomCoordinator.describe(APIError.http(status: 400, body: #"{"detail":"weird_code"}"#)) == "Something went wrong talking to the game server. Try again.")
+        #expect(RoomCoordinator.describe(APIError.http(status: 404, body: #"{"detail":"Room not found"}"#)) == "Room not found")
+        #expect(RoomCoordinator.describe(APIError.http(status: 404, body: "")) == "That room or match couldn't be found.")
+        #expect(RoomCoordinator.describe(APIError.timeout) == "The server didn't answer in time.")
+        #expect((APIError.http(status: 500, body: "") as Error).localizedDescription == "The game server is having trouble. Try again in a moment.")
+        #expect((APIError.http(status: 400, body: #"{"detail":"x_code"}"#) as Error).localizedDescription == "Something went wrong (HTTP 400).")
     }
 }
 
