@@ -141,6 +141,7 @@ struct ResendVerificationForm: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .foregroundStyle(Theme.foreground)
+                    .submitLabel(.send)
                     .onSubmit(submit)
             }
             Button(action: submit) {

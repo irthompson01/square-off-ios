@@ -46,6 +46,9 @@ struct SignInView: View {
     @State private var turnstileToken: String?
     @State private var turnstileFailed = false
     @State private var turnstileReload = 0
+    @FocusState private var focus: Field?
+
+    enum Field { case identifier, username, email, password }
 
     static let emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     static let registerURL = URL(string: "https://square-off.com/register")!
@@ -91,6 +94,13 @@ struct SignInView: View {
         .onChange(of: mode) { _, _ in
             error = nil
             fieldErrors = [:]
+            focus = nil
+        }
+        .task {
+            // Focus the first field once the sheet has settled.
+            try? await Task.sleep(for: .milliseconds(350))
+            guard sentTo == nil, focus == nil else { return }
+            focus = mode == .signIn ? .identifier : .username
         }
         .sheet(isPresented: $showsForgotPassword) {
             ForgotPasswordView(prefill: identifier.contains("@") ? identifier.trimmingCharacters(in: .whitespaces) : "")
@@ -134,6 +144,9 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .foregroundStyle(Theme.foreground)
+                        .focused($focus, equals: .identifier)
+                        .submitLabel(.next)
+                        .onSubmit { focus = .password }
                 }
             } else {
                 LabeledField(label: "Username", help: AccountRules.usernameHint, error: fieldErrors["username"]) {
@@ -142,6 +155,9 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .foregroundStyle(Theme.foreground)
+                        .focused($focus, equals: .username)
+                        .submitLabel(.next)
+                        .onSubmit { focus = .email }
                 }
                 LabeledField(label: "Email", help: "We'll send a verification link. Only used for account functions such as login and password reset.", error: fieldErrors["email"]) {
                     TextField("you@example.com", text: $email)
@@ -150,6 +166,9 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .foregroundStyle(Theme.foreground)
+                        .focused($focus, equals: .email)
+                        .submitLabel(.next)
+                        .onSubmit { focus = .password }
                 }
             }
             LabeledField(label: "Password", help: mode == .register ? "At least \(AccountRules.passwordLength.lowerBound) characters." : nil,
@@ -157,6 +176,12 @@ struct SignInView: View {
                 SecureField("••••••••", text: $password)
                     .textContentType(mode == .signIn ? .password : .newPassword)
                     .foregroundStyle(Theme.foreground)
+                    .focused($focus, equals: .password)
+                    .submitLabel(mode == .signIn ? .go : .join)
+                    .onSubmit {
+                        focus = nil
+                        if !(needsTurnstile && turnstileToken == nil) { submit() }
+                    }
             }
             if mode == .signIn {
                 Button("Forgot password?") { showsForgotPassword = true }

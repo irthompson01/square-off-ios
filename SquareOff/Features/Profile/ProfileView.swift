@@ -77,7 +77,7 @@ struct ProfileView: View {
             Button("Delete account", role: .destructive) { deleteAccount() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("You'll be signed out on this device and your account can't be recovered.")
+            Text("You'll be logged out on this device and your account can't be recovered.")
         }
         .onAppear {
             if let route = app.pendingSignIn {
@@ -253,7 +253,7 @@ struct ProfileView: View {
                     Text("Playing as a guest on this device").font(.footnote).foregroundStyle(Theme.foregroundSecondary)
                 }
             }
-            Text("Sign in to keep stats and replays.").font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
+            Text("Log in to keep your stats and replays.").font(.subheadline).foregroundStyle(Theme.foregroundSecondary)
             HStack(spacing: 10) {
                 Button { signIn = .signIn } label: { Label("Log in", systemImage: "arrow.right.to.line") }
                     .buttonStyle(PrimaryButtonStyle(fullWidth: false))

@@ -7,7 +7,10 @@ struct OnlinePanel: View {
     @Environment(AppModel.self) private var app
     @Bindable var setup: PlaySetupModel
     let onJoinRoom: () -> Void
+    /// Return/Done on the code field with a valid code: join right away.
+    var onSubmitJoin: (() -> Void)? = nil
     @State private var joinTouched = false
+    @FocusState private var codeFocused: Bool
 
     private var serverLabel: String {
         switch app.backend.configuration.kind {
@@ -93,11 +96,25 @@ struct OnlinePanel: View {
                          error: joinTouched && !setup.isJoinCodeValid ? "Enter the 1–6 digit code from your host." : nil) {
                 TextField("e.g. 4821", text: $setup.joinCode)
                     .keyboardType(.numberPad)
+                    .focused($codeFocused)
                     .font(Theme.display(17, relativeTo: .headline))
                     .tracking(3)
                     .foregroundStyle(Theme.foreground)
-                    .onChange(of: setup.joinCode) { _, _ in setup.sanitizeJoinCode() }
-                    .onSubmit { joinTouched = true }
+                    // The number pad has no Return key, so "touched" means "has typed".
+                    .onChange(of: setup.joinCode) { _, code in
+                        setup.sanitizeJoinCode()
+                        if !code.isEmpty { joinTouched = true }
+                    }
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button(setup.isJoinCodeValid ? "Join" : "Done") {
+                                codeFocused = false
+                                if setup.isJoinCodeValid { onSubmitJoin?() }
+                            }
+                            .font(.body.weight(.semibold))
+                        }
+                    }
             }
             .onDisappear { joinTouched = false }
         }
@@ -162,9 +179,9 @@ struct OpenRoomsList: View {
                 AlertBox(.danger, title: "Couldn't load open rooms", message: "Check your connection and refresh.")
             } else if rooms.isEmpty {
                 EmptyState(symbol: "globe", title: "No open rooms",
-                           text: "Nobody is hosting a \(boardSize) × \(boardSize) game with \(PlaySetupModel.timerPhrase(timer)) right now. Create one or try Quick Match.") {
-                    Button("Create Room") { onSwitch(.create) }.buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
-                    Button("Quick Match") { onSwitch(.quick) }.buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
+                           text: "Nobody is hosting a \(boardSize) × \(boardSize) game with \(PlaySetupModel.timerPhrase(timer)) right now. Create one or try Quick match.") {
+                    Button("Create room") { onSwitch(.create) }.buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
+                    Button("Quick match") { onSwitch(.quick) }.buttonStyle(SecondaryButtonStyle(small: true, fullWidth: false))
                 }
             } else {
                 ForEach(rooms) { room in

@@ -32,6 +32,7 @@ struct ForgotPasswordView: View {
                 } else {
                     LabeledField(label: "Email", error: fieldError) {
                         TextField("you@example.com", text: $email)
+                            .submitLabel(.send)
                             .keyboardType(.emailAddress)
                             .textContentType(.emailAddress)
                             .textInputAutocapitalization(.never)
@@ -93,6 +94,7 @@ struct ResetPasswordView: View {
     @State private var fieldErrors: [String: String] = [:]
     @State private var error: AuthError?
     @State private var isBusy = false
+    @FocusState private var confirmFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -105,11 +107,15 @@ struct ResetPasswordView: View {
                     SecureField("••••••••", text: $password)
                         .textContentType(.newPassword)
                         .foregroundStyle(Theme.foreground)
+                        .submitLabel(.next)
+                        .onSubmit { confirmFocused = true }
                 }
                 LabeledField(label: "Confirm password", error: fieldErrors["confirm"]) {
                     SecureField("••••••••", text: $confirm)
                         .textContentType(.newPassword)
                         .foregroundStyle(Theme.foreground)
+                        .focused($confirmFocused)
+                        .submitLabel(.go)
                         .onSubmit(submit)
                 }
                 Button(action: submit) {

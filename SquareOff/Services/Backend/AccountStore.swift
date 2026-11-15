@@ -63,7 +63,7 @@ enum AuthError: LocalizedError, Equatable {
         case .emailDomainUnreachable: "We can't deliver email to that domain."
         case .verifyLinkExpired: "This verification link has expired. Request a new one below."
         case .verifyLinkInvalid: "This verification link is invalid or was already used. Request a new one below."
-        case .signInRequired: "Sign in to continue."
+        case .signInRequired: "Log in to continue."
         case .invalidInput(let reason): reason
         case .server(let status): "Sign-in failed (HTTP \(status))."
         }

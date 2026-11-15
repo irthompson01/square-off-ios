@@ -38,7 +38,7 @@ nonisolated struct GameConfig: Equatable, Codable, Sendable {
 
     var title: String {
         switch mode {
-        case .cpu(let level): "vs CPU · Level \(level.number) · \(boardSize)×\(boardSize)"
+        case .cpu(let level): "vs Computer · Level \(level.number) · \(boardSize)×\(boardSize)"
         case .passAndPlay: "Pass & Play · \(players.count) players · \(boardSize)×\(boardSize)"
         }
     }
@@ -112,7 +112,7 @@ final class AppModel {
             case .disabled:
                 toasts.danger("Account disabled", description: AuthError.accountDisabled.errorDescription)
             default:
-                toasts.show("You've been signed out", description: "Your session ended. Log in again to continue.", style: .warning)
+                toasts.show("You've been logged out", description: "Your session ended. Log in again to continue.", style: .warning)
             }
         }
         if let snapshot = localGames.load(),

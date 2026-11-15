@@ -69,15 +69,15 @@ struct DesignRefreshTests {
 
     @Test func setupPrimaryActionFollowsModeAndTab() {
         let setup = PlaySetupModel()
-        #expect(setup.primaryTitle == "Start Game")
+        #expect(setup.primaryTitle == "Start game")
         setup.mode = .local
-        #expect(setup.primaryTitle == "Start Local Game")
+        #expect(setup.primaryTitle == "Start local game")
         setup.mode = .online
-        #expect(setup.primaryTitle == "Create Room")
+        #expect(setup.primaryTitle == "Create room")
         setup.onlineTab = .quick
-        #expect(setup.primaryTitle == "Find a Match")
+        #expect(setup.primaryTitle == "Find a match")
         setup.onlineTab = .join
-        #expect(setup.primaryTitle == "Join Room")
+        #expect(setup.primaryTitle == "Join room")
         setup.onlineTab = .rooms
         #expect(setup.primaryTitle == nil)
         #expect(setup.timer == 0 && setup.boardSize == 8 && setup.level == .random && setup.listPublic == false)

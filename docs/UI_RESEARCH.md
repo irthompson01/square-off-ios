@@ -2,7 +2,7 @@
 
 Status: research / design only, with no app code yet. Wireframes: https://claude.ai/artifact/NG8NSVMUej4QsuT3wZSVY4
 
-**v1 scope:** iPhone + iPad (universal app). Vs Computer (all 6 levels, same as web), Pass & Play, and Online over the existing WebSocket server. **Parity rule:** v1 uses the server's REST and WebSocket contracts exactly as the web client does (see "REST contract parity").
+**v1 scope:** iPhone + iPad (universal app). vs Computer (all 6 levels, same as web), Pass & Play, and Online over the existing WebSocket server. **Parity rule:** v1 uses the server's REST and WebSocket contracts exactly as the web client does (see "REST contract parity").
 
 ## What we're porting
 
@@ -126,7 +126,7 @@ The protocol is a good fit for a thin native client.
   - Server → client: `ROOM_CREATED`, `PLAYER_JOINED`, `GAME_STATE`, `GAME_UPDATE`, `GAME_START`, `GAME_RESET`, `HOST_AWAY` / `GUEST_AWAY`, `HOST_DISCONNECTED`, `PLAYER_REJOINED`, `REJOIN_FAILED`, `SPECTATOR_*`, `PROMOTED_TO_PLAYER`, `JOIN_ERROR` / `GAME_ERROR`.
 - **Server-authoritative:** the client sends only row/col, the server runs `game.make_move`, and it broadcasts the full state plus `scoreIncrease`, `multiplierIncrease` and `newShapes`. iOS can render that and trigger the spin/outline animations from `newShapes`, with no rules engine needed for online play.
 - **Reconnect windows:** after a drop, a host has 60s and a guest 30s to send `REJOIN_ROOM`.
-- **Matchmaking:** Quick Match and the lobby go through REST (`routes/matcher.py`), then hand off to the socket.
+- **Matchmaking:** Quick match and the lobby go through REST (`routes/matcher.py`), then hand off to the socket.
 
 **iOS client design:**
 - **Transport:** `URLSessionWebSocketTask`, wrapped in an `actor GameSocket` that exposes an `AsyncStream<ServerMessage>`. No third-party library needed.
@@ -248,7 +248,7 @@ Keep the dependency list small. None of these are needed for the wireframe phase
 - **Board.** 95% tiles; empty tiles are white with the web's `#ABABAB` edge (the dark v1 tiles were hard to read on a phone); claiming flips around Y (320 ms ease-out cubic, 150 ms fade under Reduce Motion); corners spin 90° × (2 × new shapes) at 360 ms per quarter with a 45 ms stagger (`SpinSchedule`); a plain placement no longer spins. Shapes draw from the tapped corner both ways round (1.2 s), fill after 450 ms, and fade by age/density (`ShapeAge`), squares under diamonds under the shape being drawn.
 - **Game screen.** Header (Leave · room/board · timer ring · Menu) → scoreboard cards (avatar, score with multiplier pill, shape counts; the active card carries a "Your turn / Turn / Thinking" pill in the player's colour, 2×2 grid for 3–4 players) → board; the turn banner only appears when it has more to say than whose turn it is (status, away, spectating, game over with "Results"); wide layouts get the sidebar + timer column. Confirm copy and the Results sheet (crowns, per-player stats, chart, mode-specific footer) follow `GameOverModal`. The header arrow on a local game minimises it instead (iOS has no navbar "Home"), so the Continue card stays useful; Leave / Home / New game discard it like the web.
 - **Play page.** One page with the segmented mode control, shared settings, players editor (24-char names, duplicate-colour hint, profile prefill) and the Online tabs; the sticky primary follows mode and tab. Timer options and the Level 1 default follow the web. Local-game persistence lives in UserDefaults (the web uses sessionStorage), so Continue survives a relaunch.
-- **Home is iOS's own (user's call, 2026-10-21):** the original logo + "SQUARE OFF" title, Start Game and Online Match, the Continue card, and a 6×6 board two CPUs play underneath (`BoardShowcase`). The web's wordmark + neon tiles home is not used.
+- **Home is iOS's own (user's call, 2026-10-21):** the original logo + "SQUARE OFF" title, Start game and Online match, the Continue card, and a 6×6 board two CPUs play underneath (`BoardShowcase`). The web's wordmark + neon tiles home is not used.
 - **Kept iOS-only:** tab bar instead of the navbar, haptics, Developer section, debug launch args, full-screen game cover. **Not ported:** feedback / share-site / crypto modals, admin pages, hover states, the "Starting game…" overlay.
 - **Follow-ups:** server redirect of OAuth errors to `squareoff://auth?error=<code>` (the message table is in `OAuthCallback`); the web labels `avg_game_duration` as minutes.
 

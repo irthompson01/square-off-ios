@@ -12,7 +12,7 @@ final class PlaySetupModel {
 
         var title: String {
             switch self {
-            case .cpu: "Vs Computer"
+            case .cpu: "vs Computer"
             case .local: "Pass & Play"
             case .online: "Online"
             }
@@ -57,7 +57,7 @@ final class PlaySetupModel {
     /// True once the signed-in profile has been copied into seat 1 (done once per account).
     private(set) var prefilledFor: String?
 
-    /// Seats shown in the editor: one for Vs Computer and Online, `playerCount` for Pass & Play.
+    /// Seats shown in the editor: one for vs Computer and Online, `playerCount` for Pass & Play.
     var visibleSeatCount: Int { mode == .local ? playerCount : 1 }
     var visiblePlayers: [SetupPlayer] { Array(players.prefix(visibleSeatCount)) }
 
@@ -111,13 +111,13 @@ final class PlaySetupModel {
 
     var primaryTitle: String? {
         switch mode {
-        case .cpu: "Start Game"
-        case .local: "Start Local Game"
+        case .cpu: "Start game"
+        case .local: "Start local game"
         case .online:
             switch onlineTab {
-            case .create: "Create Room"
-            case .quick: "Find a Match"
-            case .join: "Join Room"
+            case .create: "Create room"
+            case .quick: "Find a match"
+            case .join: "Join room"
             case .rooms: nil
             }
         }

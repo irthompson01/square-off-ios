@@ -62,7 +62,7 @@ struct FeedbackView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
-    /// Where it was opened from ("8×8 vs CPU"), appended to the message for context.
+    /// Where it was opened from ("vs Computer · Level 3 · 8×8"), appended to the message for context.
     var context: String?
 
     @State private var draft = FeedbackDraft()
@@ -70,6 +70,9 @@ struct FeedbackView: View {
     @State private var failure: String?
     @State private var isBusy = false
     @State private var showsContact = false
+    @FocusState private var focus: Field?
+
+    enum Field { case subject, message, name, email }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -85,10 +88,14 @@ struct FeedbackView: View {
                     LabeledField(label: "Subject", help: "A short headline helps us route your note.", error: errors["subject"]) {
                         TextField("What's this about?", text: $draft.subject)
                             .foregroundStyle(Theme.foreground)
+                            .focused($focus, equals: .subject)
+                            .submitLabel(.next)
+                            .onSubmit { focus = .message }
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Message").font(.subheadline.weight(.medium)).foregroundStyle(Theme.foreground)
                         TextEditor(text: $draft.message)
+                            .focused($focus, equals: .message)
                             .scrollContentBackground(.hidden)
                             .foregroundStyle(Theme.foreground)
                             .frame(minHeight: 140)
@@ -105,7 +112,12 @@ struct FeedbackView: View {
                     DisclosureGroup(isExpanded: $showsContact) {
                         VStack(spacing: 12) {
                             LabeledField(label: "Name", error: errors["displayName"]) {
-                                TextField("Optional", text: $draft.displayName).foregroundStyle(Theme.foreground)
+                                TextField("Optional", text: $draft.displayName)
+                                    .textContentType(.name)
+                                    .foregroundStyle(Theme.foreground)
+                                    .focused($focus, equals: .name)
+                                    .submitLabel(.next)
+                                    .onSubmit { focus = .email }
                             }
                             LabeledField(label: "Email", help: "Include your name and/or email only if you want us to get back to you.", error: errors["contactEmail"]) {
                                 TextField("Optional", text: $draft.contactEmail)
@@ -114,6 +126,9 @@ struct FeedbackView: View {
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
                                     .foregroundStyle(Theme.foreground)
+                                    .focused($focus, equals: .email)
+                                    .submitLabel(.send)
+                                    .onSubmit(send)
                             }
                         }
                         .padding(.top, 8)

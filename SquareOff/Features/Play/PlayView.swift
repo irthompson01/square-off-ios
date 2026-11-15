@@ -31,7 +31,7 @@ struct PlayView: View {
                 settings
                 playersEditor
                 if setup.mode == .online {
-                    OnlinePanel(setup: setup, onJoinRoom: { openRoom() })
+                    OnlinePanel(setup: setup, onJoinRoom: { openRoom() }, onSubmitJoin: { Task { await primaryAction() } })
                 }
             }
             .padding(.horizontal, 16)

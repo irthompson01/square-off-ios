@@ -3,14 +3,14 @@ import SwiftUI
 
 /// Navigation targets pushed on the Play tab.
 enum PlayRoute: Hashable {
-    /// The Play page in Vs Computer mode.
+    /// The Play page in vs Computer mode.
     case play
     /// The Play page opened on Online › Quick match.
     case online
     case stats
 }
 
-/// Home: the logo and title, Start Game / Online Match, the Continue card when a local game is
+/// Home: the logo and title, Start game / Online match, the Continue card when a local game is
 /// saved, and a board that plays itself underneath.
 struct HomeView: View {
     @Environment(AppModel.self) private var app
@@ -21,11 +21,11 @@ struct HomeView: View {
             VStack(spacing: 14) {
                 hero.padding(.top, sizeClass == .regular ? 48 : 28).padding(.bottom, 14)
                 Button { app.pendingPlayRoute = .play } label: {
-                    Label("Start Game", systemImage: "play.fill")
+                    Label("Start game", systemImage: "play.fill")
                 }
                 .buttonStyle(PrimaryButtonStyle(large: true))
                 Button { app.pendingPlayRoute = .online } label: {
-                    Label("Online Match", systemImage: "globe")
+                    Label("Online match", systemImage: "globe")
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 if let session = app.activeGame, !session.isOver {
