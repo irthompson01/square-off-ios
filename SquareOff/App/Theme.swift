@@ -72,6 +72,13 @@ extension Color {
         )
     }
 
+    /// True for pale player colours (the yellow swatch), which need dark text on top.
+    static func isLight(hex: String) -> Bool {
+        let value = UInt64(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0
+        let r = Double((value >> 16) & 0xFF), g = Double((value >> 8) & 0xFF), b = Double(value & 0xFF)
+        return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.6
+    }
+
     /// `#RRGGBB` in sRGB, the format the web and the server store player colours in.
     var hexString: String {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0

@@ -283,7 +283,7 @@ final class GameSession: @MainActor GamePresenting {
             // The seat keeps the chosen level; the move provider decides where it runs.
             return [
                 PlayerState(id: 1, name: me.name, colorHex: me.colorHex),
-                PlayerState(id: 2, name: "CPU (\(level.rawValue))", colorHex: cpuColor, isCPU: true, cpuLevel: level),
+                PlayerState(id: 2, name: "\(level.shortName) CPU", colorHex: cpuColor, isCPU: true, cpuLevel: level),
             ]
         case .passAndPlay:
             return config.players.map { PlayerState(id: $0.id, name: $0.name, colorHex: $0.colorHex) }

@@ -90,6 +90,8 @@ struct TurnBannerState {
     let foreground: Color
     let dot: Color?
     let showsEye: Bool
+    /// Plain "X's turn" with nothing else to say: the phone's player cards carry it instead.
+    let isPlainTurn: Bool
 
     init<Session: GamePresenting>(session: Session) {
         let spectating = session.capabilities.isSpectator
@@ -122,18 +124,21 @@ struct TurnBannerState {
         }
         let mover = session.currentPlayer
         let color = Color(hex: mover.colorHex)
+        let away = session.awaySeats.contains(mover.id)
         var text = mover.id == session.mySeatID ? "Your turn" : "\(mover.name)'s turn"
-        if session.awaySeats.contains(mover.id) { text = "\(mover.name) is away…" }
+        if away { text = "\(mover.name) is away…" }
         if spectating { text = "Watching live game · \(text)" }
-        self.init(text: text, background: color.opacity(0.16), foreground: Theme.foreground, dot: color, showsEye: spectating)
+        self.init(text: text, background: color.opacity(0.16), foreground: Theme.foreground, dot: color, showsEye: spectating,
+                  isPlainTurn: !away && !spectating)
     }
 
-    private init(text: String, background: Color, foreground: Color, dot: Color? = nil, showsEye: Bool = false) {
+    private init(text: String, background: Color, foreground: Color, dot: Color? = nil, showsEye: Bool = false, isPlainTurn: Bool = false) {
         self.text = text
         self.background = background
         self.foreground = foreground
         self.dot = dot
         self.showsEye = showsEye
+        self.isPlainTurn = isPlainTurn
     }
 }
 
@@ -156,6 +161,68 @@ struct StatusBannerView: View {
 }
 
 // MARK: - Player cards
+
+/// Colour disc with the player's initial, or a chip glyph for a CPU seat.
+struct PlayerAvatar: View {
+    let player: PlayerState
+    var size: CGFloat = 26
+
+    var body: some View {
+        let color = Color(hex: player.colorHex)
+        ZStack {
+            Circle().fill(color)
+            if player.isCPU {
+                Image(systemName: "cpu").font(.system(size: (size * 0.46).rounded(), weight: .bold))
+            } else {
+                Text(initial).font(Theme.display((size * 0.5).rounded(), relativeTo: .caption))
+            }
+        }
+        .foregroundStyle(Color.isLight(hex: player.colorHex) ? Color.black.opacity(0.78) : .white)
+        .frame(width: size, height: size)
+        .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
+        .accessibilityHidden(true)
+    }
+
+    private var initial: String {
+        let name = player.name.trimmingCharacters(in: .whitespaces)
+        return name.first.map { String($0).uppercased() } ?? "\(player.id)"
+    }
+}
+
+/// "×1" in grey, "×2"+ lit amber: the multiplier next to a score.
+struct MultiplierPill: View {
+    let multiplier: Int
+
+    var body: some View {
+        let boosted = multiplier > 1
+        Text("×\(multiplier)")
+            .font(Theme.display(12, relativeTo: .caption2))
+            .monospacedDigit()
+            .foregroundStyle(boosted ? Theme.warning : Theme.muted)
+            .padding(.horizontal, 7)
+            .frame(height: 20)
+            .background(boosted ? Theme.warning.opacity(0.16) : Theme.controlFill, in: Capsule())
+            .contentTransition(.numericText(value: Double(multiplier)))
+            .animation(.easeOut(duration: 0.25), value: multiplier)
+            .accessibilityLabel("Multiplier ×\(multiplier)")
+    }
+}
+
+/// Small "You" / "Host" tag for the phone cards, where a full chip would crowd the row.
+private struct SeatTag: View {
+    let text: String
+    var color: Color = Theme.foregroundSecondary
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 7)
+            .frame(height: 18)
+            .background(color.opacity(0.14), in: Capsule())
+            .fixedSize()
+    }
+}
 
 /// Colour dot, name and identity chips (web `PlayerIdentity`).
 struct PlayerIdentity: View {
@@ -186,15 +253,17 @@ struct PlayerIdentity: View {
 /// Square and diamond counts (web `ShapeCounts`).
 struct ShapeCounts: View {
     let player: PlayerState
+    var size: CGFloat = 12
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: size) {
             Label { Text("\(player.squares.count)") } icon: { Image(systemName: "square") }
             Label { Text("\(player.diamonds.count)") } icon: { Image(systemName: "diamond") }
         }
-        .font(Theme.display(12, relativeTo: .caption))
+        .font(Theme.display(size, relativeTo: .caption))
         .monospacedDigit()
         .foregroundStyle(Theme.muted)
+        .accessibilityLabel("\(player.squares.count) squares, \(player.diamonds.count) diamonds")
     }
 }
 
@@ -261,19 +330,27 @@ struct PlayerCard<Trailing: View>: View {
     var isActive = false
     var isMine = false
     var isHost = false
+    /// The CPU in this seat is choosing a move (phone cards show it in the turn pill).
+    var isThinking = false
     @ViewBuilder var trailing: Trailing
 
     init(player: PlayerState, variant: Variant, isActive: Bool = false, isMine: Bool = false, isHost: Bool = false,
-         @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
+         isThinking: Bool = false, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
         self.player = player
         self.variant = variant
         self.isActive = isActive
         self.isMine = isMine
         self.isHost = isHost
+        self.isThinking = isThinking
         self.trailing = trailing()
     }
 
     private var color: Color { Color(hex: player.colorHex) }
+
+    private var isCompact: Bool {
+        if case .compact = variant { return true }
+        return false
+    }
 
     var body: some View {
         content
@@ -285,7 +362,10 @@ struct PlayerCard<Trailing: View>: View {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .strokeBorder(isActive || isResultWinner ? color : Theme.border, lineWidth: isActive ? 2 : 1)
             )
+            .shadow(color: isCompact && isActive ? color.opacity(0.35) : .clear, radius: 12, y: 2)
+            .animation(.easeOut(duration: 0.25), value: isActive)
             .accessibilityElement(children: .combine)
+            .accessibilityValue(isActive ? (isThinking ? "Thinking" : "Current turn") : "")
     }
 
     private var isResultWinner: Bool {
@@ -302,29 +382,39 @@ struct PlayerCard<Trailing: View>: View {
     private var content: some View {
         switch variant {
         case .compact(let dense):
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    PlayerIdentity(player: player, isMine: isMine, isHost: isHost)
-                    Spacer(minLength: 0)
-                    if isActive, !dense {
-                        Chip(text: isMine ? "Your turn" : "Turn", style: isMine ? .accentFilled : .default)
-                    }
+            // Phone scoreboard: avatar + name + turn pill · score with multiplier · shape counts.
+            VStack(alignment: .leading, spacing: dense ? 6 : 8) {
+                HStack(spacing: 8) {
+                    PlayerAvatar(player: player, size: dense ? 22 : 26)
+                    Text(player.name.isEmpty ? "Player \(player.id)" : player.name)
+                        .font(.system(size: dense ? 13 : 14, weight: .semibold))
+                        .foregroundStyle(Theme.foreground)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 4)
+                    if isActive { turnPill }
                 }
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("\(player.score)")
-                        .font(Theme.display(dense ? 18 : 24, relativeTo: .title2))
+                        .font(Theme.display(dense ? 26 : 30, relativeTo: .title))
                         .monospacedDigit()
                         .foregroundStyle(Theme.foreground)
                         .contentTransition(.numericText(value: Double(player.score)))
                         .animation(.easeOut(duration: 0.25), value: player.score)
-                    Text("×\(player.multiplier)").font(.system(size: 12)).foregroundStyle(Theme.muted).monospacedDigit()
+                    MultiplierPill(multiplier: player.multiplier)
                     ScoreDelta(score: player.score, multiplier: player.multiplier)
                     Spacer(minLength: 0)
                 }
+                HStack(spacing: 6) {
+                    ShapeCounts(player: player, size: 11)
+                    Spacer(minLength: 0)
+                    if isMine { SeatTag(text: "You", color: Theme.link) }
+                    if isHost { SeatTag(text: "Host") }
+                }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .frame(minHeight: dense ? 56 : 64)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .opacity(isActive ? 1 : 0.88)
 
         case .sidebar:
             VStack(alignment: .leading, spacing: 12) {
@@ -388,6 +478,27 @@ struct PlayerCard<Trailing: View>: View {
         }
     }
 
+    /// "Your turn" / "Turn" / "Thinking" in the player's own colour, on the active phone card.
+    private var turnPill: some View {
+        HStack(spacing: 5) {
+            if isThinking {
+                ProgressView().controlSize(.mini).tint(onColor)
+            } else {
+                Image(systemName: "circle.fill").font(.system(size: 6)).symbolEffect(.pulse)
+            }
+            Text(isThinking ? "Thinking" : (isMine ? "Your turn" : "Turn"))
+        }
+        .font(.system(size: 11, weight: .bold))
+        .foregroundStyle(onColor)
+        .padding(.horizontal, 8)
+        .frame(height: 22)
+        .background(color, in: Capsule())
+        .fixedSize()
+        .layoutPriority(1)
+    }
+
+    private var onColor: Color { Color.isLight(hex: player.colorHex) ? Color.black.opacity(0.78) : .white }
+
     private func statTile(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased()).font(Theme.display(10.5, relativeTo: .caption2)).tracking(1.2).foregroundStyle(Theme.muted)
@@ -424,21 +535,24 @@ struct SpectatorRow: View {
     }
 }
 
-/// The phone card strip: 2 columns, or 4 dense cards for 3–4 players (web `PlayerCards`).
+/// The phone scoreboard: two cards side by side, or a 2×2 grid for 3–4 players (web `PlayerCards`).
 struct PlayerStrip<Session: GamePresenting>: View {
     let session: Session
 
     var body: some View {
         let players = session.game.players
         let dense = players.count > 2
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: players.count), spacing: 8) {
+        let columns = min(players.count, 2)
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: columns), spacing: 8) {
             ForEach(players) { player in
+                let active = player.id == session.currentPlayer.id && !session.isOver
                 PlayerCard(
                     player: player,
                     variant: .compact(dense: dense),
-                    isActive: player.id == session.currentPlayer.id && !session.isOver,
+                    isActive: active,
                     isMine: player.id == session.mySeatID,
-                    isHost: session.capabilities.isOnline && player.id == 1
+                    isHost: session.capabilities.isOnline && player.id == 1,
+                    isThinking: active && session.isCPUThinking
                 )
             }
         }
