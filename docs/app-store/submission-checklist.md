@@ -21,6 +21,7 @@
 - [ ] App Store Connect API key (App Manager) → `~/.appstoreconnect/private_keys/AuthKey_<id>.p8`; `make testflight ASC_KEY_ID=… ASC_ISSUER_ID=…`.
 - [ ] Demo account created on the website, verified, with a few games played (so the Stats screenshot and the reviewer's Stats tab aren't empty); credentials into `review-notes.md` placeholders and App Review Information.
 - [ ] TestFlight internal group; run `testflight-what-to-test.txt` on an iPhone and an iPad.
+- [ ] App Review functionality recording made per `review-recording.md` (after the web release), URL in the review notes.
 - [ ] Version page: screenshots (both sets), metadata from `metadata/en-US`, App Privacy (`app-privacy.md`), age rating (`age-rating.md`), Content Rights, review notes, the TestFlight build; "Manually release this version"; submit.
 
 ## Build discipline
