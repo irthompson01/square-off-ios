@@ -30,10 +30,12 @@ ARCHIVE_APP := $(ARCHIVE)/Products/Applications/SquareOff.app
 EXPORT_DIR  := build-archive/export
 IPA         := $(EXPORT_DIR)/SquareOff.ipa
 ICON        := SquareOff/Resources/Assets.xcassets/AppIcon.appiconset/icon-1024.png
-# App Store Connect API key (Users and Access › Integrations): the .p8 lives in
-# ~/.appstoreconnect/private_keys/AuthKey_$(ASC_KEY_ID).p8
+# App Store Connect API key (Users and Access › Integrations, App Manager role): the .p8 lives in
+# keys/AuthKey_$(ASC_KEY_ID).p8 (gitignored) or ~/.appstoreconnect/private_keys/.
 ASC_KEY_ID    ?=
 ASC_ISSUER_ID ?=
+API_PRIVATE_KEYS_DIR ?= $(CURDIR)/keys
+export API_PRIVATE_KEYS_DIR
 
 .PHONY: phone phone-build phone-install phone-launch devices generate build test \
 	archive export testflight bump release-check screenshots phone-admin build-admin test-admin
@@ -88,7 +90,7 @@ archive: generate
 
 export: archive
 	xcodebuild -exportArchive -archivePath $(ARCHIVE) -exportPath $(EXPORT_DIR) \
-		-exportOptionsPlist ExportOptions.plist -allowProvisioningUpdates -quiet
+		-exportOptionsPlist ExportOptions.plist -quiet
 
 # Run `make bump` before every upload (App Store Connect rejects a reused build number) and tag it
 # `v<version>-b<build>`. If a future Xcode drops altool, switch ExportOptions.plist `destination`
@@ -96,7 +98,7 @@ export: archive
 # to `xcodebuild -exportArchive` instead.
 testflight: export
 	@test -n "$(ASC_KEY_ID)" -a -n "$(ASC_ISSUER_ID)" || \
-		{ echo "Set ASC_KEY_ID and ASC_ISSUER_ID (key file: ~/.appstoreconnect/private_keys/AuthKey_<id>.p8)"; exit 1; }
+		{ echo "Set ASC_KEY_ID and ASC_ISSUER_ID (key file: keys/AuthKey_<id>.p8)"; exit 1; }
 	xcrun altool --upload-app -t ios -f $(IPA) --apiKey $(ASC_KEY_ID) --apiIssuer $(ASC_ISSUER_ID)
 
 # agvtool is useless with a generated project: project.yml is the only durable place for versions.

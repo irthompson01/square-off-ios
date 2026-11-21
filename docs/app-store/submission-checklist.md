@@ -17,8 +17,9 @@
 ## Owner only
 - [ ] Licences settled: Grapple font, `harmonies.mp3`, `button.mp3`, `spin.mp3` (`content-rights.md`).
 - [ ] Developer portal: App ID `com.novastrada.squareoff` with Sign in with Apple + Associated Domains.
-- [ ] App Store Connect: app record (name availability; fallback "Square Off: Battle of Shapes"), SKU, primary language, category Games › Board + Strategy, pricing Free, availability.
-- [ ] App Store Connect API key (App Manager) → `~/.appstoreconnect/private_keys/AuthKey_<id>.p8`; `make testflight ASC_KEY_ID=… ASC_ISSUER_ID=…`.
+- [x] App Store Connect: app record created as "Square Off: Battle of Shapes" (SKU `squareoff-ios`). Still to set: category Games › Board + Strategy, pricing Free, availability.
+- [x] App Store Connect API key (App Manager) → `keys/AuthKey_<id>.p8` (gitignored); `make testflight ASC_KEY_ID=… ASC_ISSUER_ID=…`. Export signs manually with the "Square Off App Store" profile (see `ExportOptions.plist`).
+- [x] Build 1.0.0 (1) uploaded 2026-11-21 (tag `v1.0.0-b1`).
 - [ ] Demo account created on the website, verified, with a few games played (so the Stats screenshot and the reviewer's Stats tab aren't empty); credentials into `review-notes.md` placeholders and App Review Information.
 - [ ] TestFlight internal group; run `testflight-what-to-test.txt` on an iPhone and an iPad.
 - [ ] App Review functionality recording made per `review-recording.md` (after the web release), URL in the review notes.

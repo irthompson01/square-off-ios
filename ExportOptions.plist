@@ -2,13 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- `make export` / `make testflight`: an App Store Connect build signed automatically. -->
+	<!-- `make export` / `make testflight`: an App Store Connect build, signed manually with the local
+	     Apple Distribution certificate and the "Square Off App Store" profile (developer portal ›
+	     Profiles; expires with the certificate, 2027-10-22). Automatic signing needs an Apple account
+	     signed in to Xcode or an Admin API key (cloud-managed certificates); the App Manager key has
+	     neither. If the profile is missing locally, download it into
+	     ~/Library/MobileDevice/Provisioning Profiles/. -->
 	<key>method</key>
 	<string>app-store-connect</string>
 	<key>teamID</key>
 	<string>5M999SV4VM</string>
 	<key>signingStyle</key>
-	<string>automatic</string>
+	<string>manual</string>
+	<key>signingCertificate</key>
+	<string>Apple Distribution</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.novastrada.squareoff</key>
+		<string>Square Off App Store</string>
+	</dict>
 	<key>uploadSymbols</key>
 	<true/>
 	<key>manageAppVersionAndBuildNumber</key>
