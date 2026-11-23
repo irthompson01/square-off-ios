@@ -66,3 +66,6 @@ build/
 build-device/
 build-archive/
 build-screenshots/
+
+# App Review screen recordings (large, and they show account details)
+docs/app-store/recordings/
