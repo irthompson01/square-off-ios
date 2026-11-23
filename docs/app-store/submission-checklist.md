@@ -15,7 +15,7 @@
 - [x] AASA lists `/verify-email`; Apple's CDN refreshed (`https://app-site-association.cdn-apple.com/a/v1/square-off.com`).
 
 ## Owner only
-- [ ] Licences settled: Grapple font, `harmonies.mp3`, `button.mp3`, `spin.mp3` (`content-rights.md`).
+- [x] Licences settled (owner confirmed 2026-11-22): Grapple font, `harmonies.mp3`, `button.mp3`, `spin.mp3` (`content-rights.md`).
 - [ ] Developer portal: App ID `com.novastrada.squareoff` with Sign in with Apple + Associated Domains.
 - [x] App Store Connect: app record created as "Square Off: Battle of Shapes" (SKU `squareoff-ios`). Still to set: category Games › Board + Strategy, pricing Free, availability.
 - [x] App Store Connect API key (App Manager) → `keys/AuthKey_<id>.p8` (gitignored); `make testflight ASC_KEY_ID=… ASC_ISSUER_ID=…`. Export signs manually with the "Square Off App Store" profile (see `ExportOptions.plist`).
@@ -26,7 +26,8 @@
 - [ ] `testflight-what-to-test.txt` run on an iPhone and an iPad.
 - [x] App Review functionality recording made per `review-recording.md` (2026-11-22, kept in the gitignored `recordings/` folder).
 - [ ] Recording attached under App Review Information, or its private URL added to the review notes.
-- [ ] Version page: version number set to 1.0.0 (the record was created as 1.0, which build 1.0.0 (1) does not match); screenshots (both sets), metadata from `metadata/en-US`, App Privacy (`app-privacy.md`), age rating (`age-rating.md`), Content Rights, review notes, the TestFlight build; "Manually release this version"; submit.
+- [x] Version set to 1.0.0 and build 1.0.0 (1) selected (2026-11-22).
+- [ ] Version page: screenshots (both sets), metadata from `metadata/en-US`, App Privacy (`app-privacy.md`), age rating (`age-rating.md`), Content Rights, review notes, the TestFlight build; "Manually release this version"; submit.
 
 ## Build discipline
 - `MARKETING_VERSION` stays 1.0.0 until release; `make bump` (build +1) before every upload, never reuse a build number; tag uploads `v1.0.0-bN`.
