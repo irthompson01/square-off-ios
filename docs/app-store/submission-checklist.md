@@ -6,7 +6,7 @@
 - [x] Account deletion (two taps), forgot/reset password, email verification, feedback form.
 - [x] `make release-check` passes (versions, entitlements incl. the www entries and no developer mode, icon alpha, privacy manifest).
 - [x] Metadata drafted in `metadata/`, review notes, App Privacy answers, age rating, content rights, TestFlight notes (this folder).
-- [x] `scripts/store-screenshots.sh` produces the 6.9" iPhone and 13" iPad sets.
+- [x] `scripts/store-screenshots.sh` produces the 6.3" iPhone (1206×2622) and 13" iPad sets.
 
 ## Web (deployed; re-checked 2026-11-22)
 - [x] https://square-off.com/privacy and /support live (required URLs).

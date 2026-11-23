@@ -1,12 +1,13 @@
 #!/bin/zsh
-# App Store screenshots from the simulators: one 6.9" iPhone set (the largest iPhone in the runtime, 1320×2868)
-# and one 13" iPad set (iPad Pro 13-inch, 2064×2752), eight screens each, captured from a Debug
+# App Store screenshots from the simulators: one 6.3" iPhone set (1206×2622; App Store Connect's
+# iPhone slot takes 6.1"/6.3" captures and refuses the 6.9" size, 1320×2868) and one 13" iPad set
+# (iPad Pro 13-inch, 2064×2752), eight screens each, captured from a Debug
 # build on the in-app mock with the demo account (the launch arguments only exist in Debug).
 #
-#   scripts/store-screenshots.sh                 # both families → build-screenshots/{iphone-6.9,ipad-13}/
+#   scripts/store-screenshots.sh                 # both families → build-screenshots/{iphone-6.3,ipad-13}/
 #   FAMILIES=iphone scripts/store-screenshots.sh # one family
 #   ONLY=04 scripts/store-screenshots.sh         # retake the shots whose name starts with "04"
-#   RUNTIME="iOS 27.0" IPHONE_NAME="iPhone 18 Pro Max" IPAD_NAME="iPad Pro 13-inch (M5)" …
+#   RUNTIME="iOS 27.0" IPHONE_NAME="iPhone 18 Pro" IPAD_NAME="iPad Pro 13-inch (M5)" …
 #
 # No framing or captions: Apple accepts raw device captures. Check each PNG shows no "mock",
 # "Developer" or "local" text before uploading.
@@ -15,7 +16,7 @@ cd "$(dirname "$0")/.."
 export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}
 
 RUNTIME=${RUNTIME:-}
-IPHONE_NAME=${IPHONE_NAME:-iPhone 18 Pro Max}
+IPHONE_NAME=${IPHONE_NAME:-iPhone 18 Pro}
 IPAD_NAME=${IPAD_NAME:-iPad Pro 13-inch (M5)}
 FAMILIES=${FAMILIES:-iphone ipad}
 BUNDLE=com.novastrada.squareoff
@@ -89,7 +90,7 @@ capture() {   # family dir, device name
 
 for family in ${=FAMILIES}; do
   case $family in
-    iphone) capture iphone-6.9 "$IPHONE_NAME" ;;
+    iphone) capture iphone-6.3 "$IPHONE_NAME" ;;
     ipad)   capture ipad-13 "$IPAD_NAME" ;;
     *) echo "unknown family $family" >&2; exit 1 ;;
   esac
